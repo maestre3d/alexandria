@@ -2,35 +2,15 @@ package main
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
-	"net/http"
-	"time"
+	"github.com/maestre3d/alexandria/src/book-service/internal/presentation/delivery"
+	"github.com/maestre3d/alexandria/src/book-service/internal/shared/infrastructure"
 )
 
 func main() {
-	engine := gin.Default()
-
-	engine.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, &gin.H{
-			"message": "Hello from Book HTTP API",
-		})
-	})
-
-	server := http.Server{
-		Addr:              ":8080",
-		Handler:           engine,
-		TLSConfig:         nil,
-		ReadTimeout:       15 * time.Second,
-		ReadHeaderTimeout: 10 * time.Second,
-		WriteTimeout:      15 * time.Second,
-		IdleTimeout:       30 * time.Second,
-		MaxHeaderBytes:    2048,
-		TLSNextProto:      nil,
-		ConnState:         nil,
-		ErrorLog:          nil,
-		BaseContext:       nil,
-		ConnContext:       nil,
-	}
+	// TODO: Use Google's wire DI to correctly inject dependencies
+	logger := infrastructure.NewLogger()
+	defer logger.Close()
+	server := delivery.NewHTTPService(logger)
 
 	err := server.ListenAndServe()
 	defer func() {
