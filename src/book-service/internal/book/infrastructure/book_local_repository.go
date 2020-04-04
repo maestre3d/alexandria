@@ -1,17 +1,20 @@
 package infrastructure
 
 import (
+	"fmt"
 	"github.com/maestre3d/alexandria/src/book-service/internal/book/domain"
 	"github.com/maestre3d/alexandria/src/book-service/internal/shared/domain/global"
+	"github.com/maestre3d/alexandria/src/book-service/internal/shared/domain/util"
 	"strings"
 )
 
 type BookLocalRepository struct {
 	tableDB []*domain.BookEntity
+	logger  util.ILogger
 }
 
-func NewBookLocalRepository(table []*domain.BookEntity) *BookLocalRepository {
-	return &BookLocalRepository{table}
+func NewBookLocalRepository(table []*domain.BookEntity, logger util.ILogger) *BookLocalRepository {
+	return &BookLocalRepository{table, logger}
 }
 
 func (b *BookLocalRepository) Save(book *domain.BookEntity) error {
@@ -21,7 +24,33 @@ func (b *BookLocalRepository) Save(book *domain.BookEntity) error {
 }
 
 func (b *BookLocalRepository) Fetch(params *global.PaginationParams) ([]*domain.BookEntity, error) {
-	return b.tableDB, nil
+	if params == nil {
+		params = global.NewPaginationParams("0", "0")
+	} else {
+		params.Sanitize()
+	}
+
+	// Index-from-limit algorithm formula
+	// f(x)= w-x
+	// w (omega) = x*n
+	// where x = limit and n = page
+	index := util.GetIndex(params.Page, params.Limit)
+
+	if index > int64(len(b.tableDB)) {
+		index = int64(len(b.tableDB))
+	}
+
+	params.Limit = params.Limit + index
+
+	if params.Limit > int64(len(b.tableDB)) {
+		params.Limit = int64(len(b.tableDB))
+	}
+
+	b.logger.Print(fmt.Sprintf("[%d:%d]", index, params.Limit), "book.infrastructure.local")
+
+	queryResult := b.tableDB[index:params.Limit]
+
+	return queryResult, nil
 }
 
 func (b *BookLocalRepository) FetchByID(id int64) (*domain.BookEntity, error) {

@@ -1,6 +1,6 @@
 package global
 
-// RFCDateOnly Date only RFC format
+// RFC3339Micro Date only RFC format
 const RFC3339Micro = "2006-01-02"
 
 // PublicAPI Public API URI
@@ -11,9 +11,3 @@ const PrivateAPI = "/v1/private"
 
 // AdminAPI Admin API URI
 const AdminAPI = "/v1/admin"
-
-// PaginationParams Parameters required for RBDMS pagination
-type PaginationParams struct {
-	Index int64
-	Page int64
-}

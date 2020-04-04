@@ -7,17 +7,9 @@ import (
 	"time"
 )
 
-func NewHTTPService(logger util.ILogger) *http.Server {
+func NewHTTPServer(logger util.ILogger) *http.Server {
 	engine := gin.Default()
 	logger.Print("Create HTTP Server", "presentation.delivery.http")
-
-	// TODO: Use Google's wire DI to correctly inject dependencies
-	defer func() {
-		err := InitHTTPPublicProxy(logger, engine)
-		if err != nil {
-			logger.Fatal(err.Error(), "presentation.delivery.http")
-		}
-	}()
 
 	return &http.Server{
 		Addr:              ":8080",

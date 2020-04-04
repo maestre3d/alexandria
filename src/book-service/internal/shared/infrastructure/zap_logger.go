@@ -9,13 +9,15 @@ type Logger struct {
 	logger *zap.Logger
 }
 
-func NewLogger() *Logger {
+func NewLogger() (*Logger, func(), error) {
 	logger, err := zap.NewProduction()
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 
-	return &Logger{logger}
+	rootLogger := &Logger{logger}
+
+	return rootLogger, rootLogger.Close(), nil
 }
 
 func (l *Logger) Print(message, resource string) {

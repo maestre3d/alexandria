@@ -1,0 +1,68 @@
+// +build wireinject
+
+package dependency
+
+import (
+	"context"
+	"github.com/google/wire"
+	"github.com/maestre3d/alexandria/src/book-service/internal/book/application"
+	"github.com/maestre3d/alexandria/src/book-service/internal/book/domain"
+	book_infrastructure "github.com/maestre3d/alexandria/src/book-service/internal/book/infrastructure"
+	"github.com/maestre3d/alexandria/src/book-service/internal/shared/domain/util"
+	"github.com/maestre3d/alexandria/src/book-service/internal/shared/infrastructure"
+	"github.com/maestre3d/alexandria/src/book-service/pkg/presentation/delivery"
+	"github.com/maestre3d/alexandria/src/book-service/pkg/presentation/delivery/handler"
+)
+
+var loggerSet = wire.NewSet(
+	infrastructure.NewLogger,
+	wire.Bind(new(util.ILogger), new(*infrastructure.Logger)),
+)
+var postgresPoolSet = wire.NewSet(
+	ProvideContext,
+	loggerSet,
+	infrastructure.NewPostgresPool,
+)
+var postgresConnSet = wire.NewSet(
+	postgresPoolSet,
+	infrastructure.NewPostgresConnection,
+)
+var bookUseCaseSet = wire.NewSet(
+	loggerSet,
+	ProvideBookLocalRepository,
+	wire.Bind(new(domain.IBookRepository), new(*book_infrastructure.BookLocalRepository)),
+	application.NewBookUseCase,
+)
+var bookHandlerSet = wire.NewSet(
+	bookUseCaseSet,
+	handler.NewBookHandler,
+)
+var proxyHandlersSet = wire.NewSet(
+	bookHandlerSet,
+	ProvideProxyHandlers,
+)
+
+func ProvideContext() context.Context {
+	return context.Background()
+}
+
+func ProvideBookLocalRepository(logger util.ILogger) *book_infrastructure.BookLocalRepository {
+	return book_infrastructure.NewBookLocalRepository(make([]*domain.BookEntity, 0), logger)
+}
+
+func ProvideProxyHandlers(book *handler.BookHandler) *delivery.ProxyHandlers {
+	// Map handlers to proxy
+	return &delivery.ProxyHandlers{
+		book,
+	}
+}
+
+func InitHTTPServiceProxy() (*delivery.HTTPServiceProxy, func(), error) {
+	wire.Build(wire.NewSet(
+		proxyHandlersSet,
+		delivery.NewHTTPServer,
+		delivery.NewHTTPServiceProxy,
+	))
+
+	return &delivery.HTTPServiceProxy{}, nil, nil
+}
