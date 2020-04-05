@@ -23,14 +23,10 @@ var postgresPoolSet = wire.NewSet(
 	loggerSet,
 	infrastructure.NewPostgresPool,
 )
-var postgresConnSet = wire.NewSet(
-	postgresPoolSet,
-	infrastructure.NewPostgresConnection,
-)
 var bookUseCaseSet = wire.NewSet(
-	loggerSet,
-	ProvideBookLocalRepository,
-	wire.Bind(new(domain.IBookRepository), new(*book_infrastructure.BookLocalRepository)),
+	postgresPoolSet,
+	book_infrastructure.NewBookRDBMSRepository,
+	wire.Bind(new(domain.IBookRepository), new(*book_infrastructure.BookRDBMSRepository)),
 	application.NewBookUseCase,
 )
 var bookHandlerSet = wire.NewSet(

@@ -25,12 +25,19 @@ func InitHTTPServiceProxy() (*delivery.HTTPServiceProxy, func(), error) {
 		return nil, nil, err
 	}
 	server := delivery.NewHTTPServer(logger)
-	bookLocalRepository := ProvideBookLocalRepository(logger)
-	bookUseCase := application.NewBookUseCase(logger, bookLocalRepository)
+	context := ProvideContext()
+	db, cleanup2, err := infrastructure.NewPostgresPool(context, logger)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	bookRDBMSRepository := infrastructure2.NewBookRDBMSRepository(db, logger, context)
+	bookUseCase := application.NewBookUseCase(logger, bookRDBMSRepository)
 	bookHandler := handler.NewBookHandler(logger, bookUseCase)
 	proxyHandlers := ProvideProxyHandlers(bookHandler)
 	httpServiceProxy := delivery.NewHTTPServiceProxy(logger, server, proxyHandlers)
 	return httpServiceProxy, func() {
+		cleanup2()
 		cleanup()
 	}, nil
 }
@@ -44,13 +51,8 @@ var postgresPoolSet = wire.NewSet(
 	loggerSet, infrastructure.NewPostgresPool,
 )
 
-var postgresConnSet = wire.NewSet(
-	postgresPoolSet, infrastructure.NewPostgresConnection,
-)
-
 var bookUseCaseSet = wire.NewSet(
-	loggerSet,
-	ProvideBookLocalRepository, wire.Bind(new(domain.IBookRepository), new(*infrastructure2.BookLocalRepository)), application.NewBookUseCase,
+	postgresPoolSet, infrastructure2.NewBookRDBMSRepository, wire.Bind(new(domain.IBookRepository), new(*infrastructure2.BookRDBMSRepository)), application.NewBookUseCase,
 )
 
 var bookHandlerSet = wire.NewSet(
