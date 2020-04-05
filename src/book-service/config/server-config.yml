@@ -1,0 +1,3 @@
+delivery:
+  http: :8080
+  rpc: :31337
