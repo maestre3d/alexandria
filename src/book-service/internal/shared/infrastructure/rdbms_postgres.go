@@ -13,6 +13,7 @@ func NewPostgresPool(ctx context.Context, logger util.ILogger) (*sql.DB, func(),
 		return nil, nil, err
 	}
 
+	db.SetMaxOpenConns(50)
 	closePool := func() {
 		err = db.Close()
 		if err != nil {
