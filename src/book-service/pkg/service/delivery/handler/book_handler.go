@@ -14,7 +14,7 @@ type BookHandler struct {
 }
 
 func NewBookHandler(logger util.ILogger, bookUseCase *application.BookUseCase) *BookHandler {
-	logger.Print("Create HTTP book handler", "presentation.delivery.http.handler")
+	logger.Print("Create HTTP book handler", "service.delivery.http.handler")
 	return &BookHandler{logger, bookUseCase}
 }
 

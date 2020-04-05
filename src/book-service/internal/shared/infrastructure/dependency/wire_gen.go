@@ -13,8 +13,8 @@ import (
 	infrastructure2 "github.com/maestre3d/alexandria/src/book-service/internal/book/infrastructure"
 	"github.com/maestre3d/alexandria/src/book-service/internal/shared/domain/util"
 	"github.com/maestre3d/alexandria/src/book-service/internal/shared/infrastructure"
-	"github.com/maestre3d/alexandria/src/book-service/pkg/presentation/delivery"
-	"github.com/maestre3d/alexandria/src/book-service/pkg/presentation/delivery/handler"
+	"github.com/maestre3d/alexandria/src/book-service/pkg/service/delivery"
+	"github.com/maestre3d/alexandria/src/book-service/pkg/service/delivery/handler"
 )
 
 // Injectors from wire.go:

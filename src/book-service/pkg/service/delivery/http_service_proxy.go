@@ -4,7 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/maestre3d/alexandria/src/book-service/internal/shared/domain/global"
 	"github.com/maestre3d/alexandria/src/book-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/src/book-service/pkg/presentation/delivery/handler"
+	"github.com/maestre3d/alexandria/src/book-service/pkg/service/delivery/handler"
 	"net/http"
 )
 
