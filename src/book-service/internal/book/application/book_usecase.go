@@ -4,6 +4,7 @@ import (
 	"github.com/maestre3d/alexandria/src/book-service/internal/book/domain"
 	"github.com/maestre3d/alexandria/src/book-service/internal/shared/domain/global"
 	"github.com/maestre3d/alexandria/src/book-service/internal/shared/domain/util"
+	"go.uber.org/multierr"
 )
 
 type BookUseCase struct {
@@ -38,9 +39,12 @@ func (b *BookUseCase) Create(title, publishedAt, uploadedBy, author string) erro
 
 	// Check book's title uniqueness
 	existingBook, err := b.GetByTitle(book.Title)
-	if err != nil {
-		if err != global.EntityNotFound {
-			return err
+	errors := multierr.Errors(err)
+	if len(errors) > 0 {
+		for _, err = range errors {
+			if err != global.EntityNotFound {
+				return err
+			}
 		}
 	} else if existingBook != nil {
 		return global.EntityExists
@@ -50,7 +54,7 @@ func (b *BookUseCase) Create(title, publishedAt, uploadedBy, author string) erro
 }
 
 func (b *BookUseCase) GetByID(idString string) (*domain.BookEntity, error) {
-	id, err := util.ValidateID(idString)
+	id, err := util.SanitizeID(idString)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +75,7 @@ func (b *BookUseCase) GetAll(params *global.PaginationParams) ([]*domain.BookEnt
 }
 
 func (b *BookUseCase) UpdateOne(params *BookUpdateParams) error {
-	id, err := util.ValidateID(params.ID)
+	id, err := util.SanitizeID(params.ID)
 	if err != nil {
 		return err
 	}
@@ -91,7 +95,7 @@ func (b *BookUseCase) UpdateOne(params *BookUpdateParams) error {
 }
 
 func (b *BookUseCase) RemoveOne(idString string) error {
-	id, err := util.ValidateID(idString)
+	id, err := util.SanitizeID(idString)
 	if err != nil {
 		return err
 	}

@@ -22,7 +22,11 @@ type ProxyHandlers struct {
 }
 
 func NewHTTPServiceProxy(logger util.ILogger, server *http.Server, handlers *ProxyHandlers) *HTTPServiceProxy {
-	engine := server.Handler.(*gin.Engine)
+	engine, ok := server.Handler.(*gin.Engine)
+	// TODO: Throw err
+	if !ok {
+		return nil
+	}
 	service := &HTTPServiceProxy{
 		Server:        server,
 		publicGroup:   newHTTPPublicProxy(logger, engine),
@@ -42,10 +46,10 @@ func (p *HTTPServiceProxy) mapBookRoutes() {
 	bookRouter := p.publicGroup.Group("/book")
 
 	bookRouter.POST("/", p.proxyHandlers.BookHandler.Create)
-	bookRouter.GET("/", p.proxyHandlers.BookHandler.GetAll)
-	bookRouter.GET("/:id", p.proxyHandlers.BookHandler.Get)
-	bookRouter.PATCH("/:id", p.proxyHandlers.BookHandler.UpdateOne)
-	bookRouter.DELETE("/:id", p.proxyHandlers.BookHandler.DeleteOne)
+	bookRouter.GET("/", p.proxyHandlers.BookHandler.List)
+	bookRouter.GET("/:book_id", p.proxyHandlers.BookHandler.Get)
+	bookRouter.PATCH("/:book_id", p.proxyHandlers.BookHandler.UpdateOne)
+	bookRouter.DELETE("/:book_id", p.proxyHandlers.BookHandler.DeleteOne)
 }
 
 // InitHTTPPublicProxy Start HTTP Service's public proxy

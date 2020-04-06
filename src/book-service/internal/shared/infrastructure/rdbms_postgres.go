@@ -9,7 +9,7 @@ import (
 )
 
 func NewPostgresPool(ctx context.Context, logger util.ILogger) (*sql.DB, func(), error) {
-	db, err := postgres.Open(ctx, "postgres://postgres:root@localhost/alexandria-book")
+	db, err := postgres.Open(ctx, "postgres://postgres:root@localhost/alexandria-book?sslmode=disable")
 	if err != nil {
 		return nil, nil, err
 	}

@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-func ValidateID(id string) (int64, error) {
+func SanitizeID(id string) (int64, error) {
 	idSanitized, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
 		return 0, err

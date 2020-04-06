@@ -8,6 +8,7 @@ require (
 	github.com/google/wire v0.4.0
 	github.com/oklog/run v1.1.0
 	github.com/sony/gobreaker v0.4.1 // indirect
+	go.uber.org/multierr v1.5.0
 	go.uber.org/zap v1.14.1
 	gocloud.dev v0.19.0
 )
