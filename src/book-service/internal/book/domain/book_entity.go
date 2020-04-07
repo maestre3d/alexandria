@@ -37,30 +37,30 @@ func NewBookEntity(params *BookEntityParams) (*BookEntity, error) {
 	if params.PublishedAt != "" {
 		publishedAt, err = time.Parse(global.RFC3339Micro, params.PublishedAt)
 		if err != nil {
-			return nil, multierr.Append(global.EntityDomainError, fmt.Errorf("%s: %s", global.InvalidFieldFormat.Error(), "published_at"))
+			return nil, multierr.Append(global.EntityDomainError, fmt.Errorf(global.InvalidFieldFormat.Error(), "published_at", "date format like 2006-01-02"))
 		}
 	} else {
-		return nil, multierr.Append(global.EntityDomainError, errors.New("published_at is required"))
+		return nil, multierr.Append(global.EntityDomainError, fmt.Errorf("%s: %s", global.RequiredField, "published_at"))
 	}
 
 	var uploadedBy int64
 	if params.UploadedBy != "" {
 		uploadedBy, err = strconv.ParseInt(params.UploadedBy, 10, 64)
 		if err != nil {
-			return nil, multierr.Append(global.EntityDomainError, fmt.Errorf("%s: %s", global.InvalidFieldFormat.Error(), "uploaded_by"))
+			return nil, multierr.Append(global.EntityDomainError, fmt.Errorf(global.InvalidFieldFormat.Error(), "uploaded_by", "number"))
 		}
 	} else {
-		return nil, multierr.Append(global.EntityDomainError, errors.New("uploaded_by is required"))
+		return nil, multierr.Append(global.EntityDomainError, fmt.Errorf("%s: %s", global.RequiredField, "uploaded_by"))
 	}
 
 	var author int64
 	if params.Author != "" {
 		author, err = strconv.ParseInt(params.Author, 10, 64)
 		if err != nil {
-			return nil, multierr.Append(global.EntityDomainError, fmt.Errorf("%s: %s", global.InvalidFieldFormat.Error(), "author"))
+			return nil, multierr.Append(global.EntityDomainError, fmt.Errorf(global.InvalidFieldFormat.Error(), "author", "number"))
 		}
 	} else {
-		return nil, multierr.Append(global.EntityDomainError, errors.New("author is required"))
+		return nil, multierr.Append(global.EntityDomainError, fmt.Errorf("%s: %s", global.RequiredField, "author"))
 	}
 
 	// Cleaned params, proceed with book mapping
@@ -85,12 +85,12 @@ func NewBookEntity(params *BookEntityParams) (*BookEntity, error) {
 func (b *BookEntity) Validate() error {
 	// Validate FK are not empty
 	if b.UploadedBy <= 0 {
-		return multierr.Append(global.EntityDomainError, errors.New("invalid user ID"))
+		return multierr.Append(global.EntityDomainError, errors.New("request field -uploaded_by- is out of range [1, end_id)"))
 	} else if b.Author <= 0 {
-		return multierr.Append(global.EntityDomainError, errors.New("invalid author ID"))
+		return multierr.Append(global.EntityDomainError, errors.New("request field -author- is out of range [1, end_id)"))
 	} else if b.Title == "" || len(b.Title) >= 100 {
 		// Validate title
-		return multierr.Append(global.EntityDomainError, errors.New("invalid title"))
+		return multierr.Append(global.EntityDomainError, errors.New("request field -title- is out of range [1, end_id)"))
 	}
 
 	return nil

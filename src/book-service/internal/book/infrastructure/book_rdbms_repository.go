@@ -56,9 +56,7 @@ func (b *BookRDBMSRepository) Fetch(params *global.PaginationParams) ([]*domain.
 	statement := fmt.Sprintf(`SELECT * FROM BOOK WHERE ID > %d ORDER BY ID ASC FETCH FIRST %d ROWS ONLY`, index, params.Limit)
 
 	rows, errQuery := conn.QueryContext(b.ctx, statement)
-	if rows == nil {
-		return nil, multierr.Append(err, global.EntitiesNotFound)
-	} else if rows.Err() != nil {
+	if rows != nil && rows.Err() != nil {
 		return nil, multierr.Append(err, rows.Err())
 	}
 	if errQuery != nil {

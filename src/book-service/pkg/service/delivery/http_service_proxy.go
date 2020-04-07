@@ -45,8 +45,8 @@ func NewHTTPServiceProxy(logger util.ILogger, server *http.Server, handlers *Pro
 func (p *HTTPServiceProxy) mapBookRoutes() {
 	bookRouter := p.publicGroup.Group("/book")
 
-	bookRouter.POST("/", p.proxyHandlers.BookHandler.Create)
-	bookRouter.GET("/", p.proxyHandlers.BookHandler.List)
+	bookRouter.POST("", p.proxyHandlers.BookHandler.Create)
+	bookRouter.GET("", p.proxyHandlers.BookHandler.List)
 	bookRouter.GET("/:book_id", p.proxyHandlers.BookHandler.Get)
 	bookRouter.PATCH("/:book_id", p.proxyHandlers.BookHandler.UpdateOne)
 	bookRouter.DELETE("/:book_id", p.proxyHandlers.BookHandler.DeleteOne)
