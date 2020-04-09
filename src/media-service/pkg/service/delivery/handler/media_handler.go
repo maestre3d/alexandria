@@ -6,6 +6,7 @@ import (
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/application"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/global"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
+	"go.uber.org/multierr"
 	"net/http"
 	"strings"
 )
@@ -16,7 +17,7 @@ type MediaHandler struct {
 }
 
 func NewMediaHandler(logger util.ILogger, mediaUseCase *application.MediaUseCase) *MediaHandler {
-	logger.Print("media handler started", "service.delivery.handler")
+	logger.Print("media handler created", "service.delivery.handler")
 	return &MediaHandler{logger, mediaUseCase}
 }
 
@@ -41,13 +42,16 @@ func (m *MediaHandler) Create(c *gin.Context) {
 		} else if errors.Is(err, global.InvalidID) || errors.Is(err, global.RequiredField) || errors.Is(err, global.InvalidFieldFormat) ||
 			errors.Is(err, global.InvalidFieldRange) {
 			// Business exception
-			errString := strings.Split(err.Error(), ":")
-			if len(errString) > 1 {
-				c.JSON(http.StatusBadRequest, &gin.H{
-					"code":    http.StatusBadRequest,
-					"message": errString[1],
-				})
-				return
+			errs := multierr.Errors(err)
+			for _, err = range errs {
+				errString := strings.Split(err.Error(), ":")
+				if len(errString) > 1 {
+					c.JSON(http.StatusBadRequest, &gin.H{
+						"code":    http.StatusBadRequest,
+						"message": errString[1],
+					})
+					return
+				}
 			}
 
 			// Use case / Infrastructure exception

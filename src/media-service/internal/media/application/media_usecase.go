@@ -75,7 +75,7 @@ func (m *MediaUseCase) GetAll(params *util.PaginationParams) ([]*domain.MediaAgg
 	return m.repository.Fetch(params)
 }
 
-func (m *MediaUseCase) UpdateOne(params *MediaParams) error {
+func (m *MediaUseCase) UpdateOneAtomic(params *MediaParams) error {
 	if params == nil {
 		return global.EmptyBody
 	}
@@ -102,7 +102,7 @@ func (m *MediaUseCase) UpdateOne(params *MediaParams) error {
 	return m.repository.UpdateOne(id, media.ToMediaAggregate())
 }
 
-func (m *MediaUseCase) UpdateOnePatch(params *MediaParams) error {
+func (m *MediaUseCase) UpdateOne(params *MediaParams) error {
 	if params == nil {
 		return global.EmptyBody
 	}
