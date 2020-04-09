@@ -4,28 +4,6 @@ import (
 	"errors"
 )
 
-/*
-type ErrorType string
-
-const (
-	Infrastructure ErrorType = "REPOSITORY"
-	Application              = "APPLICATION"
-	Domain                   = "DOMAIN"
-)
-
-type Error struct {
-	Type ErrorType
-	Err  error
-}
-
-func (e *Error) Error() string {
-	return string(e.Type) + ": " + e.Err.Error()
-}
-
-func (e *Error) Unwrap() error {
-	return e.Err
-}*/
-
 // InvalidID Entity has an invalid ID
 var InvalidID = errors.New("invalid id")
 
@@ -43,6 +21,9 @@ var InvalidFieldFormatString = "request field %v has an invalid format, expected
 
 // EmptyQuery Query is empty
 var EmptyQuery = errors.New("empty query")
+
+// EmptyBody Body is empty
+var EmptyBody = errors.New("empty body")
 
 // EntityNotFound Entity was not found
 var EntityNotFound = errors.New("resource not found")

@@ -39,9 +39,9 @@ type MediaEntityParams struct {
 
 func NewMediaEntity(params *MediaEntityParams) (*MediaEntity, error) {
 
-	publishTime, err := time.Parse(global.RFC3339Micro, params.PublishDate)
+	publishTime, err := ParsePublishDate(params.PublishDate)
 	if err != nil {
-		return nil, fmt.Errorf("%w:%s", global.InvalidFieldFormat, fmt.Sprintf(global.InvalidFieldFormatString, "publish_date", "date format 2006-01-02"))
+		return nil, err
 	}
 
 	descriptionPointer := &params.Description
@@ -106,4 +106,13 @@ func (m *MediaEntity) ToMediaAggregate() *MediaAggregate {
 		Metadata:    m.Metadata,
 		Deleted:     m.Deleted,
 	}
+}
+
+func ParsePublishDate(dateString string) (time.Time, error) {
+	publishTime, err := time.Parse(global.RFC3339Micro, dateString)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("%w:%s", global.InvalidFieldFormat, fmt.Sprintf(global.InvalidFieldFormatString, "publish_date", "date format 2006-01-02"))
+	}
+
+	return publishTime, nil
 }

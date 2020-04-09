@@ -7,9 +7,7 @@ import (
 
 func SanitizeID(id string) (int64, error) {
 	idSanitized, err := strconv.ParseInt(id, 10, 64)
-	if err != nil {
-		return 0, err
-	} else if idSanitized <= 0 {
+	if err != nil || idSanitized <= 0 {
 		return 0, global.InvalidID
 	}
 

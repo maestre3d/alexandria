@@ -1,4 +1,4 @@
-package infrastructure
+package logging
 
 import (
 	"go.uber.org/zap"
@@ -20,6 +20,8 @@ func NewLogger() (*Logger, func() error, error) {
 	}
 
 	rootLogger := &Logger{logger}
+
+	rootLogger.Print("logger started", "kernel.infrastructure.logging")
 
 	return rootLogger, cleanup, nil
 }

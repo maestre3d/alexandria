@@ -1,4 +1,4 @@
-package infrastructure
+package persistence
 
 import (
 	"context"
@@ -14,7 +14,7 @@ func NewPostgresPool(ctx context.Context, logger util.ILogger) (*sql.DB, func() 
 		return nil, nil, err
 	}
 
-	logger.Print("connected to postgres", "kernel.infrastructure.rdbms")
+	logger.Print("main database started", "kernel.infrastructure.persistence")
 
 	db.SetMaxOpenConns(50)
 	closePool := func() error {

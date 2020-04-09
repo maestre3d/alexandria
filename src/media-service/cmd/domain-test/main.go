@@ -3,28 +3,28 @@ package main
 import (
 	"context"
 	"errors"
-	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
+	"github.com/maestre3d/alexandria/src/media-service/internal/media/application"
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/infrastructure"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/global"
-	infrastructure2 "github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure"
-	"go.uber.org/multierr"
+	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/logging"
+	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/persistence"
 	"log"
-	"strings"
 )
 
 func main() {
-	logger, cleanup, err := infrastructure2.NewLogger()
+	logger, cleanup, err := logging.NewLogger()
 	if err != nil {
 		panic(err)
 	}
 	defer cleanup()
 
-	db, cleanup, err := infrastructure2.NewPostgresPool(context.Background(), logger)
-	defer cleanup()
+	db, cleanupPool, err := persistence.NewPostgresPool(context.Background(), logger)
+	defer cleanupPool()
 
 	repository := infrastructure.NewMediaRDBMSRepository(db, logger, context.Background())
+	usecase := application.NewMediaUseCase(logger, repository)
 
-	params := &domain.MediaEntityParams{
+	params := &application.MediaParams{
 		Title:       "Green Mille",
 		DisplayName: "Green Mille by far",
 		Description: "Stephen King is the master of horror stories, fuck you",
@@ -34,48 +34,24 @@ func main() {
 		MediaType:   "media_book",
 	}
 
-	media, err := domain.NewMediaEntity(params)
-	errs := multierr.Errors(err)
-	if len(errs) > 0 {
-		for _, err = range errs {
-			errDesc := strings.Split(err.Error(), ":")
-			if len(errDesc) > 1 {
-				if errors.Is(err, global.InvalidFieldFormat) {
-					//log.Print(errors.Unwrap(err))
-					log.Print(errDesc[1])
-					return
-				}
-
-				log.Print(errDesc[1])
-				return
-			}
-
-			log.Print(err)
-			return
-		}
-	}
-
-	mediaAg := media.ToMediaAggregate()
-	err = repository.Save(mediaAg)
+	err = usecase.Create(params)
 	if err != nil {
-		log.Print(errors.Unwrap(err))
-	}
-
-	log.Print("saved media record")
-
-	mediasFromRep, err := repository.Fetch(nil)
-	if err != nil {
-		if errors.Is(err, global.EntitiesNotFound) {
-			logger.Print(err.Error(), "main")
-			return
+		if errors.Is(err, global.EntityExists) {
+			log.Print("exists catch")
 		}
-
-		log.Print(errors.Unwrap(err))
+		log.Print(err)
 		return
 	}
 
-	for _, mediaRep := range mediasFromRep {
-		log.Printf("%v", mediaRep)
+	log.Print("media created")
+
+	medias, err := usecase.GetAll(nil)
+	if err != nil {
+		log.Print(err)
+		return
 	}
 
+	for _, media := range medias {
+		log.Printf("%v", media)
+	}
 }

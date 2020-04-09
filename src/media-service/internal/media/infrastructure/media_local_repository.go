@@ -22,9 +22,9 @@ func (m *MediaLocalRepository) Save(media *domain.MediaAggregate) error {
 	return nil
 }
 
-func (m *MediaLocalRepository) Fetch(params *global.PaginationParams) ([]*domain.MediaAggregate, error) {
+func (m *MediaLocalRepository) Fetch(params *util.PaginationParams) ([]*domain.MediaAggregate, error) {
 	if params == nil {
-		params = global.NewPaginationParams("1", "10")
+		params = util.NewPaginationParams("1", "10")
 	} else {
 		params.Sanitize()
 	}

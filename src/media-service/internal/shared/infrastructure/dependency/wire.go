@@ -9,19 +9,20 @@ import (
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
 	book_infrastructure "github.com/maestre3d/alexandria/src/media-service/internal/media/infrastructure"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure"
+	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/logging"
+	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/persistence"
 	"github.com/maestre3d/alexandria/src/media-service/pkg/service/delivery"
 	"github.com/maestre3d/alexandria/src/media-service/pkg/service/delivery/handler"
 )
 
 var loggerSet = wire.NewSet(
-	infrastructure.NewLogger,
-	wire.Bind(new(util.ILogger), new(*infrastructure.Logger)),
+	logging.NewLogger,
+	wire.Bind(new(util.ILogger), new(*logging.Logger)),
 )
 var postgresPoolSet = wire.NewSet(
 	ProvideContext,
 	loggerSet,
-	infrastructure.NewPostgresPool,
+	persistence.NewPostgresPool,
 )
 var bookRepository = wire.NewSet(
 	postgresPoolSet,

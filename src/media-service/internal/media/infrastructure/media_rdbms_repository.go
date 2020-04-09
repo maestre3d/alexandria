@@ -43,7 +43,7 @@ func (m *MediaRDBMSRepository) Save(media *domain.MediaAggregate) error {
 	return fmt.Errorf("%w", err)
 }
 
-func (m *MediaRDBMSRepository) Fetch(params *global.PaginationParams) ([]*domain.MediaAggregate, error) {
+func (m *MediaRDBMSRepository) Fetch(params *util.PaginationParams) ([]*domain.MediaAggregate, error) {
 	conn, err := m.db.Conn(m.ctx)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (m *MediaRDBMSRepository) Fetch(params *global.PaginationParams) ([]*domain
 	}()
 
 	if params == nil {
-		params = global.NewPaginationParams("1", "10")
+		params = util.NewPaginationParams("1", "10")
 	}
 
 	index := util.GetIndex(params.Page, params.Limit)

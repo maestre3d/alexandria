@@ -12,7 +12,8 @@ import (
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
 	infrastructure2 "github.com/maestre3d/alexandria/src/media-service/internal/media/infrastructure"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure"
+	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/logging"
+	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/persistence"
 	"github.com/maestre3d/alexandria/src/media-service/pkg/service/delivery"
 	"github.com/maestre3d/alexandria/src/media-service/pkg/service/delivery/handler"
 )
@@ -20,13 +21,13 @@ import (
 // Injectors from wire.go:
 
 func InitHTTPServiceProxy() (*delivery.HTTPServiceProxy, func(), error) {
-	logger, cleanup, err := infrastructure.NewLogger()
+	logger, cleanup, err := logging.NewLogger()
 	if err != nil {
 		return nil, nil, err
 	}
 	server := delivery.NewHTTPServer(logger)
 	context := ProvideContext()
-	db, cleanup2, err := infrastructure.NewPostgresPool(context, logger)
+	db, cleanup2, err := persistence.NewPostgresPool(context, logger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
@@ -44,11 +45,11 @@ func InitHTTPServiceProxy() (*delivery.HTTPServiceProxy, func(), error) {
 
 // wire.go:
 
-var loggerSet = wire.NewSet(infrastructure.NewLogger, wire.Bind(new(util.ILogger), new(*infrastructure.Logger)))
+var loggerSet = wire.NewSet(logging.NewLogger, wire.Bind(new(util.ILogger), new(*logging.Logger)))
 
 var postgresPoolSet = wire.NewSet(
 	ProvideContext,
-	loggerSet, infrastructure.NewPostgresPool,
+	loggerSet, persistence.NewPostgresPool,
 )
 
 var bookRepository = wire.NewSet(
