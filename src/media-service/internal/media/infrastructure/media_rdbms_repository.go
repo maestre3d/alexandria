@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/lib/pq"
 	"time"
 
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
@@ -40,7 +41,13 @@ func (m *MediaRDBMSRepository) Save(media *domain.MediaAggregate) error {
 	_, err = conn.ExecContext(m.ctx, statement, media.ExternalID, media.Title, media.DisplayName, media.Description, media.UserID, media.AuthorID,
 		media.PublishDate, media.MediaType)
 
-	return fmt.Errorf("%w", err)
+	if customErr, ok := err.(*pq.Error); ok {
+		if customErr.Code == "23505" {
+			return global.EntityExists
+		}
+	}
+
+	return err
 }
 
 func (m *MediaRDBMSRepository) Fetch(params *util.PaginationParams) ([]*domain.MediaAggregate, error) {
@@ -168,6 +175,12 @@ func (m *MediaRDBMSRepository) UpdateOne(id int64, mediaUpdated *domain.MediaAgg
 
 	_, err = conn.ExecContext(m.ctx, statement, mediaUpdated.Title, mediaUpdated.DisplayName, mediaUpdated.Description, mediaUpdated.UserID, mediaUpdated.AuthorID,
 		mediaUpdated.PublishDate, mediaUpdated.MediaType, mediaUpdated.UpdateTime, id)
+	if customErr, ok := err.(*pq.Error); ok {
+		if customErr.Code == "23505" {
+			return global.EntityExists
+		}
+	}
+
 	return err
 }
 

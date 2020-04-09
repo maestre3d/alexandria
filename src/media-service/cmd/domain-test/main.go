@@ -25,7 +25,8 @@ func main() {
 	usecase := application.NewMediaUseCase(logger, repository)
 
 	params := &application.MediaParams{
-		Title:       "Green Mille",
+		MediaID:     "13",
+		Title:       "Thug Life",
 		DisplayName: "Green Mille by far",
 		Description: "Stephen King is the master of horror stories, fuck you",
 		UserID:      "60f90323-fc78-45e4-a0f5-71b63dd87d1a",
@@ -34,7 +35,7 @@ func main() {
 		MediaType:   "media_book",
 	}
 
-	err = usecase.Create(params)
+	err = usecase.UpdateOnePatch(params)
 	if err != nil {
 		if errors.Is(err, global.EntityExists) {
 			log.Print("exists catch")

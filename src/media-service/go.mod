@@ -7,6 +7,7 @@ require (
 	github.com/go-redis/redis/v7 v7.2.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
+	github.com/lib/pq v1.1.1
 	github.com/oklog/run v1.1.0
 	github.com/sony/gobreaker v0.4.1 // indirect
 	go.uber.org/multierr v1.5.0
