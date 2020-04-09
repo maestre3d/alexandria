@@ -7,7 +7,7 @@ import (
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/application"
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
-	book_infrastructure "github.com/maestre3d/alexandria/src/media-service/internal/media/infrastructure"
+	"github.com/maestre3d/alexandria/src/media-service/internal/media/infrastructure"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/logging"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/persistence"
@@ -24,21 +24,21 @@ var postgresPoolSet = wire.NewSet(
 	loggerSet,
 	persistence.NewPostgresPool,
 )
-var bookRepository = wire.NewSet(
+var mediaRepository = wire.NewSet(
 	postgresPoolSet,
-	book_infrastructure.NewBookRDBMSRepository,
-	wire.Bind(new(domain.IBookRepository), new(*book_infrastructure.BookRDBMSRepository)),
+	infrastructure.NewMediaRDBMSRepository,
+	wire.Bind(new(domain.IMediaRepository), new(*infrastructure.MediaRDBMSRepository)),
 )
-var bookUseCaseSet = wire.NewSet(
-	bookRepository,
-	application.NewBookUseCase,
+var mediaUseCaseSet = wire.NewSet(
+	mediaRepository,
+	application.NewMediaUseCase,
 )
-var bookHandlerSet = wire.NewSet(
-	bookUseCaseSet,
-	handler.NewBookHandler,
+var mediaHandlerSet = wire.NewSet(
+	mediaUseCaseSet,
+	handler.NewMediaHandler,
 )
 var proxyHandlersSet = wire.NewSet(
-	bookHandlerSet,
+	mediaHandlerSet,
 	ProvideProxyHandlers,
 )
 
@@ -46,14 +46,14 @@ func ProvideContext() context.Context {
 	return context.Background()
 }
 
-func ProvideBookLocalRepository(logger util.ILogger) *book_infrastructure.BookLocalRepository {
-	return book_infrastructure.NewBookLocalRepository(make([]*domain.BookEntity, 0), logger)
+func ProvideMediaLocalRepository(logger util.ILogger) *infrastructure.MediaLocalRepository {
+	return infrastructure.NewMediaLocalRepository(make([]*domain.MediaAggregate, 0), logger)
 }
 
-func ProvideProxyHandlers(book *handler.BookHandler) *delivery.ProxyHandlers {
+func ProvideProxyHandlers(media *handler.MediaHandler) *delivery.ProxyHandlers {
 	// Map handlers to proxy
 	return &delivery.ProxyHandlers{
-		book,
+		media,
 	}
 }
 

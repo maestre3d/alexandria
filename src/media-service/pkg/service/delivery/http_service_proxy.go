@@ -18,14 +18,16 @@ type HTTPServiceProxy struct {
 }
 
 type ProxyHandlers struct {
-	BookHandler *handler.BookHandler
+	MediaHandler *handler.MediaHandler
 }
 
 func NewHTTPServiceProxy(logger util.ILogger, server *http.Server, handlers *ProxyHandlers) *HTTPServiceProxy {
+	var engine *gin.Engine
 	engine, ok := server.Handler.(*gin.Engine)
-	// TODO: Throw err
 	if !ok {
-		return nil
+		// Replace handler with current (gin)
+		server.Handler = gin.Default()
+		engine = server.Handler.(*gin.Engine)
 	}
 	service := &HTTPServiceProxy{
 		Server:        server,
@@ -39,17 +41,19 @@ func NewHTTPServiceProxy(logger util.ILogger, server *http.Server, handlers *Pro
 	// Start routing-mapping
 	service.mapBookRoutes()
 
+	logger.Print("http proxy service started", "service.delivery")
+
 	return service
 }
 
 func (p *HTTPServiceProxy) mapBookRoutes() {
 	bookRouter := p.publicGroup.Group("/media")
 
-	bookRouter.POST("", p.proxyHandlers.BookHandler.Create)
-	bookRouter.GET("", p.proxyHandlers.BookHandler.List)
-	bookRouter.GET("/:book_id", p.proxyHandlers.BookHandler.Get)
-	bookRouter.PATCH("/:book_id", p.proxyHandlers.BookHandler.UpdateOne)
-	bookRouter.DELETE("/:book_id", p.proxyHandlers.BookHandler.DeleteOne)
+	bookRouter.POST("", p.proxyHandlers.MediaHandler.Create)
+	bookRouter.GET("", p.proxyHandlers.MediaHandler.List)
+	bookRouter.GET("/:media_id", p.proxyHandlers.MediaHandler.Get)
+	bookRouter.PATCH("/:media_id", p.proxyHandlers.MediaHandler.UpdateOne)
+	bookRouter.DELETE("/:media_id", p.proxyHandlers.MediaHandler.DeleteOne)
 }
 
 // InitHTTPPublicProxy Start HTTP Service's public proxy

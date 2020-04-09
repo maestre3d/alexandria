@@ -10,7 +10,7 @@ import (
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/application"
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
-	infrastructure2 "github.com/maestre3d/alexandria/src/media-service/internal/media/infrastructure"
+	"github.com/maestre3d/alexandria/src/media-service/internal/media/infrastructure"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/logging"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/persistence"
@@ -32,10 +32,10 @@ func InitHTTPServiceProxy() (*delivery.HTTPServiceProxy, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	bookRDBMSRepository := infrastructure2.NewBookRDBMSRepository(db, logger, context)
-	bookUseCase := application.NewBookUseCase(logger, bookRDBMSRepository)
-	bookHandler := handler.NewBookHandler(logger, bookUseCase)
-	proxyHandlers := ProvideProxyHandlers(bookHandler)
+	mediaRDBMSRepository := infrastructure.NewMediaRDBMSRepository(db, logger, context)
+	mediaUseCase := application.NewMediaUseCase(logger, mediaRDBMSRepository)
+	mediaHandler := handler.NewMediaHandler(logger, mediaUseCase)
+	proxyHandlers := ProvideProxyHandlers(mediaHandler)
 	httpServiceProxy := delivery.NewHTTPServiceProxy(logger, server, proxyHandlers)
 	return httpServiceProxy, func() {
 		cleanup2()
@@ -52,20 +52,20 @@ var postgresPoolSet = wire.NewSet(
 	loggerSet, persistence.NewPostgresPool,
 )
 
-var bookRepository = wire.NewSet(
-	postgresPoolSet, infrastructure2.NewBookRDBMSRepository, wire.Bind(new(domain.IBookRepository), new(*infrastructure2.BookRDBMSRepository)),
+var mediaRepository = wire.NewSet(
+	postgresPoolSet, infrastructure.NewMediaRDBMSRepository, wire.Bind(new(domain.IMediaRepository), new(*infrastructure.MediaRDBMSRepository)),
 )
 
-var bookUseCaseSet = wire.NewSet(
-	bookRepository, application.NewBookUseCase,
+var mediaUseCaseSet = wire.NewSet(
+	mediaRepository, application.NewMediaUseCase,
 )
 
-var bookHandlerSet = wire.NewSet(
-	bookUseCaseSet, handler.NewBookHandler,
+var mediaHandlerSet = wire.NewSet(
+	mediaUseCaseSet, handler.NewMediaHandler,
 )
 
 var proxyHandlersSet = wire.NewSet(
-	bookHandlerSet,
+	mediaHandlerSet,
 	ProvideProxyHandlers,
 )
 
@@ -73,13 +73,13 @@ func ProvideContext() context.Context {
 	return context.Background()
 }
 
-func ProvideBookLocalRepository(logger util.ILogger) *infrastructure2.BookLocalRepository {
-	return infrastructure2.NewBookLocalRepository(make([]*domain.BookEntity, 0), logger)
+func ProvideMediaLocalRepository(logger util.ILogger) *infrastructure.MediaLocalRepository {
+	return infrastructure.NewMediaLocalRepository(make([]*domain.MediaAggregate, 0), logger)
 }
 
-func ProvideProxyHandlers(book *handler.BookHandler) *delivery.ProxyHandlers {
+func ProvideProxyHandlers(media *handler.MediaHandler) *delivery.ProxyHandlers {
 
 	return &delivery.ProxyHandlers{
-		book,
+		media,
 	}
 }

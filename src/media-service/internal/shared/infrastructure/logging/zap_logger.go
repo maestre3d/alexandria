@@ -9,14 +9,14 @@ type Logger struct {
 	logger *zap.Logger
 }
 
-func NewLogger() (*Logger, func() error, error) {
+func NewLogger() (*Logger, func(), error) {
 	logger, err := zap.NewProduction()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	cleanup := func() error {
-		return logger.Sync()
+	cleanup := func() {
+		err = logger.Sync()
 	}
 
 	rootLogger := &Logger{logger}

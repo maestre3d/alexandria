@@ -68,10 +68,10 @@ func (m *MediaRDBMSRepository) Fetch(params *util.PaginationParams) ([]*domain.M
 
 	rows, err := conn.QueryContext(m.ctx, statement)
 	if rows != nil && rows.Err() != nil {
-		return nil, fmt.Errorf("%w", err)
+		return nil, err
 	}
 	if err != nil {
-		return nil, fmt.Errorf("%w", err)
+		return nil, err
 	}
 	defer func() {
 		err = rows.Close()

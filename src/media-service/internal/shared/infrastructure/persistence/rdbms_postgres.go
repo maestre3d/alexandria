@@ -8,7 +8,7 @@ import (
 	"gocloud.dev/postgres"
 )
 
-func NewPostgresPool(ctx context.Context, logger util.ILogger) (*sql.DB, func() error, error) {
+func NewPostgresPool(ctx context.Context, logger util.ILogger) (*sql.DB, func(), error) {
 	db, err := postgres.Open(ctx, "postgres://postgres:root@localhost/alexandria-media?sslmode=disable")
 	if err != nil {
 		return nil, nil, err
@@ -17,8 +17,8 @@ func NewPostgresPool(ctx context.Context, logger util.ILogger) (*sql.DB, func() 
 	logger.Print("main database started", "kernel.infrastructure.persistence")
 
 	db.SetMaxOpenConns(50)
-	closePool := func() error {
-		return db.Close()
+	closePool := func() {
+		err = db.Close()
 	}
 
 	return db, closePool, nil

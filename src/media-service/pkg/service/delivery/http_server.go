@@ -9,7 +9,7 @@ import (
 
 func NewHTTPServer(logger util.ILogger) *http.Server {
 	engine := gin.Default()
-	logger.Print("Create HTTP Server", "service.delivery.http")
+	logger.Print("http server created", "service.delivery")
 
 	return &http.Server{
 		Addr:              ":8080",
