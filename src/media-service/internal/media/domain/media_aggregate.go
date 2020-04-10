@@ -6,7 +6,7 @@ import "time"
 type MediaAggregate struct {
 	MediaID     int64      `json:"media_id"`
 	ExternalID  string     `json:"external_id"`
-	Title       string     `json:"name"`
+	Title       string     `json:"title"`
 	DisplayName string     `json:"display_name"`
 	Description *string    `json:"description"`
 	UserID      string     `json:"user_id"`
