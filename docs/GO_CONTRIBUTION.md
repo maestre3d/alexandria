@@ -18,7 +18,7 @@ Therefore, we use our own API architecture implementing a Proxy pattern to hide 
 
 The following HTTP Proxy Service architecture **should** be used whenever a new HTTP Service is required.
 
-![Alexandria HTTP Proxy Service architecture](https://raw.githubusercontent.com/maestre3d/alexandria/development/docs/Alexandria_http_service.png "Alexandria HTTP Proxy Service architecture")
+![Alexandria HTTP Proxy Service architecture](https://raw.githubusercontent.com/maestre3d/alexandria/master/docs/Alexandria_http_service.png "Alexandria HTTP Proxy Service architecture")
 
 
 ## Concurrency
