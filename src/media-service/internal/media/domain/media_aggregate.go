@@ -4,8 +4,8 @@ import "time"
 
 // MediaAggregate Media aggregate type
 type MediaAggregate struct {
-	MediaID     int64      `json:"media_id"`
-	ExternalID  string     `json:"external_id"`
+	MediaID     int64      `json:"-"`
+	ExternalID  string     `json:"media_id"`
 	Title       string     `json:"title"`
 	DisplayName string     `json:"display_name"`
 	Description *string    `json:"description"`
@@ -15,9 +15,9 @@ type MediaAggregate struct {
 	MediaType   string     `json:"media_type"`
 	CreateTime  time.Time  `json:"create_time"`
 	UpdateTime  time.Time  `json:"update_time"`
-	DeleteTime  *time.Time `json:"delete_time"`
-	Metadata    *string    `json:"metadata"`
-	Deleted     bool       `json:"deleted"`
+	DeleteTime  *time.Time `json:"-"`
+	Metadata    *string    `json:"-"`
+	Deleted     bool       `json:"-"`
 }
 
 func (m *MediaAggregate) ToMediaEntity() *MediaEntity {

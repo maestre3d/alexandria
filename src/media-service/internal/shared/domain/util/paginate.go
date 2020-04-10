@@ -1,38 +1,43 @@
 package util
 
-import "strconv"
+import (
+	"github.com/google/uuid"
+	"strconv"
+)
 
 // PaginationParams Parameters required for database pagination
 type PaginationParams struct {
-	Page  int64
-	Limit int64
+	TokenID   int64
+	TokenUUID string
+	Size      int32
 }
 
-func NewPaginationParams(pageString, limitString string) *PaginationParams {
-	var page, limit int64
+func NewPaginationParams(TokenIDString, TokenUUID, sizeString string) *PaginationParams {
+	var pageTokenID, size int64
 	var err error
 
-	if pageString != "" {
-		page, err = strconv.ParseInt(pageString, 10, 64)
+	if TokenIDString != "" {
+		pageTokenID, err = strconv.ParseInt(TokenIDString, 10, 64)
 		if err != nil {
-			page = 1
+			pageTokenID = 1
 		}
 	} else {
-		page = 1
+		pageTokenID = 1
 	}
 
-	if limitString != "" {
-		limit, err = strconv.ParseInt(limitString, 10, 64)
+	if sizeString != "" {
+		size, err = strconv.ParseInt(sizeString, 10, 32)
 		if err != nil {
-			limit = 10
+			size = 10
 		}
 	} else {
-		limit = 10
+		size = 10
 	}
 
 	params := &PaginationParams{
-		Page:  page,
-		Limit: limit,
+		TokenID:   pageTokenID,
+		TokenUUID: TokenUUID,
+		Size:      int32(size),
 	}
 	params.Sanitize()
 
@@ -40,19 +45,24 @@ func NewPaginationParams(pageString, limitString string) *PaginationParams {
 }
 
 func (p *PaginationParams) Sanitize() {
-	if p.Page <= 0 {
-		p.Page = 1
-	} else if p.Limit > 100 {
-		p.Limit = 100
-	} else if p.Limit <= 0 {
-		p.Limit = 10
+	if p.TokenID <= 0 {
+		p.TokenID = 1
+	} else if p.Size > 100 {
+		p.Size = 100
+	} else if p.Size <= 0 {
+		p.Size = 10
+	} else if p.TokenUUID != "" {
+		_, err := uuid.Parse(p.TokenUUID)
+		if err != nil {
+			p.TokenUUID = ""
+		}
 	}
 }
 
-func GetIndex(page, limit int64) int64 {
+func GetIndex(pageTokenID int64, size int32) int64 {
 	// Index-from-limit algorithm formula
 	// f(x)= w-x
 	// w (omega) = xy
 	// where x = limit and y = page
-	return limit*page - limit
+	return int64(size)*pageTokenID - int64(size)
 }

@@ -148,10 +148,11 @@ func (m *MediaHandler) Get(c *gin.Context) {
 }
 
 func (m *MediaHandler) List(c *gin.Context) {
-	page := c.Query("page_token")
-	limit := c.Query("page_size")
+	pageTokenID := c.Query("page_token")
+	pageTokenUUID := c.Query("page_token")
+	pageSize := c.Query("page_size")
 
-	params := util.NewPaginationParams(page, limit)
+	params := util.NewPaginationParams(pageTokenID, pageTokenUUID, pageSize)
 
 	medias, err := m.mediaUseCase.GetAll(params)
 	if err != nil {
@@ -172,8 +173,13 @@ func (m *MediaHandler) List(c *gin.Context) {
 	}
 
 	nextPage := ""
-	if len(medias) >= int(params.Limit) {
-		nextPage = strconv.Itoa(int(medias[len(medias)-1].MediaID))
+	if len(medias) >= int(params.Size) {
+		if params.TokenUUID != "" {
+			nextPage = medias[len(medias)-1].ExternalID
+		} else {
+			nextPage = strconv.Itoa(int(medias[len(medias)-1].MediaID))
+		}
+
 		medias = medias[0 : len(medias)-1]
 	}
 

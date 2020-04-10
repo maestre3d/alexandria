@@ -60,19 +60,36 @@ func (m *MediaRDBMSRepository) Fetch(params *util.PaginationParams) ([]*domain.M
 	}()
 
 	if params == nil {
-		params = util.NewPaginationParams("1", "10")
+		params = util.NewPaginationParams("1", "", "10")
 	}
 
 	// UPDATE: Now using keyset pagination along with page_tokens (ref. Google API Design)
-	// Params.Page - 1 = page_token
-	// Params.Limit = page_size
-	// Params.Limit += 1 = next_page_token
+	// Params.TokenID / Params.TokenUUID = page_token
+	// Params.Size = page_size
+	// Params.TokenID += 1 / last_item -> Params.TokenUUID = next_page_token
+
 	// index := util.GetIndex(params.Page, params.Limit)
-	params.Limit += 1
+	var statement string
+	var rows *sql.Rows
+	params.Size += 1
 
-	statement := fmt.Sprintf(`SELECT * FROM MEDIA WHERE MEDIA_ID >= %d AND DELETED = FALSE ORDER BY MEDIA_ID ASC FETCH FIRST %d ROWS ONLY`, params.Page, params.Limit)
+	if params.TokenUUID != "" {
+		statement = `SELECT * FROM MEDIA WHERE 
+            MEDIA_ID >= (SELECT MEDIA_ID FROM MEDIA WHERE EXTERNAL_ID = $1 AND DELETED = FALSE) 
+		  	AND DELETED = FALSE
+			ORDER BY UPDATE_TIME ASC
+			FETCH FIRST $2 ROWS ONLY;`
 
-	rows, err := conn.QueryContext(m.ctx, statement)
+		// AND UPDATE_TIME >= (SELECT UPDATE_TIME FROM MEDIA WHERE EXTERNAL_ID = $1 AND DELETED = FALSE)
+
+		rows, err = conn.QueryContext(m.ctx, statement, params.TokenUUID, params.Size)
+	} else {
+		// Using default ID
+		statement = fmt.Sprintf(`SELECT * FROM MEDIA WHERE MEDIA_ID >= %d AND DELETED = FALSE ORDER BY MEDIA_ID ASC FETCH FIRST %d ROWS ONLY`,
+			params.TokenID, params.Size)
+		rows, err = conn.QueryContext(m.ctx, statement)
+	}
+
 	if rows != nil && rows.Err() != nil {
 		return nil, err
 	}

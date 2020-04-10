@@ -24,24 +24,35 @@ func (m *MediaLocalRepository) Save(media *domain.MediaAggregate) error {
 
 func (m *MediaLocalRepository) Fetch(params *util.PaginationParams) ([]*domain.MediaAggregate, error) {
 	if params == nil {
-		params = util.NewPaginationParams("1", "10")
+		params = util.NewPaginationParams("1", "", "10")
 	} else {
 		params.Sanitize()
 	}
 
-	index := util.GetIndex(params.Page, params.Limit)
+	// UPDATE: Now using keyset pagination along with page_tokens (ref. Google API Design)
+	// Params.TokenID / Params.TokenUUID = page_token
+	// Params.Size = page_size
+	// Params.TokenID += 1 / last_item -> Params.TokenUUID = next_page_token
 
-	if index > int64(len(m.tableDB)) {
-		index = int64(len(m.tableDB))
+	/*
+		OLD IMPLEMENTATION
+		index := util.GetIndex(params.Page, params.Limit)
+
+		if index > int64(len(m.tableDB)) {
+			index = int64(len(m.tableDB))
+		}
+
+		params.Limit += params.Limit + index
+	*/
+
+	params.TokenID -= 1
+	params.Size += 1
+
+	if params.Size > int32(len(m.tableDB)) {
+		params.Size = int32(len(m.tableDB))
 	}
 
-	params.Limit = params.Limit + index
-
-	if params.Limit > int64(len(m.tableDB)) {
-		params.Limit = int64(len(m.tableDB))
-	}
-
-	queryResult := m.tableDB[index:params.Limit]
+	queryResult := m.tableDB[int(params.TokenID):params.Size]
 	if len(queryResult) == 0 {
 		return nil, global.EntitiesNotFound
 	}
