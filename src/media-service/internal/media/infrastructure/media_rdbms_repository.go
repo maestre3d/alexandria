@@ -63,8 +63,14 @@ func (m *MediaRDBMSRepository) Fetch(params *util.PaginationParams) ([]*domain.M
 		params = util.NewPaginationParams("1", "10")
 	}
 
-	index := util.GetIndex(params.Page, params.Limit)
-	statement := fmt.Sprintf(`SELECT * FROM MEDIA WHERE MEDIA_ID > %d AND DELETED = FALSE ORDER BY MEDIA_ID ASC FETCH FIRST %d ROWS ONLY`, index, params.Limit)
+	// UPDATE: Now using keyset pagination along with page_tokens (ref. Google API Design)
+	// Params.Page - 1 = page_token
+	// Params.Limit = page_size
+	// Params.Limit += 1 = next_page_token
+	// index := util.GetIndex(params.Page, params.Limit)
+	params.Limit += 1
+
+	statement := fmt.Sprintf(`SELECT * FROM MEDIA WHERE MEDIA_ID >= %d AND DELETED = FALSE ORDER BY MEDIA_ID ASC FETCH FIRST %d ROWS ONLY`, params.Page, params.Limit)
 
 	rows, err := conn.QueryContext(m.ctx, statement)
 	if rows != nil && rows.Err() != nil {

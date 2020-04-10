@@ -8,6 +8,7 @@ import (
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
 	"go.uber.org/multierr"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -170,9 +171,16 @@ func (m *MediaHandler) List(c *gin.Context) {
 		return
 	}
 
+	nextPage := ""
+	if len(medias) >= int(params.Limit) {
+		nextPage = strconv.Itoa(int(medias[len(medias)-1].MediaID))
+		medias = medias[0 : len(medias)-1]
+	}
+
 	c.JSON(http.StatusOK, &gin.H{
-		"code":  http.StatusOK,
-		"media": medias,
+		"code":            http.StatusOK,
+		"next_page_token": nextPage,
+		"media":           medias,
 	})
 }
 
