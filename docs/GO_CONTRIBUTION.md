@@ -93,3 +93,5 @@ secrets and runtime configuration tools
 _**Optional**_
 - Go Kit - Microservices tool kit
 - NY Times Gizmo - Microservices tool kit
+- Spf13 Cobra - CLI tool
+- Spf13 Viper - Configuration manager
