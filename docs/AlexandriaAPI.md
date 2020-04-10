@@ -33,6 +33,6 @@ In the following list, we define our API’s resources and collection IDs.
 - **/categories** -> List, Create
     - /{category-name} – {category-id} -> Get, Update, Delete
         - **/media** -> Create
-            - /{media-id} -> Delete
+            - /{media-id} -> Get, Delete
         - **/authors** -> Create
-            - /{author-id} -> Delete
+            - /{author-id} -> Get, Delete
