@@ -19,9 +19,9 @@ Alexandria is currently licensed under the MIT license.
 ## Contribution
 Alexandria is an open-source project, that means everyone’s help is appreciated.
 
-If you'd like to contribute, please look at the [Go Contribution Guidelines](https://github.com/maestre3d/alexandria).
+If you'd like to contribute, please look at the [Go Contribution Guidelines](https://github.com/maestre3d/alexandria/tree/master/docs/GO_CONTRIBUTION.md).
 
-[Click here](https://github.com/maestre3d/alexandria) if you're looking for our docs about engineering, Alexandria API, etc.
+[Click here](https://github.com/maestre3d/alexandria/tree/master/docs) if you're looking for our docs about engineering, Alexandria API, etc.
 
 ## Maintenance
 - Main maintainer: [maestre3d](https://github.com/maestre3d)
