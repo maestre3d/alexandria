@@ -1,4 +1,4 @@
-# Alexandria
+# The Alexandria Project
 The Alexandria Project is an open-source platform where people can share their knowledge through books, podcasts, docs and videos.
 
 Alexandria is currently licensed under the MIT license.
@@ -8,7 +8,6 @@ Alexandria library, located in ancient Babylonia, was one of the world’s great
 
 Knowledge is the only way to build better societies; with better societies comes absolute humanity evolution.
 Everyone should have access to knowledge, no matter who they are or where they come from.
-
 
 ## The Objective
 We dare to become a useful worldwide knowledge-sharing free platform.
@@ -24,10 +23,10 @@ Alexandria is an open-source project, that means everyone’s help is appreciate
 
 If you'd like to contribute, please look at the [Contribution Guidelines](https://github.com/maestre3d/alexandria).
 
-If you're looking for engineering, API Design, etc... docs, [click here](https://github.com/maestre3d/alexandria).
+[Click here](https://github.com/maestre3d/alexandria) if you're looking for our docs about engineering, Alexandria API, etc.
 
 ## Donation
-We don’t charge anybody unless they want to help our cause voluntarily.
+We don’t charge anybody unless they're willing to help our cause voluntarily.
 If you want to donate, feel free to make the donation to our [PayPal account](https://github.com/maestre3d/alexandria).
 
 ## Maintenance
