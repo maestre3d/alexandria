@@ -95,3 +95,4 @@ _**Optional**_
 - NY Times Gizmo - Microservices tool kit
 - Spf13 Cobra - CLI tool
 - Spf13 Viper - Configuration manager
+- Sirupsen Logrus - Logger
