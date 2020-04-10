@@ -45,7 +45,7 @@ func (m *MediaUseCase) Create(params *MediaParams) error {
 
 	// Check media's title uniqueness
 	existingMedia, err := m.GetByTitle(media.Title.Value)
-	if errors.Is(err, global.EntityNotFound) {
+	if !errors.Is(err, global.EntityNotFound) {
 		return err
 	} else if existingMedia != nil {
 		return global.EntityExists
