@@ -1,28 +1,33 @@
-# Alexandria
-The Alexandria Project is a e-Library where you may share your knowledge through books, podcasts and docs. #KnowledgeForEveryone
+# The Alexandria Project
+The Alexandria Project is an open-source platform where people can share their knowledge through books, podcasts, docs and videos.
+
+Alexandria is currently licensed under the MIT license.
 
 ## The Philosophy
-"Knowledge is power"
+Alexandria library, located in ancient Babylonia, was one of the world’s greatest libraries in history. Now, we dare to accomplish the same using the latest technology.
 
-We believe in a world where knowledge is reachable for everyone. No restrictions.
-If you learn something, you might share it to grow all together and accomplish even greater things.
-We encourage you to start sharing your knowledge with someone else, maybe you could need his/her help in a near future, who knows.
+Knowledge is the only way to build better societies; with better societies comes absolute humanity evolution.
+Everyone should have access to knowledge, no matter who they are or where they come from.
 
-## Objective
-Nowadays, internet is so big that we are now flooded with tons of information, some of it useful but sometimes it's just outdated or wrong.
+## The Objective
+We dare to become a useful worldwide knowledge-sharing free platform.
 
-We give people the possibility to upload their useful resources everytime they want into the Alexandria's network, so they may get feedback and keep improving. All of this along with the benefit of consuming other's resources whenever they want.
+To accomplish our main objective, we follow the next strategy:
 
-## How?
-We make use of the latest technology trends to become a highly-trusted network.
-Using a microservice-oriented architecture at the infrastructure layer ensures the project's capability of maintenance.
-Besides of using a modern architecture at the infrastructure layer, we make use of powerful languages such as Go & Python for our microservices creation along with a RDBMS such as PostgreSQL and a in-memory database such as Redis for our main persistence layer.
-Everything gets coupled using an Event Bus like NATS, AWS SQS-SNS or RabbitMQ.
-
-Feel free to contribute following the respective [guidelines](https://github.com/maestre3d).
+- Knowledge sharing through a high-performant and resilient platform.
+- People may upload common media like books, docs, podcasts and videos. 
+- No money charges at all.
 
 ## Contribution
-If you want to contribute, please feel free to check out our [PayPal account](https://github.com/maestre3d).
+Alexandria is an open-source project, that means everyone’s help is appreciated.
+
+If you'd like to contribute, please look at the [Contribution Guidelines](https://github.com/maestre3d/alexandria/tree/master/docs).
+
+[Click here](https://github.com/maestre3d/alexandria/tree/master/docs) if you're looking for our docs about engineering, Alexandria API, etc.
+
+## Donation
+We don’t charge anybody unless they're willing to help our cause voluntarily.
+If you want to donate, feel free to make the donation to our [PayPal account](https://github.com/maestre3d/alexandria).
 
 ## Maintenance
-- [maestre3d](https://github.com/maestre3d)
+- Main maintainer: [maestre3d](https://github.com/maestre3d)
