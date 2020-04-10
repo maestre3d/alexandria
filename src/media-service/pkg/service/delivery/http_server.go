@@ -8,6 +8,7 @@ import (
 )
 
 func NewHTTPServer(logger util.ILogger) *http.Server {
+	gin.SetMode("release")
 	engine := gin.Default()
 	logger.Print("http server created", "service.delivery")
 

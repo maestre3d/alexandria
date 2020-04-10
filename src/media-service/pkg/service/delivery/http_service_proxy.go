@@ -26,6 +26,7 @@ func NewHTTPServiceProxy(logger util.ILogger, server *http.Server, handlers *Pro
 	engine, ok := server.Handler.(*gin.Engine)
 	if !ok {
 		// Replace handler with current (gin)
+		gin.SetMode("release")
 		server.Handler = gin.Default()
 		engine = server.Handler.(*gin.Engine)
 	}
