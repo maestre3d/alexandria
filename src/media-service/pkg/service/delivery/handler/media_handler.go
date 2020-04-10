@@ -140,8 +140,8 @@ func (m *MediaHandler) Get(c *gin.Context) {
 }
 
 func (m *MediaHandler) List(c *gin.Context) {
-	page := c.Query("page")
-	limit := c.Query("limit")
+	page := c.Query("page_token")
+	limit := c.Query("page_size")
 
 	params := util.NewPaginationParams(page, limit)
 
@@ -176,7 +176,32 @@ func (m *MediaHandler) UpdateOne(c *gin.Context) {
 }
 
 func (m *MediaHandler) DeleteOne(c *gin.Context) {
-	c.JSON(http.StatusOK, &gin.H{
-		"message": "Hello from media handler delete " + c.Param("book_id"),
-	})
+	id := c.Param("media_id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, &gin.H{
+			"code":    http.StatusBadRequest,
+			"message": global.InvalidID.Error(),
+		})
+		return
+	}
+
+	err := m.mediaUseCase.RemoveOne(id)
+	if err != nil {
+		if errors.Is(err, global.InvalidID) {
+			c.JSON(http.StatusBadRequest, &gin.H{
+				"code":    http.StatusBadRequest,
+				"message": err.Error(),
+			})
+			return
+		}
+
+		// Generic error
+		c.JSON(http.StatusInternalServerError, &gin.H{
+			"code":    http.StatusInternalServerError,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, nil)
 }

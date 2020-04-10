@@ -49,9 +49,14 @@ func (m *MediaLocalRepository) Fetch(params *util.PaginationParams) ([]*domain.M
 	return queryResult, nil
 }
 
-func (m *MediaLocalRepository) FetchByID(id int64) (*domain.MediaAggregate, error) {
+func (m *MediaLocalRepository) FetchByID(id string) (*domain.MediaAggregate, error) {
+	idNew, err := util.SanitizeID(id)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, media := range m.tableDB {
-		if id == media.MediaID {
+		if idNew == media.MediaID {
 			return media, nil
 		}
 	}
@@ -69,9 +74,14 @@ func (m *MediaLocalRepository) FetchByTitle(title string) (*domain.MediaAggregat
 	return nil, global.EntityNotFound
 }
 
-func (m *MediaLocalRepository) UpdateOne(id int64, mediaUpdated *domain.MediaAggregate) error {
+func (m *MediaLocalRepository) UpdateOne(id string, mediaUpdated *domain.MediaAggregate) error {
+	idNew, err := util.SanitizeID(id)
+	if err != nil {
+		return err
+	}
+
 	for _, media := range m.tableDB {
-		if id == media.MediaID {
+		if idNew == media.MediaID {
 			media = mediaUpdated
 			return nil
 		}
@@ -80,9 +90,14 @@ func (m *MediaLocalRepository) UpdateOne(id int64, mediaUpdated *domain.MediaAgg
 	return global.EntityNotFound
 }
 
-func (m *MediaLocalRepository) RemoveOne(id int64) error {
+func (m *MediaLocalRepository) RemoveOne(id string) error {
+	idNew, err := util.SanitizeID(id)
+	if err != nil {
+		return err
+	}
+
 	for _, media := range m.tableDB {
-		if id == media.MediaID {
+		if idNew == media.MediaID {
 			m.tableDB = m.removeIndex(m.tableDB, int(media.MediaID)-1)
 			return nil
 		}

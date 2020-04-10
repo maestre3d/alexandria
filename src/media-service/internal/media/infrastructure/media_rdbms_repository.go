@@ -99,7 +99,7 @@ func (m *MediaRDBMSRepository) Fetch(params *util.PaginationParams) ([]*domain.M
 	return medias, nil
 }
 
-func (m *MediaRDBMSRepository) FetchByID(id int64) (*domain.MediaAggregate, error) {
+func (m *MediaRDBMSRepository) FetchByID(id int64, external_id string) (*domain.MediaAggregate, error) {
 	conn, err := m.db.Conn(m.ctx)
 	if err != nil {
 		return nil, err
@@ -108,10 +108,16 @@ func (m *MediaRDBMSRepository) FetchByID(id int64) (*domain.MediaAggregate, erro
 		err = conn.Close()
 	}()
 
-	statement := `SELECT * FROM MEDIA WHERE MEDIA_ID = $1 AND DELETED = FALSE`
-
 	media := new(domain.MediaAggregate)
-	row := conn.QueryRowContext(m.ctx, statement, id)
+	var row *sql.Row
+	if id > 0 {
+		statement := `SELECT * FROM MEDIA WHERE MEDIA_ID = $1 AND DELETED = FALSE`
+		row = conn.QueryRowContext(m.ctx, statement, id)
+	} else {
+		statement := `SELECT * FROM MEDIA WHERE EXTERNAL_ID = $1 AND DELETED = FALSE`
+		row = conn.QueryRowContext(m.ctx, statement, external_id)
+	}
+
 	if row == nil {
 		return nil, fmt.Errorf("%w", global.EntityNotFound)
 	}
@@ -159,7 +165,7 @@ func (m *MediaRDBMSRepository) FetchByTitle(title string) (*domain.MediaAggregat
 	return media, nil
 }
 
-func (m *MediaRDBMSRepository) UpdateOne(id int64, mediaUpdated *domain.MediaAggregate) error {
+func (m *MediaRDBMSRepository) UpdateOne(id int64, external_id string, mediaUpdated *domain.MediaAggregate) error {
 	conn, err := m.db.Conn(m.ctx)
 	if err != nil {
 		return err
@@ -170,11 +176,20 @@ func (m *MediaRDBMSRepository) UpdateOne(id int64, mediaUpdated *domain.MediaAgg
 
 	mediaUpdated.UpdateTime = time.Now()
 
-	statement := `UPDATE MEDIA SET TITLE = $1, DISPLAY_NAME = $2, DESCRIPTION = $3, USER_ID = $4, AUTHOR_ID = $5, PUBLISH_DATE = $6, MEDIA_TYPE = $7, 
+	if id > 0 {
+		statement := `UPDATE MEDIA SET TITLE = $1, DISPLAY_NAME = $2, DESCRIPTION = $3, USER_ID = $4, AUTHOR_ID = $5, PUBLISH_DATE = $6, MEDIA_TYPE = $7, 
                  UPDATE_TIME = $8 WHERE MEDIA_ID = $9`
 
-	_, err = conn.ExecContext(m.ctx, statement, mediaUpdated.Title, mediaUpdated.DisplayName, mediaUpdated.Description, mediaUpdated.UserID, mediaUpdated.AuthorID,
-		mediaUpdated.PublishDate, mediaUpdated.MediaType, mediaUpdated.UpdateTime, id)
+		_, err = conn.ExecContext(m.ctx, statement, mediaUpdated.Title, mediaUpdated.DisplayName, mediaUpdated.Description, mediaUpdated.UserID, mediaUpdated.AuthorID,
+			mediaUpdated.PublishDate, mediaUpdated.MediaType, mediaUpdated.UpdateTime, id)
+	} else {
+		statement := `UPDATE MEDIA SET TITLE = $1, DISPLAY_NAME = $2, DESCRIPTION = $3, USER_ID = $4, AUTHOR_ID = $5, PUBLISH_DATE = $6, MEDIA_TYPE = $7, 
+                 UPDATE_TIME = $8 WHERE EXTERNAL_ID = $9`
+
+		_, err = conn.ExecContext(m.ctx, statement, mediaUpdated.Title, mediaUpdated.DisplayName, mediaUpdated.Description, mediaUpdated.UserID, mediaUpdated.AuthorID,
+			mediaUpdated.PublishDate, mediaUpdated.MediaType, mediaUpdated.UpdateTime, external_id)
+	}
+
 	if customErr, ok := err.(*pq.Error); ok {
 		if customErr.Code == "23505" {
 			return global.EntityExists
@@ -184,7 +199,7 @@ func (m *MediaRDBMSRepository) UpdateOne(id int64, mediaUpdated *domain.MediaAgg
 	return err
 }
 
-func (m *MediaRDBMSRepository) RemoveOne(id int64) error {
+func (m *MediaRDBMSRepository) RemoveOne(id int64, external_id string) error {
 	conn, err := m.db.Conn(m.ctx)
 	if err != nil {
 		return err
@@ -194,8 +209,14 @@ func (m *MediaRDBMSRepository) RemoveOne(id int64) error {
 	}()
 
 	// statement := `DELETE FROM MEDIA WHERE MEDIA_ID = $1`
-	statement := `UPDATE MEDIA SET DELETED = TRUE WHERE MEDIA_ID = $1`
 
-	_, err = conn.ExecContext(m.ctx, statement, id)
+	if id > 0 {
+		statement := `UPDATE MEDIA SET DELETED = TRUE WHERE MEDIA_ID = $1`
+		_, err = conn.ExecContext(m.ctx, statement, id)
+	} else {
+		statement := `UPDATE MEDIA SET DELETED = TRUE WHERE EXTERNAL_ID = $1`
+		_, err = conn.ExecContext(m.ctx, statement, external_id)
+	}
+
 	return err
 }

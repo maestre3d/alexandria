@@ -54,13 +54,20 @@ func (m *MediaUseCase) Create(params *MediaParams) error {
 	return m.repository.Save(media.ToMediaAggregate())
 }
 
-func (b *MediaUseCase) GetByID(idString string) (*domain.MediaAggregate, error) {
+func (m *MediaUseCase) GetByID(idString string) (*domain.MediaAggregate, error) {
 	id, err := util.SanitizeID(idString)
 	if err != nil {
-		return nil, err
+		id = 0
+	}
+	err = util.SanitizeUUID(idString)
+	if err != nil {
+		if id <= 0 {
+			return nil, err
+		}
+		idString = ""
 	}
 
-	return b.repository.FetchByID(id)
+	return m.repository.FetchByID(id, idString)
 }
 
 func (m *MediaUseCase) GetByTitle(title string) (*domain.MediaAggregate, error) {
@@ -82,7 +89,14 @@ func (m *MediaUseCase) UpdateOneAtomic(params *MediaParams) error {
 
 	id, err := util.SanitizeID(params.MediaID)
 	if err != nil {
-		return err
+		id = 0
+	}
+	err = util.SanitizeUUID(params.MediaID)
+	if err != nil {
+		if id <= 0 {
+			return err
+		}
+		params.MediaID = ""
 	}
 
 	mediaParams := &domain.MediaEntityParams{
@@ -99,7 +113,7 @@ func (m *MediaUseCase) UpdateOneAtomic(params *MediaParams) error {
 		return err
 	}
 
-	return m.repository.UpdateOne(id, media.ToMediaAggregate())
+	return m.repository.UpdateOne(id, params.MediaID, media.ToMediaAggregate())
 }
 
 func (m *MediaUseCase) UpdateOne(params *MediaParams) error {
@@ -109,10 +123,17 @@ func (m *MediaUseCase) UpdateOne(params *MediaParams) error {
 
 	id, err := util.SanitizeID(params.MediaID)
 	if err != nil {
-		return err
+		id = 0
+	}
+	err = util.SanitizeUUID(params.MediaID)
+	if err != nil {
+		if id <= 0 {
+			return err
+		}
+		params.MediaID = ""
 	}
 
-	media, err := m.repository.FetchByID(id)
+	media, err := m.repository.FetchByID(id, params.MediaID)
 	if err != nil {
 		return err
 	}
@@ -144,14 +165,21 @@ func (m *MediaUseCase) UpdateOne(params *MediaParams) error {
 		return err
 	}
 
-	return m.repository.UpdateOne(id, media)
+	return m.repository.UpdateOne(id, params.MediaID, media)
 }
 
 func (m *MediaUseCase) RemoveOne(idString string) error {
 	id, err := util.SanitizeID(idString)
 	if err != nil {
-		return err
+		id = 0
+	}
+	err = util.SanitizeUUID(idString)
+	if err != nil {
+		if id <= 0 {
+			return err
+		}
+		idString = ""
 	}
 
-	return m.repository.RemoveOne(id)
+	return m.repository.RemoveOne(id, idString)
 }

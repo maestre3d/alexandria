@@ -1,6 +1,7 @@
 package util
 
 import (
+	"github.com/google/uuid"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/global"
 	"strconv"
 )
@@ -12,4 +13,9 @@ func SanitizeID(id string) (int64, error) {
 	}
 
 	return idSanitized, nil
+}
+
+func SanitizeUUID(id string) error {
+	_, err := uuid.Parse(id)
+	return err
 }
