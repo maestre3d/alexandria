@@ -3,7 +3,7 @@ To build a simple and comprehensible API, Alexandria crafted its API with help o
 
 In the following section, we define our API’s key concepts.
 
-|                         |                                      |
+| **Type**                |  **Name**                            |
 |-------------------------|:------------------------------------:|
 | **Product**             |  **Alexandria** API                  |
 | **Service**             |  alexandria.maestreapis.com          |
@@ -12,18 +12,6 @@ In the following section, we define our API’s key concepts.
 | **Source Directory**    |  //maestre/alexandria/v1             |
 | **API**                 |  alexandria                          |
 
-Product
-Alexandria API
-Service
-alexandria.maestreapis.com
-Package
-maestre.alexandria.v1
-Interface
-maestre.alexandria.v1.ServiceName
-Source Directory
-//maestre/alexandria/v1
-API
-alexandria
 
 “In resource-oriented APIs, resources are named entities, and resource names are their identifiers. Each resource must have its own unique resource name. A collection is a special kind of resource that contains a list of sub-resources of identical type. The resource ID for a collection is called collection ID.” (Google, 2020)
 
