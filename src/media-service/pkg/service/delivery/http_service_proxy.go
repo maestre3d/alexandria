@@ -39,24 +39,26 @@ func NewHTTPServiceProxy(logger util.ILogger, server *http.Server, handlers *Pro
 	}
 
 	// Start routing-mapping
-	service.mapBookRoutes()
+	service.mapMediaRoutes()
 
 	logger.Print("http proxy service started", "service.delivery")
 
 	return service
 }
 
-func (p *HTTPServiceProxy) mapBookRoutes() {
-	bookRouter := p.publicGroup.Group("/media")
+func (p *HTTPServiceProxy) mapMediaRoutes() {
+	mediaRouter := p.publicGroup.Group("/media")
 
-	bookRouter.POST("", p.proxyHandlers.MediaHandler.Create)
-	bookRouter.GET("", p.proxyHandlers.MediaHandler.List)
-	bookRouter.GET("/:media_id", p.proxyHandlers.MediaHandler.Get)
-	bookRouter.PATCH("/:media_id", p.proxyHandlers.MediaHandler.UpdateOne)
-	bookRouter.DELETE("/:media_id", p.proxyHandlers.MediaHandler.DeleteOne)
+	mediaRouter.GET("", p.proxyHandlers.MediaHandler.List)
+	mediaRouter.GET("/:media_id", p.proxyHandlers.MediaHandler.Get)
+
+	mediaRouter.POST("", p.proxyHandlers.MediaHandler.Create)
+	mediaRouter.PATCH("/:media_id", p.proxyHandlers.MediaHandler.UpdateOne)
+	mediaRouter.PUT("/:media_id", p.proxyHandlers.MediaHandler.UpdateOne)
+	mediaRouter.DELETE("/:media_id", p.proxyHandlers.MediaHandler.DeleteOne)
 }
 
-// InitHTTPPublicProxy Start HTTP Service's public proxy
+// newHTTPPublicProxy Start HTTP Service's public proxy
 func newHTTPPublicProxy(logger util.ILogger, engine *gin.Engine) *gin.RouterGroup {
 	publicGroup := engine.Group(global.PublicAPI)
 

@@ -5,6 +5,7 @@ import (
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/global"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
+	"strings"
 )
 
 type MediaUseCase struct {
@@ -29,6 +30,10 @@ func NewMediaUseCase(logger util.ILogger, repository domain.IMediaRepository) *M
 }
 
 func (m *MediaUseCase) Create(params *MediaParams) error {
+	if params == nil {
+		return global.EmptyBody
+	}
+
 	mediaParams := &domain.MediaEntityParams{
 		Title:       params.Title,
 		DisplayName: params.DisplayName,
@@ -44,6 +49,7 @@ func (m *MediaUseCase) Create(params *MediaParams) error {
 	}
 
 	// Check media's title uniqueness
+	// unique constraint by default is case sensitive, while our getByTitle func is not
 	existingMedia, err := m.GetByTitle(media.Title.Value)
 	if !errors.Is(err, global.EntityNotFound) {
 		return err
@@ -143,7 +149,7 @@ func (m *MediaUseCase) UpdateOne(params *MediaParams) error {
 	case params.Title != "":
 		media.Title = params.Title
 	case params.MediaType != "":
-		media.MediaType = params.MediaType
+		media.MediaType = strings.ToUpper(params.MediaType)
 	case params.DisplayName != "":
 		media.DisplayName = params.DisplayName
 	case params.Description != "":

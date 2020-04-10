@@ -21,7 +21,10 @@ func NewLogger() (*Logger, func(), error) {
 
 	rootLogger := &Logger{logger}
 
-	rootLogger.Print("logger started", "kernel.infrastructure.logging")
+	logger.Info("logger started",
+		zap.String("resource", "kernel.infrastructure.logging"),
+		zap.Duration("backoff", time.Second),
+	)
 
 	return rootLogger, cleanup, nil
 }
