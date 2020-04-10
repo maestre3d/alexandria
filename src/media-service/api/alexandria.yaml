@@ -1,0 +1,349 @@
+openapi: 3.0.0
+info:
+  version: 1.0.0
+  title: Alexandria API
+servers:
+  - url: 'http://localhost:8080/v1'
+paths:
+  /media:
+    get:
+      summary: 'List media resources'
+      operationId: listMedia
+      tags:
+        - media
+      parameters:
+        - name: page_token
+          in: query
+          description: Page token for pagination
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: page_size
+          in: query
+          description: Page size for pagination
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: 'List of media resources along with next_page_token for pagination'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaList'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Generic'
+    post:
+      summary: 'Create a media resource'
+      operationId: createMedia
+      tags:
+        - media
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                display_name:
+                  type: string
+                description:
+                  type: string
+                user_id:
+                  type: string
+                author_id:
+                  type: string
+                publish_date:
+                  type: string
+                media_type:
+                  type: string
+              required:
+                - title
+                - display_name
+                - user_id
+                - author_id
+                - publish_date
+                - media_type
+      responses:
+        '200':
+          description: 'Empty message if success'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Generic'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Generic'
+  /media/{media-id}:
+    get:
+      summary: 'Get media resource by ID/External ID'
+      operationId: getMedia
+      tags:
+        - media
+      parameters:
+        - name: media-id
+          in: path
+          description: ID/External ID of the media
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 'Media resource'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Generic'
+    patch:
+      summary: 'Update dynamically a media resource by ID/External ID'
+      operationId: updateMedia
+      tags:
+        - media
+      parameters:
+        - name: media-id
+          in: path
+          description: ID/External ID of the media
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                display_name:
+                  type: string
+                description:
+                  type: string
+                user_id:
+                  type: string
+                author_id:
+                  type: string
+                publish_date:
+                  type: string
+                media_type:
+                  type: string
+      responses:
+        '200':
+          description: 'Updated media source'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Generic'
+    put:
+      summary: 'Update atomically a media resource by ID/External ID'
+      operationId: updateAtomicMedia
+      tags:
+        - media
+      parameters:
+        - name: media-id
+          in: path
+          description: ID/External ID of the media
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                display_name:
+                  type: string
+                description:
+                  type: string
+                user_id:
+                  type: string
+                author_id:
+                  type: string
+                publish_date:
+                  type: string
+                media_type:
+                  type: string
+              required:
+                - title
+                - display_name
+                - user_id
+                - author_id
+                - publish_date
+                - media_type
+      responses:
+        '200':
+          description: 'Updated media source'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Generic'
+    delete:
+      summary: 'Delete a media resource by ID/External ID'
+      operationId: deleteMedia
+      tags:
+        - media
+      parameters:
+        - name: media-id
+          in: path
+          description: ID/External ID of the media
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 'Empty message if success'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Generic'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Generic'
+components:
+  schemas:
+    MediaList:
+      type: object
+      required:
+        - code
+        - media
+        - next_page_token
+      properties:
+        code:
+          type: integer
+          format: int32
+        media:
+          type: array
+          items:
+            type: object
+            properties:
+              media_id:
+                type: integer
+                format: int64
+              external_id:
+                type: string
+                format: uuid
+              title:
+                type: string
+              display_name:
+                type: string
+              description:
+                type: string
+                nullable: true
+              user_id:
+                type: string
+                format: uuid
+              author_id:
+                type: string
+                format: uuid
+              publish_date:
+                type: string
+              media_type:
+                type: string
+              create_time:
+                type: string
+              update_time:
+                type: string
+              delete_time:
+                type: string
+                nullable: true
+              metadata:
+                type: string
+                nullable: true
+              deleted:
+                type: boolean
+        next_page_token:
+          type: string
+    Media:
+      type: object
+      required:
+        - code
+        - media
+      properties:
+        code:
+          type: integer
+          format: int32
+        media:
+          type: object
+          properties:
+            media_id:
+              type: integer
+              format: int64
+            external_id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            display_name:
+              type: string
+            description:
+              type: string
+              nullable: true
+            user_id:
+              type: string
+              format: uuid
+            author_id:
+              type: string
+              format: uuid
+            publish_date:
+              type: string
+            media_type:
+              type: string
+            create_time:
+              type: string
+            update_time:
+              type: string
+            delete_time:
+              type: string
+              nullable: true
+            metadata:
+              type: string
+              nullable: true
+            deleted:
+              type: boolean
+    Generic:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
