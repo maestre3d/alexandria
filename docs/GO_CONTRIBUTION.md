@@ -18,6 +18,8 @@ Therefore, we use our own API architecture implementing a Proxy pattern to hide 
 
 The following HTTP Proxy Service architecture **should** be used whenever a new HTTP Service is required.
 
+![Alexandria HTTP Proxy Service architecture](https://raw.githubusercontent.com/maestre3d/alexandria/development/docs/Alexandria_http_service.png "Alexandria HTTP Proxy Service architecture")
+
 
 ## Concurrency
 We ensure concurrency is being managed in the right way using _oklog’s run_ package referenced in the [OpenCensus’ Go Kit integration guide](https://opencensus.io/integrations/go_kit/).
