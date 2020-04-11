@@ -8,7 +8,6 @@ import (
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
 	"go.uber.org/multierr"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -51,14 +50,12 @@ func (m *MediaHandler) Create(c *gin.Context) {
 			// Business exception
 			errs := multierr.Errors(err)
 			for _, err = range errs {
-				errString := strings.Split(err.Error(), ":")
-				if len(errString) > 1 {
-					c.JSON(http.StatusBadRequest, &gin.H{
-						"code":    http.StatusBadRequest,
-						"message": errString[1],
-					})
-					return
-				}
+				errDesc := strings.Split(err.Error(), ":")
+				c.JSON(http.StatusBadRequest, &gin.H{
+					"code":    http.StatusBadRequest,
+					"message": errDesc[len(errDesc)-1],
+				})
+				return
 			}
 
 			// Use case exception
@@ -154,12 +151,27 @@ func (m *MediaHandler) List(c *gin.Context) {
 
 	params := util.NewPaginationParams(pageTokenID, pageTokenUUID, pageSize)
 
-	medias, err := m.mediaUseCase.GetAll(params)
+	filterMap := util.FilterParams{
+		"query":     c.Query("search_query"),
+		"author":    c.Query("author"),
+		"user":      c.Query("user"),
+		"media":     c.Query("media_type"),
+		"timestamp": c.Query("timestamp"),
+	}
+
+	medias, err := m.mediaUseCase.GetAll(params, filterMap)
 	if err != nil {
 		if errors.Is(err, global.EntitiesNotFound) {
 			c.JSON(http.StatusNotFound, &gin.H{
 				"code":    http.StatusNotFound,
 				"message": err.Error(),
+			})
+			return
+		} else if errors.Is(err, global.InvalidFieldFormat) {
+			errDesc := strings.Split(err.Error(), ":")
+			c.JSON(http.StatusBadRequest, &gin.H{
+				"code":    http.StatusBadRequest,
+				"message": errDesc[len(errDesc)-1],
 			})
 			return
 		}
@@ -174,11 +186,13 @@ func (m *MediaHandler) List(c *gin.Context) {
 
 	nextPage := ""
 	if len(medias) >= int(params.Size) {
-		if params.TokenUUID != "" {
-			nextPage = medias[len(medias)-1].ExternalID
-		} else {
-			nextPage = strconv.Itoa(int(medias[len(medias)-1].MediaID))
-		}
+		/*
+			if params.TokenUUID != "" {
+				nextPage = medias[len(medias)-1].ExternalID
+			} else {
+				nextPage = strconv.Itoa(int(medias[len(medias)-1].MediaID))
+			}*/
+		nextPage = medias[len(medias)-1].ExternalID
 
 		medias = medias[0 : len(medias)-1]
 	}

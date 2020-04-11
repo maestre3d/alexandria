@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/lib/pq"
+	"strings"
 	"time"
 
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
@@ -50,7 +51,7 @@ func (m *MediaRDBMSRepository) Save(media *domain.MediaAggregate) error {
 	return err
 }
 
-func (m *MediaRDBMSRepository) Fetch(params *util.PaginationParams) ([]*domain.MediaAggregate, error) {
+func (m *MediaRDBMSRepository) Fetch(params *util.PaginationParams, filterMap util.FilterParams) ([]*domain.MediaAggregate, error) {
 	conn, err := m.db.Conn(m.ctx)
 	if err != nil {
 		return nil, err
@@ -69,27 +70,72 @@ func (m *MediaRDBMSRepository) Fetch(params *util.PaginationParams) ([]*domain.M
 	// Params.TokenID += 1 / last_item -> Params.TokenUUID = next_page_token
 
 	// index := util.GetIndex(params.Page, params.Limit)
-	var statement string
-	var rows *sql.Rows
+
+	// Dynamic query builder using Criteria pattern
+	// Add header
+	statement := `SELECT * FROM MEDIA WHERE `
 	params.Size += 1
 
-	if params.TokenUUID != "" {
-		statement = `SELECT * FROM MEDIA WHERE 
-            MEDIA_ID >= (SELECT MEDIA_ID FROM MEDIA WHERE EXTERNAL_ID = $1 AND DELETED = FALSE) 
-		  	AND DELETED = FALSE
-			ORDER BY UPDATE_TIME ASC
-			FETCH FIRST $2 ROWS ONLY;`
-
-		// AND UPDATE_TIME >= (SELECT UPDATE_TIME FROM MEDIA WHERE EXTERNAL_ID = $1 AND DELETED = FALSE)
-
-		rows, err = conn.QueryContext(m.ctx, statement, params.TokenUUID, params.Size)
-	} else {
-		// Using default ID
-		statement = fmt.Sprintf(`SELECT * FROM MEDIA WHERE MEDIA_ID >= %d AND DELETED = FALSE ORDER BY MEDIA_ID ASC FETCH FIRST %d ROWS ONLY`,
-			params.TokenID, params.Size)
-		rows, err = conn.QueryContext(m.ctx, statement)
+	// Criteria filtering
+	for filterKey, value := range filterMap {
+		switch {
+		case filterKey == "query" && value != "":
+			statement += AndCriteria(QueryCriteria(value))
+		case filterKey == "author" && value != "":
+			statement += AndCriteria(AuthorCriteria(value))
+		case filterKey == "user" && value != "":
+			statement += AndCriteria(PublisherCriteria(value))
+		case filterKey == "media" && value != "":
+			statement += AndCriteria(MediaTypeCriteria(value))
+		}
 	}
 
+	// Keyset setting
+	if params.TokenUUID != "" {
+		if strings.ToLower(filterMap["timestamp"]) == "true" {
+			statement += AndCriteria(fmt.Sprintf(`UPDATE_TIME <= (SELECT UPDATE_TIME FROM MEDIA WHERE EXTERNAL_ID = '%s' AND DELETED = FALSE)`,
+				params.TokenUUID))
+			// Add footer
+			statement += fmt.Sprintf(`DELETED = FALSE
+			ORDER BY UPDATE_TIME DESC
+			FETCH FIRST %d ROWS ONLY;`, params.Size)
+		} else {
+			statement += AndCriteria(fmt.Sprintf(`MEDIA_ID >= (SELECT MEDIA_ID FROM MEDIA WHERE EXTERNAL_ID = '%s' AND DELETED = FALSE)`,
+				params.TokenUUID))
+
+			// Add footer
+			statement += fmt.Sprintf(`DELETED = FALSE
+			ORDER BY MEDIA_ID ASC
+			FETCH FIRST %d ROWS ONLY;`, params.Size)
+		}
+	} else if params.TokenID > 0 {
+		// Using default ID
+		if filterMap["timestamp"] == "true" {
+			statement += AndCriteria(fmt.Sprintf(`UPDATE_TIME <= (SELECT UPDATE_TIME FROM MEDIA WHERE MEDIA_ID = %d AND DELETED = FALSE)`,
+				params.TokenID))
+
+			statement += fmt.Sprintf(`DELETED = FALSE
+			ORDER BY UPDATE_TIME DESC
+			FETCH FIRST %d ROWS ONLY;`, params.Size)
+		} else {
+			statement += AndCriteria(fmt.Sprintf(`MEDIA_ID >= %d`,
+				params.TokenID))
+
+			// Add footer
+			statement += fmt.Sprintf(`DELETED = FALSE
+			ORDER BY MEDIA_ID ASC
+			FETCH FIRST %d ROWS ONLY;`, params.Size)
+		}
+
+	} else {
+		// By timestamp
+		// Add footer
+		statement += fmt.Sprintf(`DELETED = FALSE
+			ORDER BY UPDATE_TIME DESC
+			FETCH FIRST %d ROWS ONLY;`, params.Size)
+	}
+
+	rows, err := conn.QueryContext(m.ctx, statement)
 	if rows != nil && rows.Err() != nil {
 		return nil, err
 	}

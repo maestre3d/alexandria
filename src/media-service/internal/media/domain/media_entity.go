@@ -15,10 +15,10 @@ type MediaEntity struct {
 	Title       title
 	DisplayName displayName
 	Description *description
-	UserID      userID
-	AuthorID    authorID
+	UserID      UserID
+	AuthorID    AuthorID
 	PublishDate time.Time
-	MediaType   mediaType
+	MediaType   MediaType
 	CreateTime  time.Time
 	UpdateTime  time.Time
 	DeleteTime  *time.Time
@@ -57,10 +57,10 @@ func NewMediaEntity(params *MediaEntityParams) (*MediaEntity, error) {
 		Title:       title{Value: params.Title},
 		DisplayName: displayName{Value: params.DisplayName},
 		Description: &description{Value: descriptionPointer},
-		UserID:      userID{Value: params.UserID},
-		AuthorID:    authorID{Value: params.AuthorID},
+		UserID:      UserID{Value: params.UserID},
+		AuthorID:    AuthorID{Value: params.AuthorID},
 		PublishDate: publishTime,
-		MediaType:   mediaType{Value: params.MediaType},
+		MediaType:   MediaType{Value: params.MediaType},
 		CreateTime:  time.Now(),
 		UpdateTime:  time.Now(),
 		DeleteTime:  nil,

@@ -84,8 +84,30 @@ func (m *MediaUseCase) GetByTitle(title string) (*domain.MediaAggregate, error) 
 	return m.repository.FetchByTitle(title)
 }
 
-func (m *MediaUseCase) GetAll(params *util.PaginationParams) ([]*domain.MediaAggregate, error) {
-	return m.repository.Fetch(params)
+func (m *MediaUseCase) GetAll(params *util.PaginationParams, filterMap util.FilterParams) ([]*domain.MediaAggregate, error) {
+	for filterKey, value := range filterMap {
+		switch {
+		case filterKey == "author" && value != "":
+			author := domain.AuthorID{value}
+			if err := author.IsValid(); err != nil {
+				return nil, err
+			}
+		case filterKey == "user" && value != "":
+			user := domain.UserID{value}
+			if err := user.IsValid(); err != nil {
+				return nil, err
+			}
+		case filterKey == "media" && value != "":
+			value = strings.ToUpper(value)
+			mediaType := domain.MediaType{value}
+
+			if err := mediaType.IsValid(); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return m.repository.Fetch(params, filterMap)
 }
 
 func (m *MediaUseCase) UpdateOneAtomic(params *MediaParams) error {

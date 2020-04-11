@@ -45,9 +45,7 @@ func NewPaginationParams(TokenIDString, TokenUUID, sizeString string) *Paginatio
 }
 
 func (p *PaginationParams) Sanitize() {
-	if p.TokenID <= 0 {
-		p.TokenID = 1
-	} else if p.Size > 100 {
+	if p.Size > 100 {
 		p.Size = 100
 	} else if p.Size <= 0 {
 		p.Size = 10

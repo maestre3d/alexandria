@@ -93,11 +93,11 @@ func (d *description) IsValid() error {
 }
 
 // UserID User External Unique Identifier
-type userID struct {
+type UserID struct {
 	Value string
 }
 
-func (u *userID) IsValid() error {
+func (u *UserID) IsValid() error {
 	if u.Value == "" {
 		return fmt.Errorf("%w:%s", global.RequiredField, fmt.Sprintf(global.RequiredFieldString, "user_id"))
 	}
@@ -111,11 +111,11 @@ func (u *userID) IsValid() error {
 }
 
 // AuthorID Author External Unique Identifier
-type authorID struct {
+type AuthorID struct {
 	Value string
 }
 
-func (a *authorID) IsValid() error {
+func (a *AuthorID) IsValid() error {
 	if a.Value == "" {
 		return fmt.Errorf("%w:%s", global.RequiredField, fmt.Sprintf(global.RequiredFieldString, "author_id"))
 	}
@@ -129,11 +129,11 @@ func (a *authorID) IsValid() error {
 }
 
 // MediaType Media resource type
-type mediaType struct {
+type MediaType struct {
 	Value string
 }
 
-func (m *mediaType) IsValid() error {
+func (m *MediaType) IsValid() error {
 	if m.Value == "" {
 		return fmt.Errorf("%w:%s", global.RequiredField, fmt.Sprintf(global.RequiredFieldString, "media_type"))
 	} else if m.Value != string(book) && m.Value != string(doc) && m.Value != string(podcast) && m.Value != string(video) {
