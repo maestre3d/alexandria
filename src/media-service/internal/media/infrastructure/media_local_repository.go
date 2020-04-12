@@ -22,7 +22,7 @@ func (m *MediaLocalRepository) Save(media *domain.MediaAggregate) error {
 	return nil
 }
 
-func (m *MediaLocalRepository) Fetch(params *util.PaginationParams) ([]*domain.MediaAggregate, error) {
+func (m *MediaLocalRepository) Fetch(params *util.PaginationParams, filterMap util.FilterParams) ([]*domain.MediaAggregate, error) {
 	if params == nil {
 		params = util.NewPaginationParams("1", "", "10")
 	} else {
@@ -60,14 +60,10 @@ func (m *MediaLocalRepository) Fetch(params *util.PaginationParams) ([]*domain.M
 	return queryResult, nil
 }
 
-func (m *MediaLocalRepository) FetchByID(id string) (*domain.MediaAggregate, error) {
-	idNew, err := util.SanitizeID(id)
-	if err != nil {
-		return nil, err
-	}
+func (m *MediaLocalRepository) FetchByID(id int64, externalID string) (*domain.MediaAggregate, error) {
 
 	for _, media := range m.tableDB {
-		if idNew == media.MediaID {
+		if id == media.MediaID {
 			return media, nil
 		}
 	}
@@ -85,14 +81,9 @@ func (m *MediaLocalRepository) FetchByTitle(title string) (*domain.MediaAggregat
 	return nil, global.EntityNotFound
 }
 
-func (m *MediaLocalRepository) UpdateOne(id string, mediaUpdated *domain.MediaAggregate) error {
-	idNew, err := util.SanitizeID(id)
-	if err != nil {
-		return err
-	}
-
+func (m *MediaLocalRepository) UpdateOne(id int64, externalID string, mediaUpdated *domain.MediaAggregate) error {
 	for _, media := range m.tableDB {
-		if idNew == media.MediaID {
+		if id == media.MediaID {
 			media = mediaUpdated
 			return nil
 		}
@@ -101,14 +92,9 @@ func (m *MediaLocalRepository) UpdateOne(id string, mediaUpdated *domain.MediaAg
 	return global.EntityNotFound
 }
 
-func (m *MediaLocalRepository) RemoveOne(id string) error {
-	idNew, err := util.SanitizeID(id)
-	if err != nil {
-		return err
-	}
-
+func (m *MediaLocalRepository) RemoveOne(id int64, externalID string) error {
 	for _, media := range m.tableDB {
-		if idNew == media.MediaID {
+		if id == media.MediaID {
 			m.tableDB = m.removeIndex(m.tableDB, int(media.MediaID)-1)
 			return nil
 		}

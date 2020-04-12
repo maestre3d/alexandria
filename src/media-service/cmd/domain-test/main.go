@@ -1,13 +1,13 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/application"
+	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/infrastructure"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/global"
+	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/logging"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/persistence"
 	"log"
 )
 
@@ -18,10 +18,7 @@ func main() {
 	}
 	defer cleanup()
 
-	db, cleanupPool, err := persistence.NewPostgresPool(context.Background(), logger)
-	defer cleanupPool()
-
-	repository := infrastructure.NewMediaRDBMSRepository(db, logger, context.Background())
+	repository := infrastructure.NewMediaLocalRepository(make([]*domain.MediaAggregate, 0), logger)
 	usecase := application.NewMediaUseCase(logger, repository)
 
 	params := &application.MediaParams{
@@ -35,7 +32,7 @@ func main() {
 		MediaType:   "media_book",
 	}
 
-	err = usecase.UpdateOnePatch(params)
+	err = usecase.Create(params)
 	if err != nil {
 		if errors.Is(err, global.EntityExists) {
 			log.Print("exists catch")
@@ -46,7 +43,7 @@ func main() {
 
 	log.Print("media created")
 
-	medias, err := usecase.GetAll(nil)
+	medias, err := usecase.GetAll(nil, util.FilterParams{})
 	if err != nil {
 		log.Print(err)
 		return
