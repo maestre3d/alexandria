@@ -32,12 +32,19 @@ func InitHTTPServiceProxy() (*delivery.HTTPServiceProxy, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	mediaRDBMSRepository := infrastructure.NewMediaRDBMSRepository(db, logger, context)
+	client, cleanup3, err := persistence.NewRedisPool(logger)
+	if err != nil {
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	mediaRDBMSRepository := infrastructure.NewMediaRDBMSRepository(db, client, logger, context)
 	mediaUseCase := application.NewMediaUseCase(logger, mediaRDBMSRepository)
 	mediaHandler := handler.NewMediaHandler(logger, mediaUseCase)
 	proxyHandlers := ProvideProxyHandlers(mediaHandler)
 	httpServiceProxy := delivery.NewHTTPServiceProxy(logger, server, proxyHandlers)
 	return httpServiceProxy, func() {
+		cleanup3()
 		cleanup2()
 		cleanup()
 	}, nil
@@ -52,8 +59,11 @@ var postgresPoolSet = wire.NewSet(
 	loggerSet, persistence.NewPostgresPool,
 )
 
+var redisPoolSet = wire.NewSet(persistence.NewRedisPool)
+
 var mediaRepository = wire.NewSet(
-	postgresPoolSet, infrastructure.NewMediaRDBMSRepository, wire.Bind(new(domain.IMediaRepository), new(*infrastructure.MediaRDBMSRepository)),
+	postgresPoolSet,
+	redisPoolSet, infrastructure.NewMediaRDBMSRepository, wire.Bind(new(domain.IMediaRepository), new(*infrastructure.MediaRDBMSRepository)),
 )
 
 var mediaUseCaseSet = wire.NewSet(

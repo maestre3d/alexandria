@@ -3,7 +3,9 @@ package infrastructure
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"github.com/go-redis/redis/v7"
 	"github.com/lib/pq"
 	"strings"
 	"time"
@@ -15,13 +17,15 @@ import (
 
 type MediaRDBMSRepository struct {
 	db     *sql.DB
+	mem    *redis.Client
 	logger util.ILogger
 	ctx    context.Context
 }
 
-func NewMediaRDBMSRepository(db *sql.DB, logger util.ILogger, ctx context.Context) *MediaRDBMSRepository {
+func NewMediaRDBMSRepository(db *sql.DB, mem *redis.Client, logger util.ILogger, ctx context.Context) *MediaRDBMSRepository {
 	return &MediaRDBMSRepository{
 		db,
+		mem,
 		logger,
 		ctx,
 	}
@@ -61,7 +65,7 @@ func (m *MediaRDBMSRepository) Fetch(params *util.PaginationParams, filterMap ut
 	}()
 
 	if params == nil {
-		params = util.NewPaginationParams("1", "", "10")
+		params = util.NewPaginationParams("0", "", "10")
 	}
 
 	// UPDATE: Now using keyset pagination along with page_tokens (ref. Google API Design)
@@ -177,7 +181,44 @@ func (m *MediaRDBMSRepository) FetchByID(id int64, external_id string) (*domain.
 		err = conn.Close()
 	}()
 
+	// Cache-aside pattern first
+	if m.mem != nil {
+		mediaChan := make(chan *domain.MediaAggregate)
+
+		go func() {
+			memConn := m.mem.Conn()
+			defer func() {
+				err := memConn.Close()
+				if err != nil {
+					mediaChan <- nil
+				}
+			}()
+
+			mediaMem, err := memConn.Get(fmt.Sprintf(`media:%s`, external_id)).Result()
+			if err == nil {
+				media := new(domain.MediaAggregate)
+				err = json.Unmarshal([]byte(mediaMem), media)
+				if err == nil {
+					mediaChan <- media
+				}
+
+				mediaChan <- nil
+			}
+			mediaChan <- nil
+		}()
+
+		select {
+		case media := <-mediaChan:
+			if media != nil {
+				return media, nil
+			}
+		}
+
+		close(mediaChan)
+	}
+
 	media := new(domain.MediaAggregate)
+
 	var row *sql.Row
 	if id > 0 {
 		statement := `SELECT * FROM MEDIA WHERE MEDIA_ID = $1 AND DELETED = FALSE`
@@ -201,6 +242,21 @@ func (m *MediaRDBMSRepository) FetchByID(id int64, external_id string) (*domain.
 		return nil, err
 	}
 
+	// Async Write-through pattern
+	if m.mem != nil {
+		go func() {
+			memConn := m.mem.Conn()
+			defer func() {
+				err = memConn.Close()
+			}()
+
+			mediaJSON, err := json.Marshal(media)
+			if err == nil {
+				err = memConn.Set(fmt.Sprintf(`media:%s`, media.ExternalID), mediaJSON, (time.Hour * time.Duration(24))).Err()
+			}
+		}()
+	}
+
 	return media, nil
 }
 
@@ -213,9 +269,49 @@ func (m *MediaRDBMSRepository) FetchByTitle(title string) (*domain.MediaAggregat
 		err = conn.Close()
 	}()
 
-	statement := `SELECT * FROM MEDIA WHERE LOWER(TITLE) = LOWER($1) AND DELETED = FALSE`
+	// Cache-aside pattern first
+	if m.mem != nil {
+		mediaChan := make(chan *domain.MediaAggregate)
+		go func() {
+			memConn := m.mem.Conn()
+			defer func() {
+				err := memConn.Close()
+				if err != nil {
+					mediaChan <- nil
+				}
+			}()
+			var cursor uint64
+
+			keys, _, err := memConn.Scan(cursor, title, 1).Result()
+			if err == nil {
+				for _, key := range keys {
+					media := new(domain.MediaAggregate)
+					err = json.Unmarshal([]byte(key), media)
+					if err == nil {
+						mediaChan <- media
+						break
+					}
+				}
+
+				mediaChan <- nil
+			}
+
+			mediaChan <- nil
+		}()
+
+		select {
+		case media := <-mediaChan:
+			if media != nil {
+				return media, nil
+			}
+		}
+
+		close(mediaChan)
+	}
 
 	media := new(domain.MediaAggregate)
+	statement := `SELECT * FROM MEDIA WHERE LOWER(TITLE) = LOWER($1) AND DELETED = FALSE`
+
 	row := conn.QueryRowContext(m.ctx, statement, title)
 	if row == nil {
 		return nil, fmt.Errorf("%w", global.EntityNotFound)
@@ -229,6 +325,20 @@ func (m *MediaRDBMSRepository) FetchByTitle(title string) (*domain.MediaAggregat
 		}
 
 		return nil, err
+	}
+
+	// Async Write-through pattern
+	if m.mem != nil {
+		go func() {
+			memConn := m.mem.Conn()
+			defer func() {
+				err = memConn.Close()
+			}()
+			mediaJSON, err := json.Marshal(media)
+			if err == nil {
+				err = memConn.Set(fmt.Sprintf(`media:%s`, media.ExternalID), mediaJSON, (time.Hour * time.Duration(24))).Err()
+			}
+		}()
 	}
 
 	return media, nil
@@ -265,7 +375,29 @@ func (m *MediaRDBMSRepository) UpdateOne(id int64, external_id string, mediaUpda
 		}
 	}
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Async Write-through pattern
+	if m.mem != nil {
+		go func() {
+			memConn := m.mem.Conn()
+			defer func() {
+				err = memConn.Close()
+			}()
+
+			err := memConn.Get(fmt.Sprintf(`media:%s`, external_id)).Err()
+			if err == nil {
+				mediaJSON, err := json.Marshal(mediaUpdated)
+				if err == nil {
+					err = memConn.Set(fmt.Sprintf(`media:%s`, external_id), mediaJSON, (time.Hour * time.Duration(24))).Err()
+				}
+			}
+		}()
+	}
+
+	return nil
 }
 
 func (m *MediaRDBMSRepository) RemoveOne(id int64, external_id string) error {
@@ -287,5 +419,24 @@ func (m *MediaRDBMSRepository) RemoveOne(id int64, external_id string) error {
 		_, err = conn.ExecContext(m.ctx, statement, external_id)
 	}
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Async Write-through pattern
+	if m.mem != nil {
+		go func() {
+			memConn := m.mem.Conn()
+			defer func() {
+				err = memConn.Close()
+			}()
+
+			err := memConn.Get(fmt.Sprintf(`media:%s`, external_id)).Err()
+			if err == nil {
+				err = memConn.Del(fmt.Sprintf(`media:%s`, external_id)).Err()
+			}
+		}()
+	}
+
+	return nil
 }
