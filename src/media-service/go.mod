@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/gin-gonic/gin v1.6.2
-	github.com/go-redis/redis/v7 v7.2.0 // indirect
+	github.com/go-redis/redis/v7 v7.2.0
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/lib/pq v1.1.1

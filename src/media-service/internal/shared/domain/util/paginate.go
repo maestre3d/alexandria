@@ -22,7 +22,7 @@ func NewPaginationParams(TokenIDString, TokenUUID, sizeString string) *Paginatio
 			pageTokenID = 1
 		}
 	} else {
-		pageTokenID = 1
+		pageTokenID = 0
 	}
 
 	if sizeString != "" {

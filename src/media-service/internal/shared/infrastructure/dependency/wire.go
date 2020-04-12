@@ -24,8 +24,12 @@ var postgresPoolSet = wire.NewSet(
 	loggerSet,
 	persistence.NewPostgresPool,
 )
+var redisPoolSet = wire.NewSet(
+	persistence.NewRedisPool,
+)
 var mediaRepository = wire.NewSet(
 	postgresPoolSet,
+	redisPoolSet,
 	infrastructure.NewMediaRDBMSRepository,
 	wire.Bind(new(domain.IMediaRepository), new(*infrastructure.MediaRDBMSRepository)),
 )
