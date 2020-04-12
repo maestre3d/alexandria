@@ -17,5 +17,9 @@ func SanitizeID(id string) (int64, error) {
 
 func SanitizeUUID(id string) error {
 	_, err := uuid.Parse(id)
-	return err
+	if err != nil {
+		return global.InvalidID
+	}
+
+	return nil
 }
