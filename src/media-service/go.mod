@@ -10,6 +10,7 @@ require (
 	github.com/lib/pq v1.1.1
 	github.com/oklog/run v1.1.0
 	github.com/sony/gobreaker v0.4.1 // indirect
+	github.com/spf13/viper v1.6.3
 	github.com/stretchr/testify v1.5.1
 	go.uber.org/multierr v1.5.0
 	go.uber.org/zap v1.14.1

@@ -3,15 +3,16 @@ package persistence
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
+	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/config"
 )
 
-func NewRedisPool(logger util.ILogger) (*redis.Client, func(), error) {
+func NewRedisPool(logger util.ILogger, cfg *config.KernelConfig) (*redis.Client, func(), error) {
 	client := redis.NewClient(&redis.Options{
 		Network:            "",
-		Addr:               "localhost:6379",
+		Addr:               cfg.MainMemHost,
 		Dialer:             nil,
 		OnConnect:          nil,
-		Password:           "",
+		Password:           cfg.MainMemPassword,
 		DB:                 0,
 		MaxRetries:         0,
 		MinRetryBackoff:    0,

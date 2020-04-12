@@ -12,6 +12,7 @@ import (
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/infrastructure"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
+	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/config"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/logging"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/persistence"
 	"github.com/maestre3d/alexandria/src/media-service/pkg/service/delivery"
@@ -25,14 +26,15 @@ func InitHTTPServiceProxy() (*delivery.HTTPServiceProxy, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	server := delivery.NewHTTPServer(logger)
 	context := ProvideContext()
-	db, cleanup2, err := persistence.NewPostgresPool(context, logger)
+	kernelConfig := config.NewKernelConfig(context, logger)
+	server := delivery.NewHTTPServer(logger, kernelConfig)
+	db, cleanup2, err := persistence.NewPostgresPool(context, logger, kernelConfig)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	client, cleanup3, err := persistence.NewRedisPool(logger)
+	client, cleanup3, err := persistence.NewRedisPool(logger, kernelConfig)
 	if err != nil {
 		cleanup2()
 		cleanup()
@@ -54,20 +56,24 @@ func InitHTTPServiceProxy() (*delivery.HTTPServiceProxy, func(), error) {
 
 var loggerSet = wire.NewSet(logging.NewLogger, wire.Bind(new(util.ILogger), new(*logging.Logger)))
 
-var postgresPoolSet = wire.NewSet(
+var configSet = wire.NewSet(
 	ProvideContext,
-	loggerSet, persistence.NewPostgresPool,
+	loggerSet, config.NewKernelConfig,
+)
+
+var postgresPoolSet = wire.NewSet(
+	configSet, persistence.NewPostgresPool,
 )
 
 var redisPoolSet = wire.NewSet(persistence.NewRedisPool)
 
-var mediaRepository = wire.NewSet(
+var mediaRepositorySet = wire.NewSet(
 	postgresPoolSet,
 	redisPoolSet, infrastructure.NewMediaRDBMSRepository, wire.Bind(new(domain.IMediaRepository), new(*infrastructure.MediaRDBMSRepository)),
 )
 
 var mediaUseCaseSet = wire.NewSet(
-	mediaRepository, application.NewMediaUseCase,
+	mediaRepositorySet, application.NewMediaUseCase,
 )
 
 var mediaHandlerSet = wire.NewSet(

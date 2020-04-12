@@ -3,17 +3,18 @@ package delivery
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
+	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/config"
 	"net/http"
 	"time"
 )
 
-func NewHTTPServer(logger util.ILogger) *http.Server {
+func NewHTTPServer(logger util.ILogger, cfg *config.KernelConfig) *http.Server {
 	gin.SetMode("release")
 	engine := gin.Default()
 	logger.Print("http server created", "service.delivery")
 
 	return &http.Server{
-		Addr:              ":8080",
+		Addr:              cfg.HTTPPort,
 		Handler:           engine,
 		TLSConfig:         nil,
 		ReadTimeout:       15 * time.Second,

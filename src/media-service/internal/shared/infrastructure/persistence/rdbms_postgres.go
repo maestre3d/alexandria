@@ -3,13 +3,14 @@ package persistence
 import (
 	"context"
 	"database/sql"
+	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/config"
 
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
 	"gocloud.dev/postgres"
 )
 
-func NewPostgresPool(ctx context.Context, logger util.ILogger) (*sql.DB, func(), error) {
-	db, err := postgres.Open(ctx, "postgres://postgres:root@localhost/alexandria-media?sslmode=disable")
+func NewPostgresPool(ctx context.Context, logger util.ILogger, cfg *config.KernelConfig) (*sql.DB, func(), error) {
+	db, err := postgres.Open(ctx, cfg.MainDBMSURL)
 	if err != nil {
 		return nil, nil, err
 	}

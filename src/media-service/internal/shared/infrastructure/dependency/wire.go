@@ -9,6 +9,7 @@ import (
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
 	"github.com/maestre3d/alexandria/src/media-service/internal/media/infrastructure"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
+	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/config"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/logging"
 	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/persistence"
 	"github.com/maestre3d/alexandria/src/media-service/pkg/service/delivery"
@@ -19,22 +20,26 @@ var loggerSet = wire.NewSet(
 	logging.NewLogger,
 	wire.Bind(new(util.ILogger), new(*logging.Logger)),
 )
-var postgresPoolSet = wire.NewSet(
+var configSet = wire.NewSet(
 	ProvideContext,
 	loggerSet,
+	config.NewKernelConfig,
+)
+var postgresPoolSet = wire.NewSet(
+	configSet,
 	persistence.NewPostgresPool,
 )
 var redisPoolSet = wire.NewSet(
 	persistence.NewRedisPool,
 )
-var mediaRepository = wire.NewSet(
+var mediaRepositorySet = wire.NewSet(
 	postgresPoolSet,
 	redisPoolSet,
 	infrastructure.NewMediaRDBMSRepository,
 	wire.Bind(new(domain.IMediaRepository), new(*infrastructure.MediaRDBMSRepository)),
 )
 var mediaUseCaseSet = wire.NewSet(
-	mediaRepository,
+	mediaRepositorySet,
 	application.NewMediaUseCase,
 )
 var mediaHandlerSet = wire.NewSet(
@@ -62,6 +67,7 @@ func ProvideProxyHandlers(media *handler.MediaHandler) *delivery.ProxyHandlers {
 }
 
 func InitHTTPServiceProxy() (*delivery.HTTPServiceProxy, func(), error) {
+
 	wire.Build(wire.NewSet(
 		proxyHandlersSet,
 		delivery.NewHTTPServer,
