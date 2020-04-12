@@ -89,6 +89,7 @@ The following specified packages **must** be used for every new service written.
 - Uber Zap - Logger
 - Go Cloud Development Kit (CDK) - Generic kit containing database, pub/sub, document, blob, 
 secrets and runtime configuration tools
+- Stretchr testify - Unit Testing lib
 
 _**Optional**_
 - Go Kit - Microservices tool kit
