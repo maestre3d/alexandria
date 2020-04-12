@@ -17,6 +17,13 @@ func NewMediaLocalRepository(table []*domain.MediaAggregate, logger util.ILogger
 }
 
 func (m *MediaLocalRepository) Save(media *domain.MediaAggregate) error {
+	for _, mediaStored := range m.tableDB {
+		if mediaStored.ExternalID == media.ExternalID || mediaStored.MediaID == media.MediaID ||
+			strings.ToUpper(mediaStored.Title) == strings.ToUpper(media.Title) {
+			return global.EntityExists
+		}
+	}
+
 	media.MediaID = int64(len(m.tableDB)) + 1
 	m.tableDB = append(m.tableDB, media)
 	return nil
@@ -52,6 +59,10 @@ func (m *MediaLocalRepository) Fetch(params *util.PaginationParams, filterMap ut
 		params.Size = int32(len(m.tableDB))
 	}
 
+	if params.TokenID < 0 {
+		params.TokenID = 0
+	}
+
 	queryResult := m.tableDB[int(params.TokenID):params.Size]
 	if len(queryResult) == 0 {
 		return nil, global.EntitiesNotFound
@@ -63,7 +74,10 @@ func (m *MediaLocalRepository) Fetch(params *util.PaginationParams, filterMap ut
 func (m *MediaLocalRepository) FetchByID(id int64, externalID string) (*domain.MediaAggregate, error) {
 
 	for _, media := range m.tableDB {
-		if id == media.MediaID {
+		// Prefer external ID instead int64 ID
+		if externalID == media.ExternalID {
+			return media, nil
+		} else if id == media.MediaID {
 			return media, nil
 		}
 	}
@@ -83,7 +97,11 @@ func (m *MediaLocalRepository) FetchByTitle(title string) (*domain.MediaAggregat
 
 func (m *MediaLocalRepository) UpdateOne(id int64, externalID string, mediaUpdated *domain.MediaAggregate) error {
 	for _, media := range m.tableDB {
-		if id == media.MediaID {
+		// Prefer external ID instead int64 ID
+		if externalID == media.ExternalID {
+			media = mediaUpdated
+			return nil
+		} else if id == media.MediaID {
 			media = mediaUpdated
 			return nil
 		}
@@ -94,7 +112,11 @@ func (m *MediaLocalRepository) UpdateOne(id int64, externalID string, mediaUpdat
 
 func (m *MediaLocalRepository) RemoveOne(id int64, externalID string) error {
 	for _, media := range m.tableDB {
-		if id == media.MediaID {
+		// Prefer external ID instead int64 ID
+		if externalID == media.ExternalID {
+			m.tableDB = m.removeIndex(m.tableDB, int(media.MediaID)-1)
+			return nil
+		} else if id == media.MediaID {
 			m.tableDB = m.removeIndex(m.tableDB, int(media.MediaID)-1)
 			return nil
 		}
