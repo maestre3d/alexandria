@@ -3,9 +3,9 @@ package handler
 import (
 	"errors"
 	"github.com/gin-gonic/gin"
-	"github.com/maestre3d/alexandria/src/media-service/internal/media/application"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/global"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
+	"github.com/maestre3d/alexandria/media-service/internal/media/application"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/global"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
 	"go.uber.org/multierr"
 	"net/http"
 	"strings"

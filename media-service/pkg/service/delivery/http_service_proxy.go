@@ -2,9 +2,9 @@ package delivery
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/global"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/src/media-service/pkg/service/delivery/handler"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/global"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
+	"github.com/maestre3d/alexandria/media-service/pkg/service/delivery/handler"
 	"net/http"
 )
 

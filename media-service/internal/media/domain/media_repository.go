@@ -1,6 +1,6 @@
 package domain
 
-import "github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
+import "github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
 
 type IMediaRepository interface {
 	Save(book *MediaAggregate) error

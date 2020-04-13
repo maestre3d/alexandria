@@ -1,4 +1,4 @@
-module github.com/maestre3d/alexandria/src/media-service
+module github.com/maestre3d/alexandria/media-service
 
 go 1.13
 

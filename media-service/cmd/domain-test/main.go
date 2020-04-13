@@ -2,12 +2,12 @@ package main
 
 import (
 	"errors"
-	"github.com/maestre3d/alexandria/src/media-service/internal/media/application"
-	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
-	"github.com/maestre3d/alexandria/src/media-service/internal/media/infrastructure"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/global"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/logging"
+	"github.com/maestre3d/alexandria/media-service/internal/media/application"
+	"github.com/maestre3d/alexandria/media-service/internal/media/domain"
+	"github.com/maestre3d/alexandria/media-service/internal/media/infrastructure"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/global"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/logging"
 	"log"
 )
 

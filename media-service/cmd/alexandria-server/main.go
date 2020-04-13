@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/dependency"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/dependency"
 	"github.com/oklog/run"
 	"net"
 	"net/http"

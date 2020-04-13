@@ -2,7 +2,7 @@ package util
 
 import (
 	"github.com/google/uuid"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/global"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/global"
 	"strconv"
 )
 

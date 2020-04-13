@@ -8,15 +8,15 @@ package dependency
 import (
 	"context"
 	"github.com/google/wire"
-	"github.com/maestre3d/alexandria/src/media-service/internal/media/application"
-	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
-	"github.com/maestre3d/alexandria/src/media-service/internal/media/infrastructure"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/config"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/logging"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/persistence"
-	"github.com/maestre3d/alexandria/src/media-service/pkg/service/delivery"
-	"github.com/maestre3d/alexandria/src/media-service/pkg/service/delivery/handler"
+	"github.com/maestre3d/alexandria/media-service/internal/media/application"
+	"github.com/maestre3d/alexandria/media-service/internal/media/domain"
+	"github.com/maestre3d/alexandria/media-service/internal/media/infrastructure"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/config"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/logging"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/persistence"
+	"github.com/maestre3d/alexandria/media-service/pkg/service/delivery"
+	"github.com/maestre3d/alexandria/media-service/pkg/service/delivery/handler"
 )
 
 // Injectors from wire.go:

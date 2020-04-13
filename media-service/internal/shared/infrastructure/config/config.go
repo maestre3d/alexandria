@@ -2,7 +2,7 @@ package config
 
 import (
 	"context"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
 	"github.com/spf13/viper"
 	"gocloud.dev/runtimevar"
 )

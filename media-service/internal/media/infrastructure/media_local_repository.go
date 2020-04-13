@@ -1,9 +1,9 @@
 package infrastructure
 
 import (
-	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/global"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
+	"github.com/maestre3d/alexandria/media-service/internal/media/domain"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/global"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
 	"strings"
 )
 

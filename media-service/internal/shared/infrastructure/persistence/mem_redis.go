@@ -2,8 +2,8 @@ package persistence
 
 import (
 	"github.com/go-redis/redis/v7"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/config"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/config"
 )
 
 func NewRedisPool(logger util.ILogger, cfg *config.KernelConfig) (*redis.Client, func(), error) {
