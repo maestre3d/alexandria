@@ -3,9 +3,9 @@ alexandria:
     version: 1.0.0
   persistence:
     dbms:
-      url: "postgres://postgres:root@localhost/alexandria-media?sslmode=disable"
+      url: "postgres://postgres:root@postgres:5432/alexandria-media?sslmode=disable"
     mem:
-      host: "localhost:6379"
+      host: "redis:6379"
       password: ""
   service:
     delivery:

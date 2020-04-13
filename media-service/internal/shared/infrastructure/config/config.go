@@ -22,10 +22,11 @@ func NewKernelConfig(ctx context.Context, logger util.ILogger) *KernelConfig {
 	// Init config
 	viper.SetConfigName("alexandria-config")
 	viper.SetConfigType("yaml")
+	viper.AddConfigPath("./config/")
 	viper.AddConfigPath("/etc/alexandria/")
 	viper.AddConfigPath("$HOME/.alexandria")
 	viper.AddConfigPath(".")
-	viper.AddConfigPath("./config/")
+
 
 	// Set default
 	viper.SetDefault("alexandria.persistence.dbms.url", "postgres://postgres:root@localhost/alexandria-media?sslmode=disable")
