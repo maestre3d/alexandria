@@ -1,7 +1,7 @@
 package infrastructure
 
 func QueryCriteriaSQL(query string) string {
-	if query != "" {
+	if query == "" {
 		return ""
 	}
 	return `(LOWER(FIRST_NAME) LIKE LOWER('%` + query + `%') OR LOWER(LAST_NAME) LIKE LOWER('%` + query + `%') 

@@ -3,9 +3,9 @@ package main
 import (
 	"errors"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/exception"
+	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/util"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/dependency"
 	"log"
-	"strings"
 )
 
 func main() {
@@ -15,7 +15,7 @@ func main() {
 		panic(err)
 	}
 	defer cleanup()
-
+	/*
 	authorCreated, err := authorService.Create("Joel", "Coen", "Joel Coen", "1975-06-30")
 	if err != nil {
 		if errors.Is(err, exception.RequiredField) || errors.Is(err, exception.InvalidFieldRange) || errors.Is(err, exception.InvalidFieldFormat) {
@@ -35,6 +35,7 @@ func main() {
 	}
 
 	log.Printf("%v", authorCreated)
+	*/
 
 	authorGet, err := authorService.Get("2590a2c6-7692-4e09-92c8-427f8e3824cf")
 	if err != nil {
@@ -55,7 +56,12 @@ func main() {
 
 	log.Printf("%v", authorGet)
 
-	authors, err := authorService.List("", "0", nil)
+
+	filterParams := util.FilterParams{
+		"query":"Ethan",
+	}
+
+	authors, err := authorService.List("", "0", filterParams)
 	if err != nil {
 		log.Print(err)
 		return

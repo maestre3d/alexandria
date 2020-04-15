@@ -135,6 +135,7 @@ func (r *AuthorDBMSRepository) Fetch(params *util.PaginationParams, filterParams
 	}
 
 	statement := `SELECT * FROM AUTHOR WHERE `
+	params.Size += 1
 
 	// Criteria map filter -> Query Builder
 	for filterType, value := range filterParams {
