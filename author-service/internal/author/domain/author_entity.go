@@ -18,6 +18,7 @@ type AuthorEntity struct {
 	CreateTime time.Time `json:"create_time"`
 	UpdateTime time.Time `json:"update_time"`
 	DeleteTime *time.Time `json:"-"`
+	Metadata *string `json:"-"`
 	Deleted bool `json:"-"`
 }
 
@@ -33,27 +34,28 @@ func NewAuthorEntity(firstName, lastName, displayName string, birth time.Time) *
 		CreateTime: time.Now(),
 		UpdateTime: time.Now(),
 		DeleteTime: nil,
+		Metadata: nil,
 		Deleted:    false,
 	}
 }
 
 func (e *AuthorEntity) IsValid() error {
-	if len(e.FirstName) > 255 {
-		return fmt.Errorf("%w:%s", exception.InvalidFieldRange, fmt.Sprintf(exception.InvalidFieldRangeString, "first_name", "1", "255"))
-	} else if len(e.FirstName) == 0 {
+    if len(e.FirstName) == 0 {
 		return fmt.Errorf("%w:%s", exception.RequiredField, fmt.Sprintf(exception.RequiredFieldString, "first_name"))
+	} else if len(e.FirstName) > 255 {
+		return fmt.Errorf("%w:%s", exception.InvalidFieldRange, fmt.Sprintf(exception.InvalidFieldRangeString, "first_name", "1", "255"))
 	}
 
-	if len(e.LastName) > 255 {
-		return fmt.Errorf("%w:%s", exception.InvalidFieldRange, fmt.Sprintf(exception.InvalidFieldRangeString, "last_name", "1", "255"))
-	} else if len(e.LastName) == 0 {
+	if len(e.LastName) == 0 {
 		return fmt.Errorf("%w:%s", exception.RequiredField, fmt.Sprintf(exception.RequiredFieldString, "last_name"))
+	} else if len(e.LastName) > 255 {
+		return fmt.Errorf("%w:%s", exception.InvalidFieldRange, fmt.Sprintf(exception.InvalidFieldRangeString, "last_name", "1", "255"))
 	}
 
-	if len(e.DisplayName) > 255 {
-		return fmt.Errorf("%w:%s", exception.InvalidFieldRange, fmt.Sprintf(exception.InvalidFieldRangeString, "display_name", "1", "255"))
-	} else if len(e.LastName) == 0 {
+	if len(e.DisplayName) == 0 {
 		return fmt.Errorf("%w:%s", exception.RequiredField, fmt.Sprintf(exception.RequiredFieldString, "display_name"))
+	} else if len(e.DisplayName) > 255 {
+		return fmt.Errorf("%w:%s", exception.InvalidFieldRange, fmt.Sprintf(exception.InvalidFieldRangeString, "display_name", "1", "255"))
 	}
 
 	return nil

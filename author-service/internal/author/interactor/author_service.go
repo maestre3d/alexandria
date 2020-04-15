@@ -10,19 +10,19 @@ import (
 	"time"
 )
 
-// AuthorUseCase Author interact actions
-type AuthorUseCase struct {
+// AuthorService Author interact actions
+type AuthorService struct {
 	log util.ILogger
 	repository domain.IAuthorRepository
 }
 
-// NewAuthorUseCase Create a new author interact
-func NewAuthorUseCase(logger util.ILogger, repository domain.IAuthorRepository) *AuthorUseCase {
-	return &AuthorUseCase{logger, repository}
+// NewAuthorService Create a new author interact
+func NewAuthorService(logger util.ILogger, repository domain.IAuthorRepository) *AuthorService {
+	return &AuthorService{logger, repository}
 }
 
 // Create Store a new entity
-func (u *AuthorUseCase) Create(firstName, LastName, displayName, birthDate string) (*domain.AuthorEntity, error) {
+func (s *AuthorService) Create(firstName, LastName, displayName, birthDate string) (*domain.AuthorEntity, error) {
 	// Validate
 	birth, err := time.Parse(global.RFC3339Micro, birthDate)
 	if err != nil {
@@ -36,7 +36,7 @@ func (u *AuthorUseCase) Create(firstName, LastName, displayName, birthDate strin
 		return nil, err
 	}
 
-	err = u.repository.Save(author)
+	err = s.repository.Save(author)
 	if err != nil {
 		return nil, err
 	}
@@ -48,24 +48,24 @@ func (u *AuthorUseCase) Create(firstName, LastName, displayName, birthDate strin
 }
 
 // List Get an author's list
-func (u *AuthorUseCase) List(pageToken, pageSize string, filterParams util.FilterParams) ([]*domain.AuthorEntity, error) {
-	return u.repository.Fetch(util.NewPaginationParams(pageToken, pageSize), filterParams)
+func (s *AuthorService) List(pageToken, pageSize string, filterParams util.FilterParams) ([]*domain.AuthorEntity, error) {
+	return s.repository.Fetch(util.NewPaginationParams(pageToken, pageSize), filterParams)
 }
 
 // Get Obtain one author
-func (u *AuthorUseCase) Get(id string) (*domain.AuthorEntity, error) {
+func (s *AuthorService) Get(id string) (*domain.AuthorEntity, error) {
 	_, err := uuid.Parse(id)
 	if err != nil {
 		return nil, exception.InvalidID
 	}
 
-	return u.repository.FetchOne(id)
+	return s.repository.FetchOne(id)
 }
 
 // Update Update an author dynamically (like HTTP's PATCH)
-func (u *AuthorUseCase) Update(id, firstName, LastName, displayName, birthDate string) (*domain.AuthorEntity, error) {
+func (s *AuthorService) Update(id, firstName, LastName, displayName, birthDate string) (*domain.AuthorEntity, error) {
 	// Get previous version
-	author, err := u.Get(id)
+	author, err := s.Get(id)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (u *AuthorUseCase) Update(id, firstName, LastName, displayName, birthDate s
 		return nil, err
 	}
 
-	err = u.repository.Update(author)
+	err = s.repository.Update(author)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (u *AuthorUseCase) Update(id, firstName, LastName, displayName, birthDate s
 }
 
 // Delete Remove an author from the store
-func (u *AuthorUseCase) Delete(id string) error {
+func (s *AuthorService) Delete(id string) error {
 	_, err := uuid.Parse(id)
 	if err != nil {
 		return exception.InvalidID
@@ -112,6 +112,6 @@ func (u *AuthorUseCase) Delete(id string) error {
 	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
 	// TODO: Fire up "alexandria.author.deleted" domain event
 
-	return u.repository.Remove(id)
+	return s.repository.Remove(id)
 }
 

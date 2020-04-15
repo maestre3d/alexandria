@@ -37,9 +37,9 @@ func (r *AuthorDBMSRepository) Save(author *domain.AuthorEntity) error {
 		err = conn.Close()
 	}()
 
-	statement := `INSERT INTO AUTHOR(EXTERNAL_ID, FIRST_NAME, LAST_NAME, BIRTH_DATE) VALUES ($1, $2, $3, $4)`
+	statement := `INSERT INTO AUTHOR(EXTERNAL_ID, FIRST_NAME, LAST_NAME, DISPLAY_NAME, BIRTH_DATE) VALUES ($1, $2, $3, $4, $5)`
 
-	_, err = conn.ExecContext(r.ctx, statement, author.ExternalID, author.FirstName, author.LastName, author.BirthDate)
+	_, err = conn.ExecContext(r.ctx, statement, author.ExternalID, author.FirstName, author.LastName, author.DisplayName, author.BirthDate)
 	if customErr, ok := err.(*pq.Error); ok {
 		if customErr.Code == "23505" {
 			return exception.EntityExists
@@ -109,7 +109,7 @@ func (r *AuthorDBMSRepository) FetchOne(id string) (*domain.AuthorEntity, error)
 	author := new(domain.AuthorEntity)
 	err = conn.QueryRowContext(r.ctx, statement, id).Scan(&author.AuthorID, &author.ExternalID, &author.FirstName,
 		&author.LastName, &author.DisplayName, &author.BirthDate, &author.CreateTime, &author.UpdateTime, &author.DeleteTime,
-		&author.Deleted)
+		&author.Metadata, &author.Deleted)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -134,7 +134,7 @@ func (r *AuthorDBMSRepository) Fetch(params *util.PaginationParams, filterParams
 		params = util.NewPaginationParams("", "0")
 	}
 
-	statement := `SELECT * FROM AUTHOR WHERE DELETED = FALSE AND `
+	statement := `SELECT * FROM AUTHOR WHERE `
 
 	// Criteria map filter -> Query Builder
 	for filterType, value := range filterParams {
@@ -148,18 +148,18 @@ func (r *AuthorDBMSRepository) Fetch(params *util.PaginationParams, filterParams
 	if params.Token != "" {
 			if filterParams["timestamp"] == "true" {
 				// Most recent
-				statement += fmt.Sprintf(`UPDATE_TIME <= (SELECT UPDATE_TIME FROM AUTHOR WHERE EXTERNAL_ID = %s AND DELETED = FALSE)`,
-					params.Token)
-				statement += fmt.Sprintf(`ORDER BY UPDATE_TIME DESC FETCH FIRST %d ROWS ONLY`, params.Size)
+				statement += AndCriteriaSQL(fmt.Sprintf(`UPDATE_TIME <= (SELECT UPDATE_TIME FROM AUTHOR WHERE EXTERNAL_ID = %s AND DELETED = FALSE)`,
+					params.Token))
+				statement += fmt.Sprintf(`DELETED = FALSE ORDER BY UPDATE_TIME DESC FETCH FIRST %d ROWS ONLY`, params.Size)
 			} else {
 				// By ID
-				statement += fmt.Sprintf(`AUTHOR_ID >= (SELECT AUTHOR_ID FROM AUTHOR WHERE EXTERNAL_ID = %s AND DELETED = FALSE)`,
-					params.Token)
-				statement += fmt.Sprintf(`ORDER BY AUTHOR_ID ASC FETCH FIRST %d ROWS ONLY`, params.Size)
+				statement += AndCriteriaSQL(fmt.Sprintf(`AUTHOR_ID >= (SELECT AUTHOR_ID FROM AUTHOR WHERE EXTERNAL_ID = %s AND DELETED = FALSE)`,
+					params.Token))
+				statement += fmt.Sprintf(`DELETED = FALSE ORDER BY AUTHOR_ID ASC FETCH FIRST %d ROWS ONLY`, params.Size)
 			}
 	} else {
 		// Timestamp is used by default
-		statement += fmt.Sprintf(`ORDER BY UPDATE_TIME DESC FETCH FIRST %d ROWS ONLY`, params.Size)
+		statement += fmt.Sprintf(`DELETED = FALSE ORDER BY UPDATE_TIME DESC FETCH FIRST %d ROWS ONLY`, params.Size)
 	}
 
 	// Query - entity mapping
@@ -178,7 +178,7 @@ func (r *AuthorDBMSRepository) Fetch(params *util.PaginationParams, filterParams
 		author := new(domain.AuthorEntity)
 		err = rows.Scan(&author.AuthorID, &author.ExternalID, &author.FirstName,
 			&author.LastName, &author.DisplayName, &author.BirthDate, &author.CreateTime, &author.UpdateTime, &author.DeleteTime,
-			&author.Deleted)
+			&author.Metadata, &author.Deleted)
 		if err != nil {
 			continue
 		}
