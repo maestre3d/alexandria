@@ -146,7 +146,6 @@ func (r *AuthorDBMSRepository) Fetch(params *util.PaginationParams, filterParams
 	}
 
 	// Keyset
-	// TODO: FIX TOKEN EXCEPTION
 	if params.Token != "" {
 			if filterParams["timestamp"] == "false" {
 				// By ID

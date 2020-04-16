@@ -36,6 +36,12 @@ func (s *AuthorService) Create(firstName, LastName, displayName, birthDate strin
 		return nil, err
 	}
 
+	// Ensure display_name uniqueness, as a username
+	existingAuthors, err := s.repository.Fetch(util.NewPaginationParams("", "1"), util.FilterParams{"query":displayName})
+	if err == nil && len(existingAuthors) > 1 {
+		return nil, exception.EntityExists
+	}
+
 	err = s.repository.Save(author)
 	if err != nil {
 		return nil, err

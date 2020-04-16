@@ -11,6 +11,7 @@ import (
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/sony/gobreaker"
 	"golang.org/x/time/rate"
+	"time"
 )
 
 type CreateRequest struct {
@@ -22,7 +23,7 @@ type CreateRequest struct {
 
 type CreateResponse struct {
 	Author *domain.AuthorEntity `json:"author"`
-	Err error `json:"err,omitempty"`
+	Err error `json:"-"`
 }
 
 func MakeCreateAuthorEndpoint(svc service.IAuthorService, logger log.Logger) endpoint.Endpoint {
@@ -31,9 +32,9 @@ func MakeCreateAuthorEndpoint(svc service.IAuthorService, logger log.Logger) end
 		createdAuthor, err := svc.Create(req.FirstName, req.LastName, req.DisplayName, req.BirthDate)
 		if err != nil {
 			return CreateResponse{
-				Author: createdAuthor,
+				Author: nil,
 				Err:    err,
-			}, err
+			}, nil
 		}
 
 		return CreateResponse{
@@ -42,9 +43,19 @@ func MakeCreateAuthorEndpoint(svc service.IAuthorService, logger log.Logger) end
 		}, nil
 	}
 
+	limiter := rate.NewLimiter(rate.Every(30 * time.Second), 100)
+	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
+		Name:          "author.create",
+		MaxRequests:   100,
+		Interval:      0,
+		Timeout:       0,
+		ReadyToTrip:   nil,
+		OnStateChange: nil,
+	})
+
 	ep = shared.LoggingMiddleware(log.With(logger, "method", "author.create"))(ep)
-	ep = ratelimit.NewErroringLimiter(new(rate.Limiter))(ep)
-	ep = circuitbreaker.Gobreaker(new(gobreaker.CircuitBreaker))(ep)
+	ep = ratelimit.NewErroringLimiter(limiter)(ep)
+	ep = circuitbreaker.Gobreaker(cb)(ep)
 
 	return ep
 }

@@ -24,6 +24,10 @@ type AuthorEntity struct {
 
 // NewAuthorEntity Create a new author
 func NewAuthorEntity(firstName, lastName, displayName string, birth time.Time) *AuthorEntity {
+	if displayName == "" {
+		displayName = firstName + " " + lastName
+	}
+
 	return &AuthorEntity{
 		AuthorID:         0,
 		ExternalID: uuid.New().String(),

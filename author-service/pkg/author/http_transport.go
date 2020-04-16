@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/exception"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/util"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
+	"strings"
 
 	"github.com/go-kit/kit/log"
 	httptransport "github.com/go-kit/kit/transport/http"
@@ -19,13 +19,11 @@ import (
 )
 
 func NewTransportHTTP(svc service.IAuthorService, logger log.Logger) *mux.Router {
-	// logger := log.NewLogfmtLogger(os.Stderr)
-
 	// TODO: Add metrics with OpenCensus and Prometheus/Zipkin
 	createHandler := httptransport.NewServer(
 		action.MakeCreateAuthorEndpoint(svc, logger),
 		decodeCreateRequest,
-		httptransport.EncodeJSONResponse,
+		encodeCreateRequest,
 	)
 
 	listHandler := httptransport.NewServer(
@@ -70,26 +68,45 @@ func NewTransportHTTP(svc service.IAuthorService, logger log.Logger) *mux.Router
 }
 
 func decodeCreateRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	var request action.CreateRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		return nil, err
-	}
-
-	return request, nil
+	return action.CreateRequest{
+		FirstName:   r.PostFormValue("first_name"),
+		LastName:    r.PostFormValue("last_name"),
+		DisplayName: r.PostFormValue("display_name"),
+		BirthDate:   r.PostFormValue("birth_date"),
+	}, nil
 }
 
 func decodeListRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	fmt.Println("QUERY:", r.URL.Query())
-	var request action.ListRequest
+	return action.ListRequest{
+		PageToken:    r.URL.Query().Get("page_token"),
+		PageSize:     r.URL.Query().Get("page_size"),
+		FilterParams: util.FilterParams{
+			"query":r.URL.Query().Get("search_query"),
+			"timestamp":r.URL.Query().Get("timestamp"),
+		},
+	}, nil
+}
 
-	request.PageToken = r.URL.Query().Get("page_token")
-	request.PageSize = r.URL.Query().Get("page_size")
-	request.FilterParams = util.FilterParams{
-		"query":r.URL.Query().Get("search_query"),
-		"timestamp":r.URL.Query().Get("timestamp"),
+func encodeCreateRequest(_ context.Context, w http.ResponseWriter, response interface{}) error {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	r, ok := response.(action.CreateResponse)
+	if ok {
+		if r.Err != nil {
+			if errors.Is(r.Err, exception.InvalidFieldFormat) || errors.Is(r.Err, exception.InvalidFieldRange) || errors.Is(r.Err, exception.RequiredField) {
+				errDesc := strings.Split(r.Err.Error(), ":")
+				w.WriteHeader(http.StatusBadRequest)
+				return json.NewEncoder(w).Encode(shared.Error{errDesc[len(errDesc) - 1]})
+			} else if errors.Is(r.Err, exception.EntityExists) {
+				w.WriteHeader(http.StatusConflict)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+
+			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
+		}
 	}
 
-	return request, nil
+	return json.NewEncoder(w).Encode(r)
 }
 
 func encodeListResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
