@@ -9,6 +9,7 @@ import (
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/util"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 
 	"github.com/go-kit/kit/log"
@@ -52,14 +53,18 @@ func NewTransportHTTP(svc service.IAuthorService, logger log.Logger) *mux.Router
 	)
 
 	r := mux.NewRouter()
-	// r.PathPrefix("/metrics").Methods("GET").Handler(promhttp.Handler())
-	r = r.PathPrefix("/author").Subrouter()
-	r.Methods("POST").Handler(createHandler)
-	r.Methods("GET").Handler(listHandler)
-	r.PathPrefix("/{author-id}").Methods("GET").Handler(getHandler)
-	r.PathPrefix("/{author-id}").Methods("PATCH").Handler(updateHandler)
-	r.PathPrefix("/{author-id}").Methods("PUT").Handler(updateHandler)
-	r.PathPrefix("/{author-id}").Methods("DELETE").Handler(deleteHandler)
+	apiRouter := r.PathPrefix("/v1").Subrouter()
+	apiRouter.PathPrefix("/metrics").Methods("GET").Handler(promhttp.Handler())
+
+	authorRouter := apiRouter.PathPrefix("/author").Subrouter()
+	authorRouter.Methods("POST").Handler(createHandler)
+	authorRouter.Methods("GET").Handler(listHandler)
+
+	authorDetailR := authorRouter.PathPrefix("/{author}").Subrouter()
+	authorDetailR.Methods("GET").Handler(getHandler)
+	authorDetailR.Methods("PATCH").Handler(updateHandler)
+	authorDetailR.Methods("PUT").Handler(updateHandler)
+	authorDetailR.Methods("DELETE").Handler(deleteHandler)
 
 	return r
 }

@@ -22,8 +22,8 @@ type ListRequest struct {
 }
 
 type ListResponse struct {
-	Authors []*domain.AuthorEntity `json:"authors,omitempty"`
-	NextPageToken string `json:"next_page_token,omitempty"`
+	Authors []*domain.AuthorEntity `json:"authors"`
+	NextPageToken string `json:"next_page_token"`
 	Err error `json:"-"`
 }
 

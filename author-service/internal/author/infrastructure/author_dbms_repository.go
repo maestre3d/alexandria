@@ -146,21 +146,27 @@ func (r *AuthorDBMSRepository) Fetch(params *util.PaginationParams, filterParams
 	}
 
 	// Keyset
+	// TODO: FIX TOKEN EXCEPTION
 	if params.Token != "" {
-			if filterParams["timestamp"] == "true" {
-				// Most recent
-				statement += AndCriteriaSQL(fmt.Sprintf(`UPDATE_TIME <= (SELECT UPDATE_TIME FROM AUTHOR WHERE EXTERNAL_ID = %s AND DELETED = FALSE)`,
+			if filterParams["timestamp"] == "false" {
+				// By ID
+				statement += AndCriteriaSQL(fmt.Sprintf(`ID >= (SELECT ID FROM AUTHOR WHERE EXTERNAL_ID = '%s' AND DELETED = FALSE)`,
+					params.Token))
+				statement += fmt.Sprintf(`DELETED = FALSE ORDER BY ID ASC FETCH FIRST %d ROWS ONLY`, params.Size)
+
+			} else if filterParams["timestamp"] == "" || filterParams["timestamp"] == "true" {
+				// Timestamp/Most recent by default
+				statement += AndCriteriaSQL(fmt.Sprintf(`UPDATE_TIME <= (SELECT UPDATE_TIME FROM AUTHOR WHERE EXTERNAL_ID = '%s' AND DELETED = FALSE)`,
 					params.Token))
 				statement += fmt.Sprintf(`DELETED = FALSE ORDER BY UPDATE_TIME DESC FETCH FIRST %d ROWS ONLY`, params.Size)
-			} else {
-				// By ID
-				statement += AndCriteriaSQL(fmt.Sprintf(`AUTHOR_ID >= (SELECT AUTHOR_ID FROM AUTHOR WHERE EXTERNAL_ID = %s AND DELETED = FALSE)`,
-					params.Token))
-				statement += fmt.Sprintf(`DELETED = FALSE ORDER BY AUTHOR_ID ASC FETCH FIRST %d ROWS ONLY`, params.Size)
 			}
 	} else {
-		// Timestamp is used by default
-		statement += fmt.Sprintf(`DELETED = FALSE ORDER BY UPDATE_TIME DESC FETCH FIRST %d ROWS ONLY`, params.Size)
+		if filterParams["timestamp"] == "false" {
+			statement += fmt.Sprintf(`DELETED = FALSE ORDER BY ID ASC FETCH FIRST %d ROWS ONLY`, params.Size)
+		} else if filterParams["timestamp"] == "" || filterParams["timestamp"] == "true"  {
+			// Timestamp/Most recent by default
+			statement += fmt.Sprintf(`DELETED = FALSE ORDER BY UPDATE_TIME DESC FETCH FIRST %d ROWS ONLY`, params.Size)
+		}
 	}
 
 	// Query - entity mapping
