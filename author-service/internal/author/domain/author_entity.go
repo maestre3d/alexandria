@@ -18,7 +18,7 @@ type AuthorEntity struct {
 	CreateTime time.Time `json:"create_time"`
 	UpdateTime time.Time `json:"update_time"`
 	DeleteTime *time.Time `json:"-"`
-	Metadata *string `json:"-"`
+	Metadata *string `json:"metadata,omitempty"`
 	Deleted bool `json:"-"`
 }
 

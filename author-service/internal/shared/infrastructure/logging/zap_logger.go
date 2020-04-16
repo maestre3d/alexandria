@@ -21,7 +21,7 @@ func NewZapLogger() (*ZapLogger, func(), error) {
 	}
 
 	logger.Info("logger started",
-		zap.String("resource", "kernel.infrastructure.logging"),
+		zap.String("resource", "core.kernel.infrastructure.logging"),
 		zap.Duration("backoff", time.Second),
 	)
 

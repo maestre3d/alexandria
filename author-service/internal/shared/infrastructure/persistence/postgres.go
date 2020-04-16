@@ -21,7 +21,7 @@ func NewPostgresPool(ctx context.Context, logger util.ILogger) (*sql.DB, func(),
 		err = db.Close()
 	}
 
-	logger.Print("main dbms store started", "kernel.infrastructure.persistence")
+	logger.Print("main dbms store started", "core.kernel.infrastructure.persistence")
 
 	return db, cleanup, nil
 }

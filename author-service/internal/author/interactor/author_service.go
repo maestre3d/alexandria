@@ -48,8 +48,16 @@ func (s *AuthorService) Create(firstName, LastName, displayName, birthDate strin
 }
 
 // List Get an author's list
-func (s *AuthorService) List(pageToken, pageSize string, filterParams util.FilterParams) ([]*domain.AuthorEntity, error) {
-	return s.repository.Fetch(util.NewPaginationParams(pageToken, pageSize), filterParams)
+func (s *AuthorService) List(pageToken, pageSize string, filterParams util.FilterParams) (output []*domain.AuthorEntity, nextToken string, err error) {
+	params := util.NewPaginationParams(pageToken, pageSize)
+	output, err = s.repository.Fetch(params, filterParams)
+
+	nextToken = ""
+	if len(output) >= params.Size {
+		nextToken = output[len(output)-1].ExternalID
+		output = output[0:len(output)-1]
+	}
+	return
 }
 
 // Get Obtain one author
@@ -63,7 +71,7 @@ func (s *AuthorService) Get(id string) (*domain.AuthorEntity, error) {
 }
 
 // Update Update an author dynamically (like HTTP's PATCH)
-func (s *AuthorService) Update(id, firstName, LastName, displayName, birthDate string) (*domain.AuthorEntity, error) {
+func (s *AuthorService) Update(id, firstName, lastName, displayName, birthDate string) (*domain.AuthorEntity, error) {
 	// Get previous version
 	author, err := s.Get(id)
 	if err != nil {
@@ -80,8 +88,8 @@ func (s *AuthorService) Update(id, firstName, LastName, displayName, birthDate s
 		author.BirthDate = birth
 	} else if firstName != "" {
 		author.FirstName = firstName
-	} else if LastName != "" {
-		author.LastName = LastName
+	} else if lastName != "" {
+		author.LastName = lastName
 	} else if displayName != "" {
 		author.DisplayName = displayName
 	}
