@@ -24,7 +24,7 @@ type ListRequest struct {
 type ListResponse struct {
 	Authors []*domain.AuthorEntity `json:"authors,omitempty"`
 	NextPageToken string `json:"next_page_token,omitempty"`
-	Err error `json:"error,omitempty"`
+	Err error `json:"-"`
 }
 
 func MakeListAuthorEndpoint(svc service.IAuthorService, logger log.Logger) endpoint.Endpoint {

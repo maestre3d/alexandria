@@ -8,6 +8,7 @@ import (
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/exception"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/util"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
+	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"net/http"
 
 	"github.com/go-kit/kit/log"
@@ -96,9 +97,11 @@ func encodeListResponse(_ context.Context, w http.ResponseWriter, response inter
 			} else {
 				w.WriteHeader(http.StatusInternalServerError)
 			}
+
+			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
 		} else if r.Err == nil && len(r.Authors) == 0 {
 			w.WriteHeader(http.StatusNotFound)
-			r.Err = exception.EntitiesNotFound
+			return json.NewEncoder(w).Encode(shared.Error{exception.EntitiesNotFound.Error()})
 		}
 	}
 
