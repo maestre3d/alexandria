@@ -1,4 +1,4 @@
-package author
+package handler
 
 import (
 	"context"
@@ -8,8 +8,6 @@ import (
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/util"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"io"
 	"net/http"
 	"strings"
 
@@ -19,61 +17,53 @@ import (
 	"github.com/maestre3d/alexandria/author-service/pkg/author/action"
 )
 
-func NewTransportHTTP(svc service.IAuthorService, logger log.Logger) *mux.Router {
-	// TODO: Add metrics with OpenCensus and Prometheus/Zipkin
-	createHandler := httptransport.NewServer(
-		action.MakeCreateAuthorEndpoint(svc, logger),
+type AuthorHandler struct {
+	service service.IAuthorService
+	logger log.Logger
+}
+
+func NewAuthorHandler(svc service.IAuthorService, logger log.Logger) *AuthorHandler {
+	return &AuthorHandler{svc, logger}
+}
+
+func (h *AuthorHandler) Create() *httptransport.Server {
+	return httptransport.NewServer(
+		action.MakeCreateAuthorEndpoint(h.service, h.logger),
 		decodeCreateRequest,
 		encodeCreateRequest,
 	)
+}
 
-	listHandler := httptransport.NewServer(
-		action.MakeListAuthorEndpoint(svc, logger),
+func (h *AuthorHandler) List() *httptransport.Server {
+	return httptransport.NewServer(
+		action.MakeListAuthorEndpoint(h.service, h.logger),
 		decodeListRequest,
 		encodeListResponse,
 	)
+}
 
-	getHandler := httptransport.NewServer(
-		action.MakeGetAuthorEndpoint(svc, logger),
+func (h *AuthorHandler) Get() *httptransport.Server {
+	return httptransport.NewServer(
+		action.MakeGetAuthorEndpoint(h.service, h.logger),
 		decodeGetRequest,
 		encodeGetResponse,
 	)
+}
 
-	updateHandler := httptransport.NewServer(
-		action.MakeUpdateAuthorEndpoint(svc, logger),
+func (h *AuthorHandler) Update() *httptransport.Server {
+	return httptransport.NewServer(
+		action.MakeUpdateAuthorEndpoint(h.service, h.logger),
 		decodeUpdateRequest,
 		encodeUpdateResponse,
 	)
+}
 
-	deleteHandler := httptransport.NewServer(
-		action.MakeDeleteAuthorEndpoint(svc, logger),
+func (h *AuthorHandler) Delete() *httptransport.Server {
+	return httptransport.NewServer(
+		action.MakeDeleteAuthorEndpoint(h.service, h.logger),
 		decodeDeleteRequest,
 		encodeDeleteResponse,
 	)
-
-	r := mux.NewRouter()
-	r.Methods(http.MethodOptions)
-
-	apiRouter := r.PathPrefix("/v1").Subrouter()
-	apiRouter.PathPrefix("/health").Methods(http.MethodGet).HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Add("Content-Type", "application/json; charset=utf-8")
-		writer.WriteHeader(http.StatusOK)
-		io.WriteString(writer, `{"alive":true}`)
-	})
-	apiRouter.PathPrefix("/metrics").Methods(http.MethodGet).Handler(promhttp.Handler())
-
-	authorRouter := apiRouter.PathPrefix("/author").Subrouter()
-	authorRouter.Path("").Methods(http.MethodPost).Handler(createHandler)
-	authorRouter.Path("").Methods(http.MethodGet).Handler(listHandler)
-	authorRouter.Path("/").Methods(http.MethodPost).Handler(createHandler)
-	authorRouter.Path("/").Methods(http.MethodGet).Handler(listHandler)
-
-	authorRouter.Path("/{id}").Methods(http.MethodGet).Handler(getHandler)
-	authorRouter.Path("/{id}").Methods(http.MethodPatch, http.MethodPut).Handler(updateHandler)
-	authorRouter.Path("/{id}").Methods(http.MethodDelete).Handler(deleteHandler)
-
-	r.Use(mux.CORSMethodMiddleware(r))
-	return r
 }
 
 func decodeCreateRequest(_ context.Context, r *http.Request) (interface{}, error) {

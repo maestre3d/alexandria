@@ -32,17 +32,17 @@ var AuthorDBMSRepositorySet = wire.NewSet(
 
 var AuthorServiceSet = wire.NewSet(
 	AuthorDBMSRepositorySet,
-	interactor.NewAuthorService,
+	interactor.NewAuthorUseCase,
 )
 
 func ProvideContext() context.Context {
 	return context.Background()
 }
 
-func InjectAuthorService() (*interactor.AuthorService, func(), error) {
+func ProvideAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 	wire.Build(
 		AuthorServiceSet,
 	)
 
-	return &interactor.AuthorService{}, nil, nil
+	return &interactor.AuthorUseCase{}, nil, nil
 }

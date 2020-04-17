@@ -18,7 +18,7 @@ import (
 
 // Injectors from wire.go:
 
-func InjectAuthorService() (*interactor.AuthorService, func(), error) {
+func ProvideAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 	zapLogger, cleanup, err := logging.NewZapLogger()
 	if err != nil {
 		return nil, nil, err
@@ -30,8 +30,8 @@ func InjectAuthorService() (*interactor.AuthorService, func(), error) {
 		return nil, nil, err
 	}
 	authorDBMSRepository := infrastructure.NewAuthorDBMSRepository(db, context, zapLogger)
-	authorService := interactor.NewAuthorService(zapLogger, authorDBMSRepository)
-	return authorService, func() {
+	authorUseCase := interactor.NewAuthorUseCase(zapLogger, authorDBMSRepository)
+	return authorUseCase, func() {
 		cleanup2()
 		cleanup()
 	}, nil
@@ -51,7 +51,7 @@ var AuthorDBMSRepositorySet = wire.NewSet(
 )
 
 var AuthorServiceSet = wire.NewSet(
-	AuthorDBMSRepositorySet, interactor.NewAuthorService,
+	AuthorDBMSRepositorySet, interactor.NewAuthorUseCase,
 )
 
 func ProvideContext() context.Context {

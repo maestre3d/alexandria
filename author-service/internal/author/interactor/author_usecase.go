@@ -11,18 +11,18 @@ import (
 )
 
 // AuthorService Author interact actions
-type AuthorService struct {
+type AuthorUseCase struct {
 	log util.ILogger
 	repository domain.IAuthorRepository
 }
 
-// NewAuthorService Create a new author interact
-func NewAuthorService(logger util.ILogger, repository domain.IAuthorRepository) *AuthorService {
-	return &AuthorService{logger, repository}
+// NewAuthorUseCase Create a new author interact
+func NewAuthorUseCase(logger util.ILogger, repository domain.IAuthorRepository) *AuthorUseCase {
+	return &AuthorUseCase{logger, repository}
 }
 
 // Create Store a new entity
-func (s *AuthorService) Create(firstName, LastName, displayName, birthDate string) (*domain.AuthorEntity, error) {
+func (s *AuthorUseCase) Create(firstName, LastName, displayName, birthDate string) (*domain.AuthorEntity, error) {
 	// Validate
 	birth, err := time.Parse(global.RFC3339Micro, birthDate)
 	if err != nil {
@@ -54,7 +54,7 @@ func (s *AuthorService) Create(firstName, LastName, displayName, birthDate strin
 }
 
 // List Get an author's list
-func (s *AuthorService) List(pageToken, pageSize string, filterParams util.FilterParams) (output []*domain.AuthorEntity, nextToken string, err error) {
+func (s *AuthorUseCase) List(pageToken, pageSize string, filterParams util.FilterParams) (output []*domain.AuthorEntity, nextToken string, err error) {
 	params := util.NewPaginationParams(pageToken, pageSize)
 	output, err = s.repository.Fetch(params, filterParams)
 
@@ -67,7 +67,7 @@ func (s *AuthorService) List(pageToken, pageSize string, filterParams util.Filte
 }
 
 // Get Obtain one author
-func (s *AuthorService) Get(id string) (*domain.AuthorEntity, error) {
+func (s *AuthorUseCase) Get(id string) (*domain.AuthorEntity, error) {
 	_, err := uuid.Parse(id)
 	if err != nil {
 		return nil, exception.InvalidID
@@ -77,7 +77,7 @@ func (s *AuthorService) Get(id string) (*domain.AuthorEntity, error) {
 }
 
 // Update Update an author dynamically (like HTTP's PATCH)
-func (s *AuthorService) Update(id, firstName, lastName, displayName, birthDate string) (*domain.AuthorEntity, error) {
+func (s *AuthorUseCase) Update(id, firstName, lastName, displayName, birthDate string) (*domain.AuthorEntity, error) {
 	// Get previous version
 	author, err := s.Get(id)
 	if err != nil {
@@ -127,7 +127,7 @@ func (s *AuthorService) Update(id, firstName, lastName, displayName, birthDate s
 }
 
 // Delete Remove an author from the store
-func (s *AuthorService) Delete(id string) error {
+func (s *AuthorUseCase) Delete(id string) error {
 	_, err := uuid.Parse(id)
 	if err != nil {
 		return exception.InvalidID
