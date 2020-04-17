@@ -142,6 +142,10 @@ func (r *AuthorDBMSRepository) Fetch(params *util.PaginationParams, filterParams
 		switch {
 		case filterType == "query" && value != "":
 			statement += AndCriteriaSQL(QueryCriteriaSQL(value))
+			continue
+		case filterType == "display_name" && value != "":
+			statement += AndCriteriaSQL(DisplayNameCriteriaSQL(value))
+			continue
 		}
 	}
 

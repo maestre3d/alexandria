@@ -10,6 +10,7 @@ import (
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/sony/gobreaker"
 	"golang.org/x/time/rate"
+	"time"
 )
 
 type DeleteRequest struct {
@@ -17,7 +18,7 @@ type DeleteRequest struct {
 }
 
 type DeleteResponse struct {
-	Err string `json:"err,omitempty"`
+	Err error `json:"-"`
 }
 
 func MakeDeleteAuthorEndpoint(svc service.IAuthorService, logger log.Logger) endpoint.Endpoint {
@@ -25,15 +26,25 @@ func MakeDeleteAuthorEndpoint(svc service.IAuthorService, logger log.Logger) end
 		req := request.(DeleteRequest)
 		err = svc.Delete(req.ID)
 		if err != nil {
-			return DeleteResponse{ err.Error()}, nil
+			return DeleteResponse{ err}, nil
 		}
 
-		return DeleteResponse{""}, nil
+		return DeleteResponse{nil}, nil
 	}
 
+	limiter := rate.NewLimiter(rate.Every(30 * time.Second), 100)
+	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
+		Name:          "author.delete",
+		MaxRequests:   100,
+		Interval:      0,
+		Timeout:       0,
+		ReadyToTrip:   nil,
+		OnStateChange: nil,
+	})
+
 	ep = shared.LoggingMiddleware(log.With(logger, "method", "author.delete"))(ep)
-	ep = ratelimit.NewErroringLimiter(new(rate.Limiter))(ep)
-	ep = circuitbreaker.Gobreaker(new(gobreaker.CircuitBreaker))(ep)
+	ep = ratelimit.NewErroringLimiter(limiter)(ep)
+	ep = circuitbreaker.Gobreaker(cb)(ep)
 
 	return ep
 }

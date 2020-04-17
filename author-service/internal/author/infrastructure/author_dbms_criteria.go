@@ -8,6 +8,14 @@ func QueryCriteriaSQL(query string) string {
 	OR LOWER(DISPLAY_NAME) LIKE LOWER('%` + query + `%'))`
 }
 
+func DisplayNameCriteriaSQL(displayName string) string {
+	if displayName == "" {
+		return ""
+	}
+
+	return `LOWER(DISPLAY_NAME) = LOWER('` + displayName + `')`
+}
+
 func AndCriteriaSQL(statement string) string {
 	return statement + " AND "
 }

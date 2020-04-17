@@ -37,8 +37,8 @@ func (s *AuthorService) Create(firstName, LastName, displayName, birthDate strin
 	}
 
 	// Ensure display_name uniqueness, as a username
-	existingAuthors, err := s.repository.Fetch(util.NewPaginationParams("", "1"), util.FilterParams{"query":displayName})
-	if err == nil && len(existingAuthors) > 1 {
+	existingAuthors, _, err := s.List("0", "1", util.FilterParams{"display_name":displayName})
+	if err == nil && len(existingAuthors) > 0 {
 		return nil, exception.EntityExists
 	}
 
@@ -84,6 +84,11 @@ func (s *AuthorService) Update(id, firstName, lastName, displayName, birthDate s
 		return nil, err
 	}
 
+	// Check if body has values
+	if firstName == "" && lastName == "" && displayName == "" && birthDate == "" {
+		return nil, exception.EmptyBody
+	}
+
 	// Update entity dynamically
 	if birthDate != "" {
 		birth, err := time.Parse(global.RFC3339Micro, birthDate)
@@ -97,6 +102,11 @@ func (s *AuthorService) Update(id, firstName, lastName, displayName, birthDate s
 	} else if lastName != "" {
 		author.LastName = lastName
 	} else if displayName != "" {
+		existingAuthors, _, err := s.List("0", "1", util.FilterParams{"display_name":displayName})
+		if err == nil && len(existingAuthors) > 0 {
+			return nil, exception.EntityExists
+		}
+
 		author.DisplayName = displayName
 	}
 

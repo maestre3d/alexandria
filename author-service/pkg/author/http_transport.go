@@ -9,6 +9,7 @@ import (
 	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"io"
 	"net/http"
 	"strings"
 
@@ -35,35 +36,40 @@ func NewTransportHTTP(svc service.IAuthorService, logger log.Logger) *mux.Router
 	getHandler := httptransport.NewServer(
 		action.MakeGetAuthorEndpoint(svc, logger),
 		decodeGetRequest,
-		httptransport.EncodeJSONResponse,
+		encodeGetResponse,
 	)
 
 	updateHandler := httptransport.NewServer(
 		action.MakeUpdateAuthorEndpoint(svc, logger),
 		decodeUpdateRequest,
-		httptransport.EncodeJSONResponse,
+		encodeUpdateResponse,
 	)
 
 	deleteHandler := httptransport.NewServer(
 		action.MakeDeleteAuthorEndpoint(svc, logger),
 		decodeDeleteRequest,
-		httptransport.EncodeJSONResponse,
+		encodeDeleteResponse,
 	)
 
 	r := mux.NewRouter()
+	r.Methods(http.MethodOptions)
+
 	apiRouter := r.PathPrefix("/v1").Subrouter()
-	apiRouter.PathPrefix("/metrics").Methods("GET").Handler(promhttp.Handler())
+	apiRouter.PathPrefix("/health").Methods(http.MethodGet).HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Add("Content-Type", "application/json; charset=utf-8")
+		writer.WriteHeader(http.StatusOK)
+		io.WriteString(writer, `{"alive":true}`)
+	})
+	apiRouter.PathPrefix("/metrics").Methods(http.MethodGet).Handler(promhttp.Handler())
 
 	authorRouter := apiRouter.PathPrefix("/author").Subrouter()
-	authorRouter.Methods("POST").Handler(createHandler)
-	authorRouter.Methods("GET").Handler(listHandler)
+	authorRouter.Methods(http.MethodPost).Handler(createHandler)
+	authorRouter.Methods(http.MethodGet).Handler(listHandler)
+	authorRouter.Path("/{id}").Methods(http.MethodGet).Handler(getHandler)
+	authorRouter.Path("/{id}").Methods(http.MethodPatch, http.MethodPut).Handler(updateHandler)
+	authorRouter.Path("/{id}").Methods(http.MethodDelete).Handler(deleteHandler)
 
-	authorDetailR := authorRouter.PathPrefix("/{author}").Subrouter()
-	authorDetailR.Methods("GET").Handler(getHandler)
-	authorDetailR.Methods("PATCH").Handler(updateHandler)
-	authorDetailR.Methods("PUT").Handler(updateHandler)
-	authorDetailR.Methods("DELETE").Handler(deleteHandler)
-
+	r.Use(mux.CORSMethodMiddleware(r))
 	return r
 }
 
@@ -85,6 +91,26 @@ func decodeListRequest(_ context.Context, r *http.Request) (interface{}, error) 
 			"timestamp":r.URL.Query().Get("timestamp"),
 		},
 	}, nil
+}
+
+func decodeGetRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	params := mux.Vars(r)
+	return action.GetRequest{params["id"]}, nil
+}
+
+func decodeUpdateRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	return action.UpdateRequest{
+		ID:          mux.Vars(r)["id"],
+		FirstName:   r.PostFormValue("first_name"),
+		LastName:    r.PostFormValue("last_name"),
+		DisplayName: r.PostFormValue("display_name"),
+		BirthDate:   r.PostFormValue("birth_date"),
+	}, nil
+}
+
+func decodeDeleteRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	params := mux.Vars(r)
+	return action.DeleteRequest{params["id"]}, nil
 }
 
 func encodeCreateRequest(_ context.Context, w http.ResponseWriter, response interface{}) error {
@@ -130,29 +156,65 @@ func encodeListResponse(_ context.Context, w http.ResponseWriter, response inter
 	return json.NewEncoder(w).Encode(r)
 }
 
-func decodeGetRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	var request action.GetRequest
-	if err := json.NewDecoder(r.Body).Decode(request); err != nil {
-		return nil, err
+func encodeGetResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	r, ok := response.(action.GetResponse)
+	if ok {
+		if r.Err != nil {
+			if errors.Is(r.Err, exception.InvalidID) {
+				w.WriteHeader(http.StatusBadRequest)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+
+			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
+		} else if r.Err == nil && r.Author == nil {
+			w.WriteHeader(http.StatusNotFound)
+			return json.NewEncoder(w).Encode(shared.Error{exception.EntityNotFound.Error()})
+		}
 	}
 
-	return request, nil
+	return json.NewEncoder(w).Encode(r)
 }
 
-func decodeUpdateRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	var request action.UpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(request); err != nil {
-		return nil, err
+func encodeUpdateResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	r, ok := response.(action.UpdateResponse)
+	if ok {
+		if r.Err != nil {
+			if errors.Is(r.Err, exception.InvalidFieldFormat) || errors.Is(r.Err, exception.InvalidFieldRange) {
+				errDesc := strings.Split(r.Err.Error(), ":")
+				w.WriteHeader(http.StatusBadRequest)
+				return json.NewEncoder(w).Encode(shared.Error{errDesc[len(errDesc) - 1]})
+			} else if errors.Is(r.Err, exception.InvalidID) || errors.Is(r.Err, exception.EmptyBody) {
+				w.WriteHeader(http.StatusBadRequest)
+			} else if errors.Is(r.Err, exception.EntityExists) {
+				w.WriteHeader(http.StatusConflict)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+
+			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
+		}
 	}
 
-	return request, nil
+	return json.NewEncoder(w).Encode(r)
 }
 
-func decodeDeleteRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	var request action.DeleteRequest
-	if err := json.NewDecoder(r.Body).Decode(request); err != nil {
-		return nil, err
+func encodeDeleteResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	r, ok := response.(action.DeleteResponse)
+	if ok {
+		if r.Err != nil {
+			if errors.Is(r.Err, exception.InvalidID) {
+				w.WriteHeader(http.StatusBadRequest)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+
+			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
+		}
 	}
 
-	return request, nil
+	return json.NewEncoder(w).Encode(r)
 }
