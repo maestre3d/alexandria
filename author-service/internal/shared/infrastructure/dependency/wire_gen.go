@@ -18,7 +18,7 @@ import (
 
 // Injectors from wire.go:
 
-func ProvideAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
+func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 	zapLogger, cleanup, err := logging.NewZapLogger()
 	if err != nil {
 		return nil, nil, err

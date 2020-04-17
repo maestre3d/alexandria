@@ -8,7 +8,7 @@ import (
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 )
 
-func NewAuthorService(authorService service.IAuthorService, logger log.Logger) service.IAuthorService {
+func NewAuthorService(authorUseCase service.IAuthorService, logger log.Logger) service.IAuthorService {
 	fieldKeys := []string{"method", "error"}
 	requestCount := kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
 		Namespace:   "alexandria",
@@ -31,7 +31,7 @@ func NewAuthorService(authorService service.IAuthorService, logger log.Logger) s
 
 
 	var svc service.IAuthorService
-	svc = authorService
+	svc = authorUseCase
 	svc = middleware.LoggingAuthorMiddleware{logger, svc}
 	svc = middleware.InstrumentingAuthorMiddleware{requestCount, requestLatency, svc}
 

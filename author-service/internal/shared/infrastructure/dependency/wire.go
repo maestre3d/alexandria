@@ -39,7 +39,7 @@ func ProvideContext() context.Context {
 	return context.Background()
 }
 
-func ProvideAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
+func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 	wire.Build(
 		AuthorServiceSet,
 	)
