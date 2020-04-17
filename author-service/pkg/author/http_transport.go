@@ -63,8 +63,11 @@ func NewTransportHTTP(svc service.IAuthorService, logger log.Logger) *mux.Router
 	apiRouter.PathPrefix("/metrics").Methods(http.MethodGet).Handler(promhttp.Handler())
 
 	authorRouter := apiRouter.PathPrefix("/author").Subrouter()
-	authorRouter.Methods(http.MethodPost).Handler(createHandler)
-	authorRouter.Methods(http.MethodGet).Handler(listHandler)
+	authorRouter.Path("").Methods(http.MethodPost).Handler(createHandler)
+	authorRouter.Path("").Methods(http.MethodGet).Handler(listHandler)
+	authorRouter.Path("/").Methods(http.MethodPost).Handler(createHandler)
+	authorRouter.Path("/").Methods(http.MethodGet).Handler(listHandler)
+
 	authorRouter.Path("/{id}").Methods(http.MethodGet).Handler(getHandler)
 	authorRouter.Path("/{id}").Methods(http.MethodPatch, http.MethodPut).Handler(updateHandler)
 	authorRouter.Path("/{id}").Methods(http.MethodDelete).Handler(deleteHandler)
