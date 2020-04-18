@@ -2,6 +2,7 @@ package interactor
 
 import (
 	"fmt"
+	"github.com/go-kit/kit/log"
 	"github.com/google/uuid"
 	"github.com/maestre3d/alexandria/author-service/internal/author/domain"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/exception"
@@ -12,12 +13,12 @@ import (
 
 // AuthorService Author interact actions
 type AuthorUseCase struct {
-	log util.ILogger
+	log log.Logger
 	repository domain.IAuthorRepository
 }
 
 // NewAuthorUseCase Create a new author interact
-func NewAuthorUseCase(logger util.ILogger, repository domain.IAuthorRepository) *AuthorUseCase {
+func NewAuthorUseCase(logger log.Logger, repository domain.IAuthorRepository) *AuthorUseCase {
 	return &AuthorUseCase{logger, repository}
 }
 

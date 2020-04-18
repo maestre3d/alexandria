@@ -1,29 +1,39 @@
 package persistence
 
 import (
+	"github.com/go-kit/kit/log"
 	"github.com/go-redis/redis/v7"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/util"
+	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
+	"time"
 )
 
-func NewRedisPool(logger util.ILogger) (*redis.Client, func(), error) {
+func NewRedisPool(logger log.Logger, cfg *config.KernelConfig) (*redis.Client, func(), error) {
+	defer func(begin time.Time) {
+		logger.Log(
+			"method", "core.kernel.infrastructure.persistence",
+			"msg", "in-memory database started",
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+
 	client := redis.NewClient(&redis.Options{
 		Network:            "",
-		Addr:               "localhost:6379",
+		Addr:               cfg.MainMemHost,
 		Dialer:             nil,
 		OnConnect:          nil,
-		Password:           "",
+		Password:           cfg.MainMemPassword,
 		DB:                 0,
-		MaxRetries:         0,
+		MaxRetries:         10,
 		MinRetryBackoff:    0,
 		MaxRetryBackoff:    0,
-		DialTimeout:        0,
-		ReadTimeout:        0,
-		WriteTimeout:       0,
-		PoolSize:           0,
-		MinIdleConns:       0,
+		DialTimeout:        30 * time.Second,
+		ReadTimeout:        15 * time.Second,
+		WriteTimeout:       15 * time.Second,
+		PoolSize:           100,
+		MinIdleConns:       32,
 		MaxConnAge:         0,
-		PoolTimeout:        0,
-		IdleTimeout:        0,
+		PoolTimeout:        24 * time.Second,
+		IdleTimeout:        30 * time.Second,
 		IdleCheckFrequency: 0,
 		TLSConfig:          nil,
 		Limiter:            nil,
@@ -39,7 +49,6 @@ func NewRedisPool(logger util.ILogger) (*redis.Client, func(), error) {
 	if err != nil {
 		return nil, cleanup, nil
 	}
-	logger.Print("in-memory database started", "kernel.infrastructure.persistence")
 
 	return client, cleanup, nil
 }

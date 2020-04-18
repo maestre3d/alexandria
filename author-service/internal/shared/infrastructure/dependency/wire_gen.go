@@ -7,38 +7,36 @@ package dependency
 
 import (
 	"context"
+	"github.com/go-kit/kit/log"
+	zap2 "github.com/go-kit/kit/log/zap"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/author-service/internal/author/domain"
 	"github.com/maestre3d/alexandria/author-service/internal/author/infrastructure"
 	"github.com/maestre3d/alexandria/author-service/internal/author/interactor"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/logging"
+	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/persistence"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // Injectors from wire.go:
 
 func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
-	zapLogger, cleanup, err := logging.NewZapLogger()
-	if err != nil {
-		return nil, nil, err
-	}
+	logger := ProvideLogger()
 	context := ProvideContext()
-	db, cleanup2, err := persistence.NewPostgresPool(context, zapLogger)
+	kernelConfig := config.NewKernelConfig(context, logger)
+	db, cleanup, err := persistence.NewPostgresPool(context, logger, kernelConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+	client, cleanup2, err := persistence.NewRedisPool(logger, kernelConfig)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	client, cleanup3, err := persistence.NewRedisPool(zapLogger)
-	if err != nil {
-		cleanup2()
-		cleanup()
-		return nil, nil, err
-	}
-	authorDBMSRepository := infrastructure.NewAuthorDBMSRepository(db, client, context, zapLogger)
-	authorUseCase := interactor.NewAuthorUseCase(zapLogger, authorDBMSRepository)
+	authorDBMSRepository := infrastructure.NewAuthorDBMSRepository(db, client, context, logger)
+	authorUseCase := interactor.NewAuthorUseCase(logger, authorDBMSRepository)
 	return authorUseCase, func() {
-		cleanup3()
 		cleanup2()
 		cleanup()
 	}, nil
@@ -46,11 +44,13 @@ func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 
 // wire.go:
 
-var LoggerSet = wire.NewSet(wire.Bind(new(util.ILogger), new(*logging.ZapLogger)), logging.NewZapLogger)
+var configSet = wire.NewSet(
+	ProvideContext,
+	ProvideLogger, config.NewKernelConfig,
+)
 
 var DBMSPoolSet = wire.NewSet(
-	ProvideContext,
-	LoggerSet, persistence.NewPostgresPool,
+	configSet, persistence.NewPostgresPool,
 )
 
 var AuthorDBMSRepositorySet = wire.NewSet(
@@ -63,4 +63,12 @@ var AuthorServiceSet = wire.NewSet(
 
 func ProvideContext() context.Context {
 	return context.Background()
+}
+
+func ProvideLogger() log.Logger {
+	loggerZap, _ := zap.NewProduction()
+	defer loggerZap.Sync()
+	level := zapcore.Level(8)
+
+	return zap2.NewZapSugarLogger(loggerZap, level)
 }

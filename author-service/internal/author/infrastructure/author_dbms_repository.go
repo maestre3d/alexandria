@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/go-kit/kit/log"
 	"github.com/go-redis/redis/v7"
 	"github.com/lib/pq"
 	"github.com/maestre3d/alexandria/author-service/internal/author/domain"
@@ -18,11 +19,11 @@ type AuthorDBMSRepository struct {
 	db *sql.DB
 	ctx context.Context
 	mem *redis.Client
-	logger util.ILogger
+	logger log.Logger
 }
 
 // NewAuthorDBMSRepository Create an author repository
-func NewAuthorDBMSRepository(dbPool *sql.DB, mem *redis.Client, ctx context.Context, logger util.ILogger) *AuthorDBMSRepository {
+func NewAuthorDBMSRepository(dbPool *sql.DB, mem *redis.Client, ctx context.Context, logger log.Logger) *AuthorDBMSRepository {
 	return &AuthorDBMSRepository{
 		db:     dbPool,
 		ctx: ctx,
