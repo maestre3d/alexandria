@@ -4,7 +4,7 @@ alexandria:
     version: 1.0.0
   persistence:
     dbms:
-      url: "postgres://postgres:root@localhost:5432/alexandria-author?sslmode=disable"
+      url: "postgres://postgres:root@0.0.0.0:5432/alexandria-author?sslmode=disable"
       driver: "postgres"
       user: "postgres"
       password: "root"
