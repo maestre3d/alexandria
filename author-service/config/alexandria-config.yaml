@@ -1,0 +1,14 @@
+alexandria:
+  info:
+    version: 1.0.0
+  persistence:
+    dbms:
+      url: "postgres://postgres:root@localhost:5432/alexandria-author?sslmode=disable"
+    mem:
+      host: "localhost:6379"
+      password: ""
+  service:
+    transport:
+      http:
+        port: 8080
+        rpc: 31337

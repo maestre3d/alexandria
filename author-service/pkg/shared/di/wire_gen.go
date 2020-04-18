@@ -7,6 +7,7 @@ package di
 
 import (
 	"github.com/go-kit/kit/log"
+	zap2 "github.com/go-kit/kit/log/zap"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/dependency"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
@@ -14,7 +15,8 @@ import (
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/handler"
-	"os"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // Injectors from wire.go:
@@ -51,7 +53,11 @@ var httpProxySet = wire.NewSet(
 )
 
 func ProvideLogger() log.Logger {
-	return log.NewLogfmtLogger(os.Stderr)
+	zapLogger, _ := zap.NewProduction()
+	defer zapLogger.Sync()
+	level := zapcore.Level(8)
+
+	return zap2.NewZapSugarLogger(zapLogger, level)
 }
 
 func ProvideAuthorService(logger log.Logger) (service.IAuthorService, func(), error) {
