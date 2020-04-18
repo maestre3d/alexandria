@@ -16,9 +16,9 @@ import (
 
 // AuthorDBMSRepository DBMS Author repository
 type AuthorDBMSRepository struct {
-	db *sql.DB
-	ctx context.Context
-	mem *redis.Client
+	db     *sql.DB
+	ctx    context.Context
+	mem    *redis.Client
 	logger log.Logger
 }
 
@@ -26,7 +26,8 @@ type AuthorDBMSRepository struct {
 func NewAuthorDBMSRepository(dbPool *sql.DB, mem *redis.Client, ctx context.Context, logger log.Logger) *AuthorDBMSRepository {
 	return &AuthorDBMSRepository{
 		db:     dbPool,
-		ctx: ctx,
+		ctx:    ctx,
+		mem:    mem,
 		logger: logger,
 	}
 }
@@ -67,7 +68,7 @@ func (r *AuthorDBMSRepository) Update(author *domain.AuthorEntity) error {
 	UPDATE_TIME = $5 WHERE EXTERNAL_ID = $6 AND DELETED = FALSE`
 
 	_, err = conn.ExecContext(r.ctx, statement, author.FirstName, author.LastName, author.DisplayName, author.BirthDate,
-	author.UpdateTime, author.ExternalID)
+		author.UpdateTime, author.ExternalID)
 
 	if customErr, ok := err.(*pq.Error); ok {
 		if customErr.Code == "23505" {
@@ -145,7 +146,7 @@ func (r *AuthorDBMSRepository) FetchOne(id string) (*domain.AuthorEntity, error)
 			defer func() {
 				err := memCon.Close()
 				if err != nil {
-					authorChan<-nil
+					authorChan <- nil
 				}
 			}()
 
@@ -154,13 +155,13 @@ func (r *AuthorDBMSRepository) FetchOne(id string) (*domain.AuthorEntity, error)
 				author := new(domain.AuthorEntity)
 				err = json.Unmarshal([]byte(authorMem), author)
 				if err == nil {
-					authorChan<-author
+					authorChan <- author
 				}
 
-				authorChan<-nil
+				authorChan <- nil
 			}
 
-			authorChan<-nil
+			authorChan <- nil
 		}()
 
 		select {
@@ -233,22 +234,22 @@ func (r *AuthorDBMSRepository) Fetch(params *util.PaginationParams, filterParams
 
 	// Keyset
 	if params.Token != "" {
-			if filterParams["timestamp"] == "false" {
-				// By ID
-				statement += AndCriteriaSQL(fmt.Sprintf(`ID >= (SELECT ID FROM AUTHOR WHERE EXTERNAL_ID = '%s' AND DELETED = FALSE)`,
-					params.Token))
-				statement += fmt.Sprintf(`DELETED = FALSE ORDER BY ID ASC FETCH FIRST %d ROWS ONLY`, params.Size)
+		if filterParams["timestamp"] == "false" {
+			// By ID
+			statement += AndCriteriaSQL(fmt.Sprintf(`ID >= (SELECT ID FROM AUTHOR WHERE EXTERNAL_ID = '%s' AND DELETED = FALSE)`,
+				params.Token))
+			statement += fmt.Sprintf(`DELETED = FALSE ORDER BY ID ASC FETCH FIRST %d ROWS ONLY`, params.Size)
 
-			} else if filterParams["timestamp"] == "" || filterParams["timestamp"] == "true" {
-				// Timestamp/Most recent by default
-				statement += AndCriteriaSQL(fmt.Sprintf(`UPDATE_TIME <= (SELECT UPDATE_TIME FROM AUTHOR WHERE EXTERNAL_ID = '%s' AND DELETED = FALSE)`,
-					params.Token))
-				statement += fmt.Sprintf(`DELETED = FALSE ORDER BY UPDATE_TIME DESC FETCH FIRST %d ROWS ONLY`, params.Size)
-			}
+		} else if filterParams["timestamp"] == "" || filterParams["timestamp"] == "true" {
+			// Timestamp/Most recent by default
+			statement += AndCriteriaSQL(fmt.Sprintf(`UPDATE_TIME <= (SELECT UPDATE_TIME FROM AUTHOR WHERE EXTERNAL_ID = '%s' AND DELETED = FALSE)`,
+				params.Token))
+			statement += fmt.Sprintf(`DELETED = FALSE ORDER BY UPDATE_TIME DESC FETCH FIRST %d ROWS ONLY`, params.Size)
+		}
 	} else {
 		if filterParams["timestamp"] == "false" {
 			statement += fmt.Sprintf(`DELETED = FALSE ORDER BY ID ASC FETCH FIRST %d ROWS ONLY`, params.Size)
-		} else if filterParams["timestamp"] == "" || filterParams["timestamp"] == "true"  {
+		} else if filterParams["timestamp"] == "" || filterParams["timestamp"] == "true" {
 			// Timestamp/Most recent by default
 			statement += fmt.Sprintf(`DELETED = FALSE ORDER BY UPDATE_TIME DESC FETCH FIRST %d ROWS ONLY`, params.Size)
 		}
