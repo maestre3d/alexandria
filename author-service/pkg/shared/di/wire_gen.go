@@ -6,9 +6,11 @@
 package di
 
 import (
+	"context"
 	"github.com/go-kit/kit/log"
 	zap2 "github.com/go-kit/kit/log/zap"
 	"github.com/google/wire"
+	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/dependency"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
@@ -23,14 +25,16 @@ import (
 
 func InjectHTTPProxy() (*transport.HTTPTransportProxy, func(), error) {
 	logger := ProvideLogger()
-	server := shared.NewHTTPServer(logger)
+	context := ProvideContext()
+	kernelConfig := config.NewKernelConfig(context, logger)
+	server := shared.NewHTTPServer(logger, kernelConfig)
 	iAuthorService, cleanup, err := ProvideAuthorService(logger)
 	if err != nil {
 		return nil, nil, err
 	}
 	authorHandler := handler.NewAuthorHandler(iAuthorService, logger)
 	proxyHandlers := ProvideProxyHandlers(authorHandler)
-	httpTransportProxy, cleanup2 := transport.NewHTTPTransportProxy(logger, server, proxyHandlers)
+	httpTransportProxy, cleanup2 := transport.NewHTTPTransportProxy(logger, server, kernelConfig, proxyHandlers)
 	return httpTransportProxy, func() {
 		cleanup2()
 		cleanup()
@@ -49,8 +53,13 @@ var proxyHandlersSet = wire.NewSet(
 )
 
 var httpProxySet = wire.NewSet(
-	proxyHandlersSet, shared.NewHTTPServer, transport.NewHTTPTransportProxy,
+	proxyHandlersSet,
+	ProvideContext, config.NewKernelConfig, shared.NewHTTPServer, transport.NewHTTPTransportProxy,
 )
+
+func ProvideContext() context.Context {
+	return context.Background()
+}
 
 func ProvideLogger() log.Logger {
 	zapLogger, _ := zap.NewProduction()
@@ -61,9 +70,9 @@ func ProvideLogger() log.Logger {
 }
 
 func ProvideAuthorService(logger log.Logger) (service.IAuthorService, func(), error) {
-	authorUsecase, cleanup, err := dependency.InjectAuthorUseCase()
+	authorUseCase, cleanup, err := dependency.InjectAuthorUseCase()
 
-	authorService := author.NewAuthorService(authorUsecase, logger)
+	authorService := author.NewAuthorService(authorUseCase, logger)
 
 	return authorService, cleanup, err
 }

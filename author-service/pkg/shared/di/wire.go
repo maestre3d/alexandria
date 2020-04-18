@@ -3,8 +3,10 @@
 package di
 
 import (
+	"context"
 	"github.com/go-kit/kit/log"
 	logzap "github.com/go-kit/kit/log/zap"
+	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
 	"go.uber.org/zap"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/dependency"
@@ -29,9 +31,15 @@ var proxyHandlersSet = wire.NewSet(
 
 var httpProxySet = wire.NewSet(
 	proxyHandlersSet,
+	ProvideContext,
+	config.NewKernelConfig,
 	shared.NewHTTPServer,
 	transport.NewHTTPTransportProxy,
 )
+
+func ProvideContext() context.Context {
+	return context.Background()
+}
 
 func ProvideLogger() log.Logger {
 	zapLogger, _ := zap.NewProduction()
@@ -42,9 +50,9 @@ func ProvideLogger() log.Logger {
 }
 
 func ProvideAuthorService(logger log.Logger) (service.IAuthorService, func(), error) {
-	authorUsecase, cleanup, err := dependency.InjectAuthorUseCase()
+	authorUseCase, cleanup, err := dependency.InjectAuthorUseCase()
 
-	authorService := author.NewAuthorService(authorUsecase, logger)
+	authorService := author.NewAuthorService(authorUseCase, logger)
 
 	return authorService, cleanup, err
 }

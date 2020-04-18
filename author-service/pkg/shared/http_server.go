@@ -1,27 +1,31 @@
 package shared
 
 import (
+	"fmt"
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
+	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
 	"net/http"
 	"time"
 )
 
-func NewHTTPServer(logger log.Logger) *http.Server {
+func NewHTTPServer(logger log.Logger, cfg *config.KernelConfig) *http.Server {
 	r := mux.NewRouter()
 	defer func() {
-		logger.Log("method", "pkg.kernel.infrastructure.transport", "msg", "http server created")
+		logger.Log("method", "public.kernel.infrastructure.transport", "msg",
+			fmt.Sprintf("http server created on addr %s:%d", cfg.TransportConfig.HTTPHost,
+				cfg.TransportConfig.HTTPPort))
 	}()
 
 	return &http.Server{
-		Addr:              "0.0.0.0:8080",
+		Addr:              cfg.TransportConfig.HTTPHost + fmt.Sprintf(":%d", cfg.TransportConfig.HTTPPort),
 		Handler:           r,
 		TLSConfig:         nil,
 		ReadTimeout:       time.Second * 15,
 		ReadHeaderTimeout: time.Second * 15,
 		WriteTimeout:      time.Second * 15,
 		IdleTimeout:       time.Second * 30,
-		MaxHeaderBytes:    8192,
+		MaxHeaderBytes:    4096,
 		TLSNextProto:      nil,
 		ConnState:         nil,
 		ErrorLog:          nil,

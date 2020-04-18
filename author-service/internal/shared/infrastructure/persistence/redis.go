@@ -1,9 +1,11 @@
 package persistence
 
 import (
+	"fmt"
 	"github.com/go-kit/kit/log"
 	"github.com/go-redis/redis/v7"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
+	"strconv"
 	"time"
 )
 
@@ -16,13 +18,21 @@ func NewRedisPool(logger log.Logger, cfg *config.KernelConfig) (*redis.Client, f
 		)
 	}(time.Now())
 
+	var db int
+	var err error
+
+	db, err = strconv.Atoi(cfg.MemConfig.Database)
+	if err != nil {
+		db = 0
+	}
+
 	client := redis.NewClient(&redis.Options{
-		Network:            "",
-		Addr:               cfg.MainMemHost,
+		Network:            cfg.MemConfig.Network,
+		Addr:               cfg.MemConfig.Host + fmt.Sprintf(":%d", cfg.MemConfig.Port),
 		Dialer:             nil,
 		OnConnect:          nil,
-		Password:           cfg.MainMemPassword,
-		DB:                 0,
+		Password:           cfg.MemConfig.Password,
+		DB:                 db,
 		MaxRetries:         10,
 		MinRetryBackoff:    0,
 		MaxRetryBackoff:    0,
@@ -45,7 +55,7 @@ func NewRedisPool(logger log.Logger, cfg *config.KernelConfig) (*redis.Client, f
 		}
 	}
 
-	err := client.Ping().Err()
+	err = client.Ping().Err()
 	if err != nil {
 		return nil, cleanup, nil
 	}

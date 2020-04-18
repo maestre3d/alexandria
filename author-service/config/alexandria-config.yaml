@@ -5,11 +5,23 @@ alexandria:
   persistence:
     dbms:
       url: "postgres://postgres:root@localhost:5432/alexandria-author?sslmode=disable"
+      driver: "postgres"
+      user: "postgres"
+      password: "root"
+      host: "0.0.0.0"
+      port: 5432
+      database: "alexandria-author"
     mem:
-      host: "localhost:6379"
+      network: ""
+      host: "0.0.0.0"
+      port: 6379
       password: ""
+      database: 0
   service:
     transport:
       http:
+        host: "0.0.0.0"
         port: 8080
-        rpc: 31337
+      rpc:
+        host: "0.0.0.0"
+        port: 31337

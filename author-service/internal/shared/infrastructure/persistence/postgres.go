@@ -18,7 +18,7 @@ func NewPostgresPool(ctx context.Context, logger log.Logger, cfg *config.KernelC
 		)
 	}(time.Now())
 
-	db, err := postgres.Open(ctx, cfg.MainDBMSURL)
+	db, err := postgres.Open(ctx, cfg.DBMSConfig.URL)
 	if err != nil {
 		return nil, nil, err
 	}

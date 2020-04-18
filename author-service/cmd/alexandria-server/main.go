@@ -12,16 +12,16 @@ import (
 )
 
 func main() {
-	proxyHTTP, cleanup, err := di.InjectHTTPProxy()
-	if err != nil {
-		panic(err)
-	}
-	defer cleanup()
-
 	// Manage goroutines
 	var g run.Group
 	{
-		l, _ := net.Listen("tcp", ":8080")
+		proxyHTTP, cleanup, err := di.InjectHTTPProxy()
+		if err != nil {
+			panic(err)
+		}
+		defer cleanup()
+
+		l, _ := net.Listen("tcp", proxyHTTP.Server.Addr)
 		g.Add(func() error {
 			return http.Serve(l, proxyHTTP.Server.Handler)
 		}, func(err error) {

@@ -5,6 +5,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/global"
+	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/handler"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io"
@@ -13,6 +14,7 @@ import (
 
 type HTTPTransportProxy struct {
 	Server *http.Server
+	Config *config.KernelConfig
 	publicRouter *mux.Router
 	privateRouter *mux.Router
 	adminRouter *mux.Router
@@ -24,7 +26,7 @@ type ProxyHandlers struct {
 	AuthorHandler *handler.AuthorHandler
 }
 
-func NewHTTPTransportProxy(logger log.Logger, server *http.Server, handlers *ProxyHandlers) (*HTTPTransportProxy, func()) {
+func NewHTTPTransportProxy(logger log.Logger, server *http.Server, cfg *config.KernelConfig, handlers *ProxyHandlers) (*HTTPTransportProxy, func()) {
 	// TODO: Add metrics with OpenCensus and Prometheus/Zipkin
 	router, ok := server.Handler.(*mux.Router)
 	if !ok {
@@ -34,6 +36,7 @@ func NewHTTPTransportProxy(logger log.Logger, server *http.Server, handlers *Pro
 
 	proxy := &HTTPTransportProxy{
 		Server:        server,
+		Config: cfg,
 		publicRouter:  newHTTPPublicRouter(router),
 		privateRouter: newHTTPPrivateRouter(router),
 		adminRouter:   newHTTPAdminRouter(router),
