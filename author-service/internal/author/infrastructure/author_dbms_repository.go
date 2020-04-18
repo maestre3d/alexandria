@@ -3,7 +3,9 @@ package infrastructure
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"github.com/go-redis/redis/v7"
 	"github.com/lib/pq"
 	"github.com/maestre3d/alexandria/author-service/internal/author/domain"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/exception"
@@ -15,12 +17,12 @@ import (
 type AuthorDBMSRepository struct {
 	db *sql.DB
 	ctx context.Context
-	// mem *redis.Pool
+	mem *redis.Client
 	logger util.ILogger
 }
 
 // NewAuthorDBMSRepository Create an author repository
-func NewAuthorDBMSRepository(dbPool *sql.DB, ctx context.Context, logger util.ILogger) *AuthorDBMSRepository {
+func NewAuthorDBMSRepository(dbPool *sql.DB, mem *redis.Client, ctx context.Context, logger util.ILogger) *AuthorDBMSRepository {
 	return &AuthorDBMSRepository{
 		db:     dbPool,
 		ctx: ctx,
@@ -72,7 +74,23 @@ func (r *AuthorDBMSRepository) Update(author *domain.AuthorEntity) error {
 		}
 	}
 
-	// TODO: Add write-through cache pattern
+	// write-through cache pattern
+	if r.mem != nil {
+		go func() {
+			memConn := r.mem.Conn()
+			defer func() {
+				err = memConn.Close()
+			}()
+
+			err := memConn.Get("author:" + author.ExternalID).Err()
+			if err == nil {
+				authorJSON, err := json.Marshal(author)
+				if err == nil {
+					err = memConn.Set("author:"+author.ExternalID, authorJSON, (time.Hour * 24)).Err()
+				}
+			}
+		}()
+	}
 
 	return err
 }
@@ -88,8 +106,23 @@ func (r *AuthorDBMSRepository) Remove(id string) error {
 
 	statement := `DELETE FROM AUTHOR WHERE EXTERNAL_ID = $1 AND DELETED = FALSE`
 
-	// TODO: Add write-through cache pattern
 	_, err = conn.ExecContext(r.ctx, statement, id)
+
+	// write-through cache pattern
+	if r.mem != nil {
+		go func() {
+			memConn := r.mem.Conn()
+			defer func() {
+				err = memConn.Close()
+			}()
+
+			err := memConn.Get(fmt.Sprintf("author:%s", id)).Err()
+			if err == nil {
+				err = memConn.Del("author:" + id).Err()
+			}
+		}()
+	}
+
 	return err
 }
 
@@ -102,7 +135,40 @@ func (r *AuthorDBMSRepository) FetchOne(id string) (*domain.AuthorEntity, error)
 		err = conn.Close()
 	}()
 
-	// TODO: Add cache-aside pattern
+	// Add cache-aside pattern
+	if r.mem != nil {
+		authorChan := make(chan *domain.AuthorEntity)
+
+		go func() {
+			memCon := r.mem.Conn()
+			defer func() {
+				err := memCon.Close()
+				if err != nil {
+					authorChan<-nil
+				}
+			}()
+
+			authorMem, err := memCon.Get(fmt.Sprintf("author:%s", id)).Result()
+			if err == nil {
+				author := new(domain.AuthorEntity)
+				err = json.Unmarshal([]byte(authorMem), author)
+				if err == nil {
+					authorChan<-author
+				}
+
+				authorChan<-nil
+			}
+
+			authorChan<-nil
+		}()
+
+		select {
+		case author := <-authorChan:
+			if author != nil {
+				return author, nil
+			}
+		}
+	}
 
 	statement := `SELECT * FROM AUTHOR WHERE EXTERNAL_ID = $1 AND DELETED = FALSE`
 
@@ -116,6 +182,21 @@ func (r *AuthorDBMSRepository) FetchOne(id string) (*domain.AuthorEntity, error)
 		}
 
 		return nil, err
+	}
+
+	// Write-through
+	if r.mem != nil {
+		go func() {
+			memConn := r.mem.Conn()
+			defer func() {
+				err = memConn.Close()
+			}()
+
+			authorJSON, err := json.Marshal(author)
+			if err == nil {
+				err = memConn.Set(fmt.Sprintf("author:%s", id), authorJSON, (time.Hour * 24)).Err()
+			}
+		}()
 	}
 
 	return author, nil

@@ -29,9 +29,16 @@ func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	authorDBMSRepository := infrastructure.NewAuthorDBMSRepository(db, context, zapLogger)
+	client, cleanup3, err := persistence.NewRedisPool(zapLogger)
+	if err != nil {
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	authorDBMSRepository := infrastructure.NewAuthorDBMSRepository(db, client, context, zapLogger)
 	authorUseCase := interactor.NewAuthorUseCase(zapLogger, authorDBMSRepository)
 	return authorUseCase, func() {
+		cleanup3()
 		cleanup2()
 		cleanup()
 	}, nil
@@ -47,7 +54,7 @@ var DBMSPoolSet = wire.NewSet(
 )
 
 var AuthorDBMSRepositorySet = wire.NewSet(
-	DBMSPoolSet, wire.Bind(new(domain.IAuthorRepository), new(*infrastructure.AuthorDBMSRepository)), infrastructure.NewAuthorDBMSRepository,
+	DBMSPoolSet, persistence.NewRedisPool, wire.Bind(new(domain.IAuthorRepository), new(*infrastructure.AuthorDBMSRepository)), infrastructure.NewAuthorDBMSRepository,
 )
 
 var AuthorServiceSet = wire.NewSet(

@@ -26,6 +26,7 @@ var DBMSPoolSet = wire.NewSet(
 
 var AuthorDBMSRepositorySet = wire.NewSet(
 	DBMSPoolSet,
+	persistence.NewRedisPool,
 	wire.Bind(new(domain.IAuthorRepository), new(*infrastructure.AuthorDBMSRepository)),
 	infrastructure.NewAuthorDBMSRepository,
 )
