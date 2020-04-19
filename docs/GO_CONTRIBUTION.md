@@ -102,7 +102,7 @@ Every configuration **must** have an _"alexandria-config.yaml"_ file containing 
 - _/etc/alexandria/_
 - _._
 
-Every configuration system **must** fetch secrets from AWS KMS or similar. If not available, read configuration from _"alexandria-config.yaml"_ file.
+Every configuration system **must** fetch secrets from _AWS KMS_ or similar. If not available, read configuration from _"alexandria-config.yaml"_ file.
 
 **Configuration file example**
 ```yaml
@@ -135,6 +135,8 @@ alexandria:
         port: 31337
 ```
 
+### Versioning
+For every single release, all software deployed **must** use [Semantic Versioning](https://semver.org/) guidelines to keep consistency and inform every single developer the best way possible.
 
 ## 3rd-Party Packages
 The following specified packages **must** be used for every new service written.
