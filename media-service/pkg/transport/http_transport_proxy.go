@@ -1,10 +1,10 @@
-package delivery
+package transport
 
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/global"
 	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/media-service/pkg/service/delivery/handler"
+	"github.com/maestre3d/alexandria/media-service/pkg/transport/handler"
 	"net/http"
 )
 
@@ -42,7 +42,7 @@ func NewHTTPServiceProxy(logger util.ILogger, server *http.Server, handlers *Pro
 	// Start routing-mapping
 	service.mapMediaRoutes()
 
-	logger.Print("http proxy service started", "service.delivery")
+	logger.Print("http proxy transport started", "transport.delivery")
 
 	return service
 }

@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func QueryCriteria(query string) string {
+func QueryCriteriaSQL(query string) string {
 	if query == "" {
 		return ""
 	}
@@ -13,7 +13,7 @@ func QueryCriteria(query string) string {
 	LOWER(MEDIA_TYPE::TEXT) LIKE LOWER('%` + query + `%'))`
 }
 
-func MediaTypeCriteria(mediaType string) string {
+func MediaTypeCriteriaSQL(mediaType string) string {
 	// Required enum validation
 	if mediaType == "" {
 		return ""
@@ -21,7 +21,7 @@ func MediaTypeCriteria(mediaType string) string {
 	return fmt.Sprintf(`MEDIA_TYPE = '%s'`, strings.ToUpper(mediaType))
 }
 
-func AuthorCriteria(authorID string) string {
+func AuthorCriteriaSQL(authorID string) string {
 	// Required UUID validation
 	if authorID == "" {
 		return ""
@@ -29,7 +29,7 @@ func AuthorCriteria(authorID string) string {
 	return fmt.Sprintf(`AUTHOR_ID = '%s'`, authorID)
 }
 
-func PublisherCriteria(userID string) string {
+func PublisherCriteriaSQL(userID string) string {
 	// Required UUID validation
 	if userID == "" {
 		return ""
@@ -37,10 +37,18 @@ func PublisherCriteria(userID string) string {
 	return fmt.Sprintf(`USER_ID = '%s'`, userID)
 }
 
-func AndCriteria(statement string) string {
+func TitleCriteriaSQL(title string) string {
+	if title == "" {
+		return ""
+	}
+
+	return `LOWER(TITLE) = LOWER('` + title + `')`
+}
+
+func AndCriteriaSQL(statement string) string {
 	return statement + " AND "
 }
 
-func OtherCriteria(statement string) string {
+func OtherCriteriaSQL(statement string) string {
 	return statement + " OR "
 }

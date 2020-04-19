@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/config"
 	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/config"
 	"gocloud.dev/postgres"
 )
 

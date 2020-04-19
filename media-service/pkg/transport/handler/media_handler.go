@@ -3,8 +3,8 @@ package handler
 import (
 	"errors"
 	"github.com/gin-gonic/gin"
-	"github.com/maestre3d/alexandria/media-service/internal/media/application"
-	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/global"
+	"github.com/maestre3d/alexandria/media-service/internal/media/interactor"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/exception"
 	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
 	"go.uber.org/multierr"
 	"net/http"
@@ -13,16 +13,16 @@ import (
 
 type MediaHandler struct {
 	logger       util.ILogger
-	mediaUseCase *application.MediaUseCase
+	mediaUseCase *interactor.MediaUseCase
 }
 
-func NewMediaHandler(logger util.ILogger, mediaUseCase *application.MediaUseCase) *MediaHandler {
+func NewMediaHandler(logger util.ILogger, mediaUseCase *interactor.MediaUseCase) *MediaHandler {
 	logger.Print("media handler created", "service.delivery.handler")
 	return &MediaHandler{logger, mediaUseCase}
 }
 
 func (m *MediaHandler) Create(c *gin.Context) {
-	params := &application.MediaParams{
+	params := &interactor.MediaParams{
 		Title:       c.PostForm("title"),
 		DisplayName: c.PostForm("display_name"),
 		Description: c.PostForm("description"),
@@ -33,20 +33,20 @@ func (m *MediaHandler) Create(c *gin.Context) {
 	}
 	err := m.mediaUseCase.Create(params)
 	if err != nil {
-		if errors.Is(err, global.EntityExists) {
+		if errors.Is(err, exception.EntityExists) {
 			c.JSON(http.StatusConflict, &gin.H{
 				"code":    http.StatusConflict,
 				"message": err.Error(),
 			})
 			return
-		} else if errors.Is(err, global.EmptyBody) {
+		} else if errors.Is(err, exception.EmptyBody) {
 			c.JSON(http.StatusBadRequest, &gin.H{
 				"code":    http.StatusBadRequest,
 				"message": err,
 			})
 			return
-		} else if errors.Is(err, global.InvalidID) || errors.Is(err, global.RequiredField) || errors.Is(err, global.InvalidFieldFormat) ||
-			errors.Is(err, global.InvalidFieldRange) {
+		} else if errors.Is(err, exception.InvalidID) || errors.Is(err, exception.RequiredField) || errors.Is(err, exception.InvalidFieldFormat) ||
+			errors.Is(err, exception.InvalidFieldRange) {
 			// Business exception
 			errs := multierr.Errors(err)
 			for _, err = range errs {
@@ -77,13 +77,13 @@ func (m *MediaHandler) Create(c *gin.Context) {
 	// Return created media
 	media, err := m.mediaUseCase.GetByTitle(params.Title)
 	if err != nil {
-		if errors.Is(err, global.EmptyQuery) {
+		if errors.Is(err, exception.EmptyQuery) {
 			c.JSON(http.StatusBadRequest, &gin.H{
 				"code":    http.StatusBadRequest,
 				"message": err.Error(),
 			})
 			return
-		} else if errors.Is(err, global.EntityNotFound) {
+		} else if errors.Is(err, exception.EntityNotFound) {
 			c.JSON(http.StatusNotFound, &gin.H{
 				"code":    http.StatusNotFound,
 				"message": err.Error(),
@@ -109,20 +109,20 @@ func (m *MediaHandler) Get(c *gin.Context) {
 	if id == "" {
 		c.JSON(http.StatusBadRequest, &gin.H{
 			"code":    http.StatusBadRequest,
-			"message": global.InvalidID.Error(),
+			"message": exception.InvalidID.Error(),
 		})
 		return
 	}
 
 	media, err := m.mediaUseCase.GetByID(id)
 	if err != nil {
-		if errors.Is(err, global.EntityNotFound) {
+		if errors.Is(err, exception.EntityNotFound) {
 			c.JSON(http.StatusNotFound, &gin.H{
 				"code":    http.StatusNotFound,
 				"message": err.Error(),
 			})
 			return
-		} else if errors.Is(err, global.InvalidID) {
+		} else if errors.Is(err, exception.InvalidID) {
 			c.JSON(http.StatusBadRequest, &gin.H{
 				"code":    http.StatusBadRequest,
 				"message": err.Error(),
@@ -161,13 +161,13 @@ func (m *MediaHandler) List(c *gin.Context) {
 
 	medias, err := m.mediaUseCase.GetAll(params, filterMap)
 	if err != nil {
-		if errors.Is(err, global.EntitiesNotFound) {
+		if errors.Is(err, exception.EntitiesNotFound) {
 			c.JSON(http.StatusNotFound, &gin.H{
 				"code":    http.StatusNotFound,
 				"message": err.Error(),
 			})
 			return
-		} else if errors.Is(err, global.InvalidFieldFormat) {
+		} else if errors.Is(err, exception.InvalidFieldFormat) {
 			errDesc := strings.Split(err.Error(), ":")
 			c.JSON(http.StatusBadRequest, &gin.H{
 				"code":    http.StatusBadRequest,
@@ -209,12 +209,12 @@ func (m *MediaHandler) UpdateOne(c *gin.Context) {
 	if id == "" {
 		c.JSON(http.StatusBadRequest, &gin.H{
 			"code":    http.StatusBadRequest,
-			"message": global.InvalidID.Error(),
+			"message": exception.InvalidID.Error(),
 		})
 		return
 	}
 
-	params := &application.MediaParams{
+	params := &interactor.MediaParams{
 		MediaID:     id,
 		Title:       c.PostForm("title"),
 		DisplayName: c.PostForm("display_name"),
@@ -237,20 +237,20 @@ func (m *MediaHandler) UpdateOne(c *gin.Context) {
 	}
 
 	if err != nil {
-		if errors.Is(err, global.EntityExists) {
+		if errors.Is(err, exception.EntityExists) {
 			c.JSON(http.StatusConflict, &gin.H{
 				"code":    http.StatusConflict,
 				"message": err.Error(),
 			})
 			return
-		} else if errors.Is(err, global.EmptyBody) {
+		} else if errors.Is(err, exception.EmptyBody) {
 			c.JSON(http.StatusBadRequest, &gin.H{
 				"code":    http.StatusBadRequest,
 				"message": err,
 			})
 			return
-		} else if errors.Is(err, global.InvalidID) || errors.Is(err, global.RequiredField) || errors.Is(err, global.InvalidFieldFormat) ||
-			errors.Is(err, global.InvalidFieldRange) {
+		} else if errors.Is(err, exception.InvalidID) || errors.Is(err, exception.RequiredField) || errors.Is(err, exception.InvalidFieldFormat) ||
+			errors.Is(err, exception.InvalidFieldRange) {
 			errs := multierr.Errors(err)
 			for _, err = range errs {
 				errDesc := strings.Split(err.Error(), ":")
@@ -281,13 +281,13 @@ func (m *MediaHandler) UpdateOne(c *gin.Context) {
 	// Return updated resource
 	media, err := m.mediaUseCase.GetByID(params.MediaID)
 	if err != nil {
-		if errors.Is(err, global.EntityNotFound) {
+		if errors.Is(err, exception.EntityNotFound) {
 			c.JSON(http.StatusNotFound, &gin.H{
 				"code":    http.StatusNotFound,
 				"message": err.Error(),
 			})
 			return
-		} else if errors.Is(err, global.InvalidID) {
+		} else if errors.Is(err, exception.InvalidID) {
 			c.JSON(http.StatusBadRequest, &gin.H{
 				"code":    http.StatusBadRequest,
 				"message": err.Error(),
@@ -314,14 +314,14 @@ func (m *MediaHandler) DeleteOne(c *gin.Context) {
 	if id == "" {
 		c.JSON(http.StatusBadRequest, &gin.H{
 			"code":    http.StatusBadRequest,
-			"message": global.InvalidID.Error(),
+			"message": exception.InvalidID.Error(),
 		})
 		return
 	}
 
 	err := m.mediaUseCase.RemoveOne(id)
 	if err != nil {
-		if errors.Is(err, global.InvalidID) {
+		if errors.Is(err, exception.InvalidID) {
 			c.JSON(http.StatusBadRequest, &gin.H{
 				"code":    http.StatusBadRequest,
 				"message": err.Error(),

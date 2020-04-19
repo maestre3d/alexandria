@@ -3,10 +3,11 @@ package persistence
 import (
 	"context"
 	"database/sql"
+	"time"
+
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
 	"gocloud.dev/postgres"
-	"time"
 )
 
 func NewPostgresPool(ctx context.Context, logger log.Logger, cfg *config.KernelConfig) (*sql.DB, func(), error) {

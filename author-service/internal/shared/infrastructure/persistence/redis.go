@@ -2,11 +2,12 @@ package persistence
 
 import (
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-redis/redis/v7"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
-	"strconv"
-	"time"
 )
 
 func NewRedisPool(logger log.Logger, cfg *config.KernelConfig) (*redis.Client, func(), error) {

@@ -1,118 +1,34 @@
 package domain
 
-import (
-	"fmt"
-	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/global"
-	"go.uber.org/multierr"
-	"strings"
-	"time"
-)
+import "time"
 
-// MediaEntity Media entity model
+// MediaEntity Media entity type
 type MediaEntity struct {
-	MediaID     mediaID
-	ExternalID  externalID
-	Title       title
-	DisplayName displayName
-	Description *description
-	UserID      UserID
-	AuthorID    AuthorID
-	PublishDate time.Time
-	MediaType   MediaType
-	CreateTime  time.Time
-	UpdateTime  time.Time
-	DeleteTime  *time.Time
-	Metadata    *string
-	Deleted     bool
+	MediaID     int64      `json:"-"`
+	ExternalID  string     `json:"media_id"`
+	Title       string     `json:"title"`
+	DisplayName string     `json:"display_name"`
+	Description *string    `json:"description"`
+	UserID      string     `json:"user_id"`
+	AuthorID    string     `json:"author_id"`
+	PublishDate time.Time  `json:"publish_date"`
+	MediaType   string     `json:"media_type"`
+	TotalViews int64 `json:"total_views"`
+	CreateTime  time.Time  `json:"create_time"`
+	UpdateTime  time.Time  `json:"update_time"`
+	DeleteTime  *time.Time `json:"-"`
+	Metadata    *string    `json:"metadata,omitempty"`
+	Deleted     bool       `json:"-"`
 }
 
-// MediaEntityParams Required parameters to create an entity
 type MediaEntityParams struct {
-	Title       string
+	Title string
 	DisplayName string
-	Description string
-	UserID      string
-	AuthorID    string
-	PublishDate string
-	MediaType   string
+	Description *string
+	UserID string
+	AuthorID string
+	Publi
+	MediaType string
 }
 
-func NewMediaEntity(params *MediaEntityParams) (*MediaEntity, error) {
-
-	publishTime, err := ParsePublishDate(params.PublishDate)
-	if err != nil {
-		return nil, err
-	}
-
-	descriptionPointer := &params.Description
-	if params.Description == "" {
-		descriptionPointer = nil
-	}
-
-	params.MediaType = strings.ToUpper(params.MediaType)
-
-	media := &MediaEntity{
-		MediaID:     mediaID{},
-		ExternalID:  externalID{},
-		Title:       title{Value: params.Title},
-		DisplayName: displayName{Value: params.DisplayName},
-		Description: &description{Value: descriptionPointer},
-		UserID:      UserID{Value: params.UserID},
-		AuthorID:    AuthorID{Value: params.AuthorID},
-		PublishDate: publishTime,
-		MediaType:   MediaType{Value: params.MediaType},
-		CreateTime:  time.Now(),
-		UpdateTime:  time.Now(),
-		DeleteTime:  nil,
-		Metadata:    nil,
-		Deleted:     false,
-	}
-	media.ExternalID.Generate()
-
-	err = media.IsValid()
-	if err != nil {
-		return nil, err
-	}
-
-	return media, nil
-}
-
-func (m *MediaEntity) IsValid() error {
-	return multierr.Combine(
-		m.ExternalID.IsValid(),
-		m.Title.IsValid(),
-		m.DisplayName.IsValid(),
-		m.Description.IsValid(),
-		m.UserID.IsValid(),
-		m.AuthorID.IsValid(),
-		m.MediaType.IsValid(),
-	)
-}
-
-func (m *MediaEntity) ToMediaAggregate() *MediaAggregate {
-	return &MediaAggregate{
-		MediaID:     m.MediaID.Value,
-		ExternalID:  m.ExternalID.Value,
-		Title:       m.Title.Value,
-		DisplayName: m.DisplayName.Value,
-		Description: m.Description.Value,
-		UserID:      m.UserID.Value,
-		AuthorID:    m.AuthorID.Value,
-		PublishDate: m.PublishDate,
-		MediaType:   m.MediaType.Value,
-		CreateTime:  m.CreateTime,
-		UpdateTime:  m.UpdateTime,
-		DeleteTime:  m.DeleteTime,
-		Metadata:    m.Metadata,
-		Deleted:     m.Deleted,
-	}
-}
-
-func ParsePublishDate(dateString string) (time.Time, error) {
-	publishTime, err := time.Parse(global.RFC3339Micro, dateString)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("%w:%s", global.InvalidFieldFormat, fmt.Sprintf(global.InvalidFieldFormatString, "publish_date", "date format 2006-01-02"))
-	}
-
-	return publishTime, nil
-}
+func NewMediaEntity()

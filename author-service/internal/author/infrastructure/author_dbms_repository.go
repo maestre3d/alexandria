@@ -5,13 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-redis/redis/v7"
 	"github.com/lib/pq"
 	"github.com/maestre3d/alexandria/author-service/internal/author/domain"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/exception"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/util"
-	"time"
 )
 
 // AuthorDBMSRepository DBMS Author repository
@@ -75,6 +76,9 @@ func (r *AuthorDBMSRepository) Update(author *domain.AuthorEntity) error {
 			return exception.EntityExists
 		}
 	}
+	if err != nil {
+		return err
+	}
 
 	// write-through cache pattern
 	if r.mem != nil {
@@ -94,7 +98,7 @@ func (r *AuthorDBMSRepository) Update(author *domain.AuthorEntity) error {
 		}()
 	}
 
-	return err
+	return nil
 }
 
 func (r *AuthorDBMSRepository) Remove(id string) error {
@@ -106,8 +110,8 @@ func (r *AuthorDBMSRepository) Remove(id string) error {
 		err = conn.Close()
 	}()
 
-	statement := `DELETE FROM AUTHOR WHERE EXTERNAL_ID = $1 AND DELETED = FALSE`
-
+	// Soft-delete
+	statement := `UPDATE AUTHOR SET DELETED = TRUE WHERE EXTERNAL_ID = $1 AND DELETED = FALSE`
 	_, err = conn.ExecContext(r.ctx, statement, id)
 
 	// write-through cache pattern
@@ -128,7 +132,7 @@ func (r *AuthorDBMSRepository) Remove(id string) error {
 	return err
 }
 
-func (r *AuthorDBMSRepository) FetchOne(id string) (*domain.AuthorEntity, error) {
+func (r *AuthorDBMSRepository) FetchByID(id string) (*domain.AuthorEntity, error) {
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return nil, err
@@ -235,11 +239,9 @@ func (r *AuthorDBMSRepository) Fetch(params *util.PaginationParams, filterParams
 	// Keyset
 	if params.Token != "" {
 		if filterParams["timestamp"] == "false" {
-			// By ID
 			statement += AndCriteriaSQL(fmt.Sprintf(`ID >= (SELECT ID FROM AUTHOR WHERE EXTERNAL_ID = '%s' AND DELETED = FALSE)`,
 				params.Token))
 			statement += fmt.Sprintf(`DELETED = FALSE ORDER BY ID ASC FETCH FIRST %d ROWS ONLY`, params.Size)
-
 		} else if filterParams["timestamp"] == "" || filterParams["timestamp"] == "true" {
 			// Timestamp/Most recent by default
 			statement += AndCriteriaSQL(fmt.Sprintf(`UPDATE_TIME <= (SELECT UPDATE_TIME FROM AUTHOR WHERE EXTERNAL_ID = '%s' AND DELETED = FALSE)`,

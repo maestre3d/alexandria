@@ -6,7 +6,7 @@ import "github.com/maestre3d/alexandria/author-service/internal/shared/domain/ut
 type IAuthorRepository interface {
 	Save(entity *AuthorEntity) error
 	Fetch(params *util.PaginationParams, filterParams util.FilterParams) ([]*AuthorEntity, error)
-	FetchOne(id string) (*AuthorEntity, error)
+	FetchByID(id string) (*AuthorEntity, error)
 	Update(entity *AuthorEntity) error
 	Remove(id string) error
 }
