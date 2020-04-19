@@ -89,6 +89,51 @@ Therefore, every logger **shall** use the specified sentences.
 - New instance.- “HANDLER_NAME created”, “LAYER_LOCATION” _(e.g. "media handler created", "service.transport.handler")_
 - New service.- “SERVICE_NAME started”, “service.LAYER_LOCATION” _(e.g. "http proxy service started", "service.transport")_
 
+## Runtime Configuration
+In the following section, we define our runtine configuration guideline.
+
+Every configuration **must** define default values inside code.
+
+Every configuration **must** have an _"alexandria-config.yaml"_ file containing required keys, it must be stored on the following locations:
+- _$HOME/.alexandria/_
+- _./config/_
+- _/etc/alexandria/_
+- _._
+
+Every configuration system **must** fetch secrets from AWS KMS or similar. If not available, read configuration from _"alexandria-config.yaml"_ file.
+
+**Configuration file example**
+```yaml
+alexandria:
+  info:
+    service: "media"
+    version: 1.0.0
+  persistence:
+    dbms:
+      url: "postgres://postgres:root@postgres:5432/alexandria_media?sslmode=disable"
+      driver: "postgres"
+      user: "postgres"
+      password: "root"
+      host: "postgres"
+      port: 5432
+      database: "alexandria_media"
+    mem:
+      network: ""
+      host: "redis"
+      port: 6379
+      password: ""
+      database: 0
+  service:
+    transport:
+      http:
+        host: "0.0.0.0"
+        port: 8080
+      rpc:
+        host: "0.0.0.0"
+        port: 31337
+```
+
+
 ## 3rd-Party Packages
 The following specified packages **must** be used for every new service written.
 - Gorilla Mux - HTTP Mux/Router
