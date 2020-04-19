@@ -1,20 +1,32 @@
-# Media Service APIs
-The Media service APIs handle all the media's domain operations.
+# Media Service API
+The Media service API handles all the media's domain operations.
 
-They contain multiple layered APIs such as Public, Private and Admin API. 
+They contain multi-layered APIs such as Public, Private and Admin API. 
 
 It uses a gRPC and HTTP Sever to expose the APIs.
 
 Alexandria is currently licensed under the MIT license.
 
 ## Endpoints
-| Method     |     HTTP Mapping             |  HTTP Request body |  HTTP Response body |
-|------------|:----------------------------:|:------------------:|:-------------------:|
-| **List**   |  GET /collection-URL         |   N/A              |   Resource* list    |
-| **Get**    |  GET /resource-URL           |   N/A              |   Resource*         |
-| **Create** |  POST /collection-URL        |   Resource         |   Resource*         |
-| **Update** |  PUT or PATCH /resource-URL  |   Resource         |   Resource*         |
-| **Delete** |  DELETE /resource-URL        |   N/A              |   protobuf.empty    |
+| Method     |     HTTP Mapping                  |  HTTP Request body |  HTTP Response body   |
+|------------|:---------------------------------:|:------------------:|:---------------------:|
+| **List**   |  GET /media                       |   N/A              |   Media* list         |
+| **Create** |  POST /media                      |   Media            |   Media*              |
+| **Get**    |  GET /media/{media-id}            |   N/A              |   Media*              |
+| **Update** |  PUT or PATCH /media/{media-id}   |   Media            |   Media*              |
+| **Delete** |  DELETE /media/{media-id}         |   N/A              |   protobuf.empty/{}   |
+
+### Accepted Queries
+The list method accepts multiple queries to make data fetching easier for everyone.
+
+The following fields are accepted by our service.
+- page_token = string
+- page_size = int32 (min. 1, max. 100)
+- search_query = string
+- timestamp = boolean
+- media_type = string
+- author = string
+- user = string
 
 ## Contribution
 Alexandria is an open-source project, that means everyone’s help is appreciated.
