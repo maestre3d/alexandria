@@ -135,7 +135,7 @@ alexandria:
         port: 31337
 ```
 
-### Versioning
+## Versioning
 For every single release, all software deployed **must** use [Semantic Versioning](https://semver.org/) guidelines to keep consistency and inform every single developer the best way possible.
 
 ## 3rd-Party Packages
