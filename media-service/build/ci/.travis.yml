@@ -21,7 +21,7 @@ git:
 notifications:
   email: false
 
-# script always runs to completion (set +e)
+# scripts always runs to completion (set +e)
 script:
   - go test -v -race ./...  # Run all the tests with the race detector enabled
   - go build ./cmd/alexandria-server/main.go

@@ -2,10 +2,10 @@ package main
 
 import (
 	"errors"
-	"github.com/maestre3d/alexandria/media-service/internal/media/application"
 	"github.com/maestre3d/alexandria/media-service/internal/media/domain"
 	"github.com/maestre3d/alexandria/media-service/internal/media/infrastructure"
-	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/global"
+	"github.com/maestre3d/alexandria/media-service/internal/media/interactor"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/exception"
 	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
 	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/logging"
 	"log"
@@ -19,9 +19,9 @@ func main() {
 	defer cleanup()
 
 	repository := infrastructure.NewMediaLocalRepository(make([]*domain.MediaAggregate, 0), logger)
-	usecase := application.NewMediaUseCase(logger, repository)
+	usecase := interactor.NewMediaUseCase(logger, repository)
 
-	params := &application.MediaParams{
+	params := &interactor.MediaParams{
 		MediaID:     "13",
 		Title:       "Thug Life",
 		DisplayName: "Green Mille by far",
@@ -34,7 +34,7 @@ func main() {
 
 	err = usecase.Create(params)
 	if err != nil {
-		if errors.Is(err, global.EntityExists) {
+		if errors.Is(err, exception.EntityExists) {
 			log.Print("exists catch")
 		}
 		log.Print(err)

@@ -1,11 +1,14 @@
 /******************************
-**	File:   main.sql
-**	Name:	Database migration script
-**	Desc:	Main database migration script for Resource microservice
+**	File:   mainqueries.sql
+**	Name:	Database migrations scripts
+**	Desc:	Main database migrations scripts for Resource microservice
 **	Auth:	Alonso R
 **	Lic:	MIT	
 **	Date:	2020-04-06
 *******************************/
+
+CREATE DATABASE 'alexandria/media';
+SET search_path TO 'alexandria/media';
 
 -- Media Entity
 CREATE TYPE MEDIA_ENUM AS ENUM(
