@@ -6,15 +6,15 @@ import (
 	"context"
 	"github.com/go-kit/kit/log"
 	logzap "github.com/go-kit/kit/log/zap"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
-	"go.uber.org/zap"
 	"github.com/google/wire"
+	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/dependency"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/handler"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 

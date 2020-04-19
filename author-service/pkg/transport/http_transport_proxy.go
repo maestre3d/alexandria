@@ -14,13 +14,13 @@ import (
 )
 
 type HTTPTransportProxy struct {
-	Server *http.Server
-	Config *config.KernelConfig
-	publicRouter *mux.Router
+	Server        *http.Server
+	Config        *config.KernelConfig
+	publicRouter  *mux.Router
 	privateRouter *mux.Router
-	adminRouter *mux.Router
-	logger log.Logger
-	handlers *ProxyHandlers
+	adminRouter   *mux.Router
+	logger        log.Logger
+	handlers      *ProxyHandlers
 }
 
 type ProxyHandlers struct {
@@ -37,7 +37,7 @@ func NewHTTPTransportProxy(logger log.Logger, server *http.Server, cfg *config.K
 
 	proxy := &HTTPTransportProxy{
 		Server:        server,
-		Config: cfg,
+		Config:        cfg,
 		publicRouter:  newHTTPPublicRouter(router),
 		privateRouter: newHTTPPrivateRouter(router),
 		adminRouter:   newHTTPAdminRouter(router),

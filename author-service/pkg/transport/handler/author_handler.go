@@ -19,7 +19,7 @@ import (
 
 type AuthorHandler struct {
 	service service.IAuthorService
-	logger log.Logger
+	logger  log.Logger
 }
 
 func NewAuthorHandler(svc service.IAuthorService, logger log.Logger) *AuthorHandler {
@@ -77,11 +77,11 @@ func decodeCreateRequest(_ context.Context, r *http.Request) (interface{}, error
 
 func decodeListRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	return action.ListRequest{
-		PageToken:    r.URL.Query().Get("page_token"),
-		PageSize:     r.URL.Query().Get("page_size"),
+		PageToken: r.URL.Query().Get("page_token"),
+		PageSize:  r.URL.Query().Get("page_size"),
 		FilterParams: util.FilterParams{
-			"query":r.URL.Query().Get("search_query"),
-			"timestamp":r.URL.Query().Get("timestamp"),
+			"query":     r.URL.Query().Get("search_query"),
+			"timestamp": r.URL.Query().Get("timestamp"),
 		},
 	}, nil
 }
@@ -114,7 +114,7 @@ func encodeCreateRequest(_ context.Context, w http.ResponseWriter, response inte
 			if errors.Is(r.Err, exception.InvalidFieldFormat) || errors.Is(r.Err, exception.InvalidFieldRange) || errors.Is(r.Err, exception.RequiredField) {
 				errDesc := strings.Split(r.Err.Error(), ":")
 				w.WriteHeader(http.StatusBadRequest)
-				return json.NewEncoder(w).Encode(shared.Error{errDesc[len(errDesc) - 1]})
+				return json.NewEncoder(w).Encode(shared.Error{errDesc[len(errDesc)-1]})
 			} else if errors.Is(r.Err, exception.EntityExists) {
 				w.WriteHeader(http.StatusConflict)
 			} else {
@@ -178,7 +178,7 @@ func encodeUpdateResponse(_ context.Context, w http.ResponseWriter, response int
 			if errors.Is(r.Err, exception.InvalidFieldFormat) || errors.Is(r.Err, exception.InvalidFieldRange) {
 				errDesc := strings.Split(r.Err.Error(), ":")
 				w.WriteHeader(http.StatusBadRequest)
-				return json.NewEncoder(w).Encode(shared.Error{errDesc[len(errDesc) - 1]})
+				return json.NewEncoder(w).Encode(shared.Error{errDesc[len(errDesc)-1]})
 			} else if errors.Is(r.Err, exception.InvalidID) || errors.Is(r.Err, exception.EmptyBody) {
 				w.WriteHeader(http.StatusBadRequest)
 			} else if errors.Is(r.Err, exception.EntityExists) {

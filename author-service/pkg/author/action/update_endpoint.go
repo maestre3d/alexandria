@@ -15,16 +15,16 @@ import (
 )
 
 type UpdateRequest struct {
-	ID string `json:"id"`
-	FirstName string `json:"first_name"`
-	LastName string `json:"last_name"`
+	ID          string `json:"id"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
 	DisplayName string `json:"display_name"`
-	BirthDate string `json:"birth_date"`
+	BirthDate   string `json:"birth_date"`
 }
 
 type UpdateResponse struct {
 	Author *domain.AuthorEntity `json:"author"`
-	Err error `json:"-"`
+	Err    error                `json:"-"`
 }
 
 func MakeUpdateAuthorEndpoint(svc service.IAuthorService, logger log.Logger) endpoint.Endpoint {
@@ -44,7 +44,7 @@ func MakeUpdateAuthorEndpoint(svc service.IAuthorService, logger log.Logger) end
 		}, nil
 	}
 
-	limiter := rate.NewLimiter(rate.Every(30 * time.Second), 100)
+	limiter := rate.NewLimiter(rate.Every(30*time.Second), 100)
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:          "author.update",
 		MaxRequests:   100,
@@ -60,4 +60,3 @@ func MakeUpdateAuthorEndpoint(svc service.IAuthorService, logger log.Logger) end
 
 	return ep
 }
-

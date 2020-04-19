@@ -15,19 +15,19 @@ import (
 )
 
 type CreateRequest struct {
-	FirstName string `json:"first_name"`
-	LastName string `json:"last_name"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
 	DisplayName string `json:"display_name"`
-	BirthDate string `json:"birth_date"`
+	BirthDate   string `json:"birth_date"`
 }
 
 type CreateResponse struct {
 	Author *domain.AuthorEntity `json:"author"`
-	Err error `json:"-"`
+	Err    error                `json:"-"`
 }
 
 func MakeCreateAuthorEndpoint(svc service.IAuthorService, logger log.Logger) endpoint.Endpoint {
-	 ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
+	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(CreateRequest)
 		createdAuthor, err := svc.Create(req.FirstName, req.LastName, req.DisplayName, req.BirthDate)
 		if err != nil {
@@ -43,7 +43,7 @@ func MakeCreateAuthorEndpoint(svc service.IAuthorService, logger log.Logger) end
 		}, nil
 	}
 
-	limiter := rate.NewLimiter(rate.Every(30 * time.Second), 100)
+	limiter := rate.NewLimiter(rate.Every(30*time.Second), 100)
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:          "author.create",
 		MaxRequests:   100,

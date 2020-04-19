@@ -16,15 +16,15 @@ import (
 )
 
 type ListRequest struct {
-	PageToken string `json:"page_token"`
-	PageSize string `json:"page_size"`
+	PageToken    string            `json:"page_token"`
+	PageSize     string            `json:"page_size"`
 	FilterParams util.FilterParams `json:"filter_params"`
 }
 
 type ListResponse struct {
-	Authors []*domain.AuthorEntity `json:"authors"`
-	NextPageToken string `json:"next_page_token"`
-	Err error `json:"-"`
+	Authors       []*domain.AuthorEntity `json:"authors"`
+	NextPageToken string                 `json:"next_page_token"`
+	Err           error                  `json:"-"`
 }
 
 func MakeListAuthorEndpoint(svc service.IAuthorService, logger log.Logger) endpoint.Endpoint {
@@ -33,20 +33,20 @@ func MakeListAuthorEndpoint(svc service.IAuthorService, logger log.Logger) endpo
 		authors, nextToken, err := svc.List(req.PageToken, req.PageSize, req.FilterParams)
 		if err != nil {
 			return ListResponse{
-				Authors: nil,
+				Authors:       nil,
 				NextPageToken: "",
-				Err:     err,
+				Err:           err,
 			}, nil
 		}
 
 		return ListResponse{
-			Authors: authors,
+			Authors:       authors,
 			NextPageToken: nextToken,
-			Err:     nil,
+			Err:           nil,
 		}, nil
 	}
 
-	limiter := rate.NewLimiter(rate.Every(30 * time.Second), 100)
+	limiter := rate.NewLimiter(rate.Every(30*time.Second), 100)
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:          "author.list",
 		MaxRequests:   100,

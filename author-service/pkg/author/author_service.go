@@ -29,7 +29,6 @@ func NewAuthorService(authorUseCase service.IAuthorService, logger log.Logger) s
 		BufCap:      0,
 	}, fieldKeys)
 
-
 	var svc service.IAuthorService
 	svc = authorUseCase
 	svc = middleware.LoggingAuthorMiddleware{logger, svc}

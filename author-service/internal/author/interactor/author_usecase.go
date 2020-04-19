@@ -14,7 +14,7 @@ import (
 
 // AuthorUseCase Author interact actions
 type AuthorUseCase struct {
-	log log.Logger
+	log        log.Logger
 	repository domain.IAuthorRepository
 }
 
@@ -39,7 +39,7 @@ func (u *AuthorUseCase) Create(firstName, LastName, displayName, birthDate strin
 	}
 
 	// Ensure display_name uniqueness, as a username
-	existingAuthors, _, err := u.List("0", "1", util.FilterParams{"display_name":displayName})
+	existingAuthors, _, err := u.List("0", "1", util.FilterParams{"display_name": displayName})
 	if err == nil && len(existingAuthors) > 0 {
 		return nil, exception.EntityExists
 	}
@@ -63,7 +63,7 @@ func (u *AuthorUseCase) List(pageToken, pageSize string, filterParams util.Filte
 	nextToken = ""
 	if len(output) >= params.Size {
 		nextToken = output[len(output)-1].ExternalID
-		output = output[0:len(output)-1]
+		output = output[0 : len(output)-1]
 	}
 	return
 }
@@ -104,7 +104,7 @@ func (u *AuthorUseCase) Update(id, firstName, lastName, displayName, birthDate s
 	} else if lastName != "" {
 		author.LastName = lastName
 	} else if displayName != "" {
-		existingAuthors, _, err := u.List("0", "1", util.FilterParams{"display_name":displayName})
+		existingAuthors, _, err := u.List("0", "1", util.FilterParams{"display_name": displayName})
 		if err == nil && len(existingAuthors) > 0 {
 			return nil, exception.EntityExists
 		}
@@ -140,4 +140,3 @@ func (u *AuthorUseCase) Delete(id string) error {
 
 	return u.repository.Remove(id)
 }
-

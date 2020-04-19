@@ -8,13 +8,13 @@ import (
 
 	"github.com/go-kit/kit/log"
 	logZap "github.com/go-kit/kit/log/zap"
-	"go.uber.org/zap"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/author-service/internal/author/domain"
 	"github.com/maestre3d/alexandria/author-service/internal/author/infrastructure"
 	"github.com/maestre3d/alexandria/author-service/internal/author/interactor"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/persistence"
+	"go.uber.org/zap"
 )
 
 /*
@@ -23,7 +23,7 @@ var LoggerSet = wire.NewSet(
 	logging.NewZapLogger,
 )
 
- */
+*/
 
 var configSet = wire.NewSet(
 	ProvideContext,

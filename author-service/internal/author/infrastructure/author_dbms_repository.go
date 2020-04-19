@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -21,6 +22,7 @@ type AuthorDBMSRepository struct {
 	ctx    context.Context
 	mem    *redis.Client
 	logger log.Logger
+	mtx    sync.RWMutex
 }
 
 // NewAuthorDBMSRepository Create an author repository
@@ -34,6 +36,9 @@ func NewAuthorDBMSRepository(dbPool *sql.DB, mem *redis.Client, ctx context.Cont
 }
 
 func (r *AuthorDBMSRepository) Save(author *domain.AuthorEntity) error {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return err
@@ -55,6 +60,9 @@ func (r *AuthorDBMSRepository) Save(author *domain.AuthorEntity) error {
 }
 
 func (r *AuthorDBMSRepository) Update(author *domain.AuthorEntity) error {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return err
@@ -102,6 +110,9 @@ func (r *AuthorDBMSRepository) Update(author *domain.AuthorEntity) error {
 }
 
 func (r *AuthorDBMSRepository) Remove(id string) error {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return err
@@ -133,6 +144,9 @@ func (r *AuthorDBMSRepository) Remove(id string) error {
 }
 
 func (r *AuthorDBMSRepository) FetchByID(id string) (*domain.AuthorEntity, error) {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return nil, err
@@ -209,6 +223,9 @@ func (r *AuthorDBMSRepository) FetchByID(id string) (*domain.AuthorEntity, error
 }
 
 func (r *AuthorDBMSRepository) Fetch(params *util.PaginationParams, filterParams util.FilterParams) ([]*domain.AuthorEntity, error) {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return nil, err

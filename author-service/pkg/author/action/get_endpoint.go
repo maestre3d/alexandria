@@ -20,7 +20,7 @@ type GetRequest struct {
 
 type GetResponse struct {
 	Author *domain.AuthorEntity `json:"author"`
-	Err error `json:"-"`
+	Err    error                `json:"-"`
 }
 
 func MakeGetAuthorEndpoint(svc service.IAuthorService, logger log.Logger) endpoint.Endpoint {
@@ -40,7 +40,7 @@ func MakeGetAuthorEndpoint(svc service.IAuthorService, logger log.Logger) endpoi
 		}, nil
 	}
 
-	limiter := rate.NewLimiter(rate.Every(30 * time.Second), 100)
+	limiter := rate.NewLimiter(rate.Every(30*time.Second), 100)
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:          "author.get",
 		MaxRequests:   100,

@@ -11,7 +11,7 @@ import (
 
 type LoggingAuthorMiddleware struct {
 	Logger log.Logger
-	Next service.IAuthorService
+	Next   service.IAuthorService
 }
 
 func (mw LoggingAuthorMiddleware) Create(firstName, lastName, displayName, birthDate string) (output *domain.AuthorEntity, err error) {

@@ -26,13 +26,13 @@ func MakeDeleteAuthorEndpoint(svc service.IAuthorService, logger log.Logger) end
 		req := request.(DeleteRequest)
 		err = svc.Delete(req.ID)
 		if err != nil {
-			return DeleteResponse{ err}, nil
+			return DeleteResponse{err}, nil
 		}
 
 		return DeleteResponse{nil}, nil
 	}
 
-	limiter := rate.NewLimiter(rate.Every(30 * time.Second), 100)
+	limiter := rate.NewLimiter(rate.Every(30*time.Second), 100)
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:          "author.delete",
 		MaxRequests:   100,
