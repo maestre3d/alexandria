@@ -7,46 +7,36 @@ package dependency
 
 import (
 	"context"
+	"github.com/go-kit/kit/log"
+	zap2 "github.com/go-kit/kit/log/zap"
 	"github.com/google/wire"
-	"github.com/maestre3d/alexandria/src/media-service/internal/media/application"
-	"github.com/maestre3d/alexandria/src/media-service/internal/media/domain"
-	"github.com/maestre3d/alexandria/src/media-service/internal/media/infrastructure"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/config"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/logging"
-	"github.com/maestre3d/alexandria/src/media-service/internal/shared/infrastructure/persistence"
-	"github.com/maestre3d/alexandria/src/media-service/pkg/service/delivery"
-	"github.com/maestre3d/alexandria/src/media-service/pkg/service/delivery/handler"
+	"github.com/maestre3d/alexandria/media-service/internal/media/domain"
+	"github.com/maestre3d/alexandria/media-service/internal/media/infrastructure"
+	"github.com/maestre3d/alexandria/media-service/internal/media/interactor"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/config"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/persistence"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // Injectors from wire.go:
 
-func InitHTTPServiceProxy() (*delivery.HTTPServiceProxy, func(), error) {
-	logger, cleanup, err := logging.NewLogger()
-	if err != nil {
-		return nil, nil, err
-	}
+func InjectMediaUseCase() (*interactor.MediaUseCase, func(), error) {
+	logger := ProvideLogger()
 	context := ProvideContext()
 	kernelConfig := config.NewKernelConfig(context, logger)
-	server := delivery.NewHTTPServer(logger, kernelConfig)
-	db, cleanup2, err := persistence.NewPostgresPool(context, logger, kernelConfig)
+	db, cleanup, err := persistence.NewPostgresPool(context, logger, kernelConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+	client, cleanup2, err := persistence.NewRedisPool(logger, kernelConfig)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	client, cleanup3, err := persistence.NewRedisPool(logger, kernelConfig)
-	if err != nil {
-		cleanup2()
-		cleanup()
-		return nil, nil, err
-	}
-	mediaRDBMSRepository := infrastructure.NewMediaRDBMSRepository(db, client, logger, context)
-	mediaUseCase := application.NewMediaUseCase(logger, mediaRDBMSRepository)
-	mediaHandler := handler.NewMediaHandler(logger, mediaUseCase)
-	proxyHandlers := ProvideProxyHandlers(mediaHandler)
-	httpServiceProxy := delivery.NewHTTPServiceProxy(logger, server, proxyHandlers)
-	return httpServiceProxy, func() {
-		cleanup3()
+	mediaDBMSRepository := infrastructure.NewMediaRDBMSRepository(db, client, logger, context)
+	mediaUseCase := interactor.NewMediaUseCase(logger, mediaDBMSRepository)
+	return mediaUseCase, func() {
 		cleanup2()
 		cleanup()
 	}, nil
@@ -54,48 +44,31 @@ func InitHTTPServiceProxy() (*delivery.HTTPServiceProxy, func(), error) {
 
 // wire.go:
 
-var loggerSet = wire.NewSet(logging.NewLogger, wire.Bind(new(util.ILogger), new(*logging.Logger)))
-
 var configSet = wire.NewSet(
 	ProvideContext,
-	loggerSet, config.NewKernelConfig,
+	ProvideLogger, config.NewKernelConfig,
 )
 
 var postgresPoolSet = wire.NewSet(
 	configSet, persistence.NewPostgresPool,
 )
 
-var redisPoolSet = wire.NewSet(persistence.NewRedisPool)
-
 var mediaRepositorySet = wire.NewSet(
-	postgresPoolSet,
-	redisPoolSet, infrastructure.NewMediaRDBMSRepository, wire.Bind(new(domain.IMediaRepository), new(*infrastructure.MediaRDBMSRepository)),
+	postgresPoolSet, persistence.NewRedisPool, infrastructure.NewMediaRDBMSRepository, wire.Bind(new(domain.IMediaRepository), new(*infrastructure.MediaDBMSRepository)),
 )
 
 var mediaUseCaseSet = wire.NewSet(
-	mediaRepositorySet, application.NewMediaUseCase,
-)
-
-var mediaHandlerSet = wire.NewSet(
-	mediaUseCaseSet, handler.NewMediaHandler,
-)
-
-var proxyHandlersSet = wire.NewSet(
-	mediaHandlerSet,
-	ProvideProxyHandlers,
+	mediaRepositorySet, interactor.NewMediaUseCase,
 )
 
 func ProvideContext() context.Context {
 	return context.Background()
 }
 
-func ProvideMediaLocalRepository(logger util.ILogger) *infrastructure.MediaLocalRepository {
-	return infrastructure.NewMediaLocalRepository(make([]*domain.MediaAggregate, 0), logger)
-}
+func ProvideLogger() log.Logger {
+	loggerZap, _ := zap.NewProduction()
+	defer loggerZap.Sync()
+	level := zapcore.Level(8)
 
-func ProvideProxyHandlers(media *handler.MediaHandler) *delivery.ProxyHandlers {
-
-	return &delivery.ProxyHandlers{
-		media,
-	}
+	return zap2.NewZapSugarLogger(loggerZap, level)
 }

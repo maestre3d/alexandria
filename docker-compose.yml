@@ -1,0 +1,65 @@
+version: "3.3"
+services:
+  #
+  # Microservices
+  #
+  media:
+    build: ./media-service
+    image: alexandria-media
+    restart: on-failure
+    volumes:
+      - api:/usr/src/media/
+    ports:
+      - "3001:8080"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - alexandrianet
+  author:
+    build: ./author-service
+    image: alexandria-author
+    restart: on-failure
+    volumes:
+      - api:/usr/src/author/
+    ports:
+      - "3002:8080"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - alexandrianet
+
+  #
+  # Infrastructure
+  #
+  redis:
+    image: redis:alpine
+    restart: always
+    ports:
+      - "6378:6379"
+    networks:
+      - alexandrianet
+
+  postgres:
+    image: "postgres:12.2-alpine"
+    restart: always
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_MULTIPLE_DATABASES=alexandria_author,alexandria_media
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=root
+    volumes:
+      - ./scripts/migrations/:/docker-entrypoint-initdb.d/
+    networks:
+      - alexandrianet
+
+volumes:
+  api:
+  database_postgres:
+
+# Networks to be created to facilitate communication between containers
+networks:
+  alexandrianet:
+    driver: bridge

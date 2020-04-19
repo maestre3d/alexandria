@@ -1,0 +1,25 @@
+/******************************
+**	File:   mainqueries.sql
+**	Name:	Database migrations scripts
+**	Desc:	Main database migrations scripts for Author microservice
+**	Auth:	Alonso R
+**	Lic:	MIT	
+**	Date:	2020-04-14
+*******************************/
+
+CREATE DATABASE alexandria_author;
+\c alexandria_author
+
+CREATE TABLE IF NOT EXISTS PUBLIC.AUTHOR(
+	ID 				BIGSERIAL NOT NULL PRIMARY KEY,
+	EXTERNAL_ID 	UUID NOT NULL UNIQUE,
+	FIRST_NAME 		VARCHAR(255) NOT NULL,
+	LAST_NAME 		VARCHAR(255) NOT NULL,
+	DISPLAY_NAME 	VARCHAR(255) NOT NULL,
+	BIRTH_DATE 		DATE NOT NULL DEFAULT CURRENT_DATE,
+	CREATE_TIME 	TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	UPDATE_TIME 	TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	DELETE_TIME 	TIMESTAMP DEFAULT NULL,
+	METADATA		TEXT DEFAULT NULL,
+	DELETED 		BOOL DEFAULT FALSE
+);

@@ -1,0 +1,27 @@
+alexandria:
+  info:
+    service: "author"
+    version: 1.0.0
+  persistence:
+    dbms:
+      url: "postgres://postgres:root@postgres:5432/alexandria_author?sslmode=disable"
+      driver: "postgres"
+      user: "postgres"
+      password: "root"
+      host: "postgres"
+      port: 5432
+      database: "alexandria-author"
+    mem:
+      network: ""
+      host: "redis"
+      port: 6379
+      password: ""
+      database: 0
+  service:
+    transport:
+      http:
+        host: "0.0.0.0"
+        port: 8080
+      rpc:
+        host: "0.0.0.0"
+        port: 31337
