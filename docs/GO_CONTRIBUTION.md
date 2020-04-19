@@ -49,30 +49,33 @@ In the following section, we show our error handling scenarios by layer.
 
 **Domain**: _Business rule(s) validations_
 
-| Type                   |     Description                                          |  HTTP Status Code     |  Return value     |
-|------------------------|----------------------------------------------------------|:---------------------:|:---------------------:|
-| **InvalidID**          |  Invalid identifier                                      |   400                 |   Exception                 | 
-| **RequiredField**      |  Missing required request field                          |   400                 |   Exception                 |
-| **InvalidFieldFormat** |  Request field has an invalid format, expect _value_     |   400                 |   Exception                 |
-| **InvalidFieldRange**  |  Request field is out of range `[x, y)`                  |   400                 |   Exception                 |
+| Type                   |     Description                                            |  HTTP Status Code     |  Return value     |
+|------------------------|------------------------------------------------------------|:---------------------:|:---------------------:|
+| **InvalidID**          |  Invalid identifier                                        |   400                 |   Exception                 | 
+| **RequiredField**      |  Missing required request field _x_                        |   400                 |   Exception                 |
+| **InvalidFieldFormat** |  Request field _x_ has an invalid format, expect _value_   |   400                 |   Exception                 |
+| **InvalidFieldRange**  |  Request field _x_ is out of range `[x, y)`                |   400                 |   Exception                 |
 
 
 
 **Repository**: _Data source(s) validations_
 
-| Type                   |     Description                                          |  HTTP Status Code     |  Return value     |
-|------------------------|----------------------------------------------------------|:---------------------:|:---------------------:|
-| **EmptyRow**          |  Resource(s) not found                                      |   404                 |   Null/Nil                 |
-| **Infrastructure** |  SQL/Docstore/API internal error     |   500                 |   Exception                 |
+| Type                    |     Description                                                 |  HTTP Status Code   |  Return value     |
+|-------------------------|-----------------------------------------------------------------|:-------------------:|:---------------------:|
+| **EmptyRow**            |  Resource(s) not found                  |   404                 |   Null/Nil          |
+| **Infrastructure**      |  SQL/Docstore/API internal error        |   500                 |   Exception         |
 
 
 **Interactor**: _Domain's cases validation_
-| Type                   |     Description                                          |  HTTP Status Code     |  Return value     |
-|------------------------|----------------------------------------------------------|:---------------------:|:---------------------:|
-| **InvalidID**          |  Invalid identifier                                      |   400                 |   Exception                 | 
-| **RequiredField**      |  Missing required request field                          |   400                 |   Exception                 |
-| **InvalidFieldFormat** |  Request field has an invalid format, expect _value_     |   400                 |   Exception                 |
-| **AlreadyExists**      |  Resource already exists                          |   409                 |   Exception                 |
+
+| Type                   |     Description                                            |  HTTP Status Code     |  Return value     |
+|------------------------|------------------------------------------------------------|:---------------------:|:---------------------:|
+| **InvalidID**          |  Invalid identifier                                        |   400                 |   Exception                 | 
+| **RequiredField**      |  Missing required request field _x_                        |   400                 |   Exception                 |
+| **InvalidFieldFormat** |  Request field _x_ has an invalid format, expect _value_   |   400                 |   Exception                 |
+| **InvalidFieldRange**  |  Request field _x_ is out of range `[x, y)`                |   400                 |   Exception                 |
+| **AlreadyExists**      |  Resource already exists                                   |   409                 |   Exception                 |
+| **EmptyBody**          |  Request body is empty                                     |   400                 |   Exception                 |
 
 
 
