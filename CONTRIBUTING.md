@@ -36,37 +36,35 @@ The following HTTP Proxy Service architecture **should** be used whenever a new 
 ## Error handling
 We expect to keep consistency in error handling.
 
-In the following section, we show our error handling scenarios.
+In the following section, we show our error handling scenarios by layer.
 
-_**Symbology**_
 
-- RULE(S) - HTTP_CODE/FAULT
-    - EXTRA_METHOD -> RETURN_VALUE
-        - EXCEPTION_CONTAINED
-    - EXCEPTION
+**Domain**: _Business rule(s) validations_
 
-_Domain Layer_
-- Business rule(s) - 400/user
-    - IsValid()
-        - InvalidID
-        - RequiredField
-        - InvalidFieldFormat
-        - InvalidFieldRange
+| Type                   |     Description                                          |  HTTP Status Code     |  Return value     |
+|------------------------|----------------------------------------------------------|:---------------------:|:---------------------:|
+| **InvalidID**          |  Invalid identifier                                      |   400                 |   Exception                 | 
+| **RequiredField**      |  Missing required request field                          |   400                 |   Exception                 |
+| **InvalidFieldFormat** |  Request field has an invalid format, expect _value_     |   400                 |   Exception                 |
+| **InvalidFieldRange**  |  Request field is out of range `[x, y)`                  |   400                 |   Exception                 |
 
-_Repository Layer_
-- Empty row - 404/not_found
-    - Null/Nil Entity
-- Already Exists / Unique key - 409/conflict
-    - EntityExists
-- Infrastructure - 500/internal_server
-    - SQL/Docstore_exception(s)
 
-_Use case Layer_
-- Parsing - 400/user
-    - InvalidID
-    - InvalidFieldFormat
-    - Required data
-    - RequiredField
+
+**Repository**: _Data source(s) validations_
+
+| Type                   |     Description                                          |  HTTP Status Code     |  Return value     |
+|------------------------|----------------------------------------------------------|:---------------------:|:---------------------:|
+| **EmptyRow**          |  Resource(s) not found                                      |   404                 |   Null/Nil                 |
+| **Infrastructure** |  SQL/Docstore/API internal error     |   500                 |   Exception                 |
+
+
+**Interactor**: _Domain's cases validation_
+| Type                   |     Description                                          |  HTTP Status Code     |  Return value     |
+|------------------------|----------------------------------------------------------|:---------------------:|:---------------------:|
+| **InvalidID**          |  Invalid identifier                                      |   400                 |   Exception                 | 
+| **RequiredField**      |  Missing required request field                          |   400                 |   Exception                 |
+| **InvalidFieldFormat** |  Request field has an invalid format, expect _value_     |   400                 |   Exception                 |
+| **AlreadyExists**      |  Resource already exists                          |   409                 |   Exception                 |
 
 
 ## Logging
