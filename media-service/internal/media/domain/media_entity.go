@@ -69,10 +69,6 @@ func NewMediaEntity(params *MediaEntityParams) *MediaEntity {
 }
 
 func (e *MediaEntity) IsValid() error {
-	if e.MediaID <= 0 {
-		return fmt.Errorf("%w:%s", exception.InvalidID, "media_id")
-	}
-
 	if len(e.ExternalID) == 0 {
 		return fmt.Errorf("%w:%s", exception.RequiredField, fmt.Sprintf(exception.RequiredFieldString, "external_id"))
 	}
