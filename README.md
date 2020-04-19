@@ -21,7 +21,7 @@ To accomplish our main objective, we follow the next strategy:
 ## Contribution
 Alexandria is an open-source project, that means everyone’s help is appreciated.
 
-If you'd like to contribute, please look at the [Contribution Guidelines](https://github.com/maestre3d/alexandria/tree/master/docs).
+If you'd like to contribute, please look at the [Contribution Guidelines](https://github.com/maestre3d/alexandria/blob/master/CONTRIBUTING.md).
 
 [Click here](https://github.com/maestre3d/alexandria/tree/master/docs) if you're looking for our docs about engineering, Alexandria API, etc.
 
