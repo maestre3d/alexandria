@@ -86,7 +86,7 @@ In the following section, we define our runtine configuration guideline.
 
 Every configuration **must** define default values inside code.
 
-Every configuration **must** have an _"alexandria-config.yaml"_ file containing required keys, it must be stored on the following locations:
+Every configuration **must** have an _"alexandria-config.yaml"_ file containing required keys, it must be stored in the following locations:
 - _$HOME/.alexandria/_
 - _./config/_
 - _/etc/alexandria/_
