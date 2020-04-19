@@ -3,24 +3,33 @@ package persistence
 import (
 	"context"
 	"database/sql"
+	"time"
 
-	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
+	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/config"
 	"gocloud.dev/postgres"
 )
 
-func NewPostgresPool(ctx context.Context, logger util.ILogger, cfg *config.KernelConfig) (*sql.DB, func(), error) {
-	db, err := postgres.Open(ctx, cfg.MainDBMSURL)
+func NewPostgresPool(ctx context.Context, logger log.Logger, cfg *config.KernelConfig) (*sql.DB, func(), error) {
+	defer func(begin time.Time) {
+		logger.Log(
+			"method", "core.kernel.infrastructure.persistence",
+			"msg", "main dbms database started",
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+
+	db, err := postgres.Open(ctx, cfg.DBMSConfig.URL)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	logger.Print("main database started", "kernel.infrastructure.persistence")
-
 	db.SetMaxOpenConns(50)
-	closePool := func() {
+	db.SetConnMaxLifetime(30 * time.Second)
+	db.SetMaxIdleConns(10)
+
+	cleanup := func() {
 		err = db.Close()
 	}
 
-	return db, closePool, nil
+	return db, cleanup, nil
 }

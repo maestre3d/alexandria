@@ -1,15 +1,27 @@
 alexandria:
   info:
+    service: "media"
     version: 1.0.0
   persistence:
     dbms:
       url: "postgres://postgres:root@postgres:5432/alexandria_media?sslmode=disable"
+      driver: "postgres"
+      user: "postgres"
+      password: "root"
+      host: "postgres"
+      port: 5432
+      database: "alexandria-media"
     mem:
-      host: "redis:6379"
+      network: ""
+      host: "redis"
+      port: 6379
       password: ""
+      database: 0
   service:
-    delivery:
+    transport:
       http:
-        port: :8080
+        host: "0.0.0.0"
+        port: 8080
       rpc:
-        port: :31337
+        host: "0.0.0.0"
+        port: 31337

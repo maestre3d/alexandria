@@ -1,344 +1,223 @@
 package handler
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
-	"github.com/gin-gonic/gin"
-	"github.com/maestre3d/alexandria/media-service/internal/media/interactor"
 	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/exception"
 	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
-	"go.uber.org/multierr"
+	"github.com/maestre3d/alexandria/media-service/pkg/media/service"
+	"github.com/maestre3d/alexandria/media-service/pkg/shared"
 	"net/http"
 	"strings"
+
+	"github.com/go-kit/kit/log"
+	httptransport "github.com/go-kit/kit/transport/http"
+	"github.com/gorilla/mux"
+	"github.com/maestre3d/alexandria/media-service/pkg/media/action"
 )
 
 type MediaHandler struct {
-	logger       util.ILogger
-	mediaUseCase *interactor.MediaUseCase
+	service service.IMediaService
+	logger  log.Logger
 }
 
-func NewMediaHandler(logger util.ILogger, mediaUseCase *interactor.MediaUseCase) *MediaHandler {
-	logger.Print("media handler created", "service.delivery.handler")
-	return &MediaHandler{logger, mediaUseCase}
+func NewMediaHandler(svc service.IMediaService, logger log.Logger) *MediaHandler {
+	return &MediaHandler{svc, logger}
 }
 
-func (m *MediaHandler) Create(c *gin.Context) {
-	params := &interactor.MediaParams{
-		Title:       c.PostForm("title"),
-		DisplayName: c.PostForm("display_name"),
-		Description: c.PostForm("description"),
-		UserID:      c.PostForm("user_id"),
-		AuthorID:    c.PostForm("author_id"),
-		PublishDate: c.PostForm("publish_date"),
-		MediaType:   c.PostForm("media_type"),
-	}
-	err := m.mediaUseCase.Create(params)
-	if err != nil {
-		if errors.Is(err, exception.EntityExists) {
-			c.JSON(http.StatusConflict, &gin.H{
-				"code":    http.StatusConflict,
-				"message": err.Error(),
-			})
-			return
-		} else if errors.Is(err, exception.EmptyBody) {
-			c.JSON(http.StatusBadRequest, &gin.H{
-				"code":    http.StatusBadRequest,
-				"message": err,
-			})
-			return
-		} else if errors.Is(err, exception.InvalidID) || errors.Is(err, exception.RequiredField) || errors.Is(err, exception.InvalidFieldFormat) ||
-			errors.Is(err, exception.InvalidFieldRange) {
-			// Business exception
-			errs := multierr.Errors(err)
-			for _, err = range errs {
-				errDesc := strings.Split(err.Error(), ":")
-				c.JSON(http.StatusBadRequest, &gin.H{
-					"code":    http.StatusBadRequest,
-					"message": errDesc[len(errDesc)-1],
-				})
-				return
-			}
-
-			// Use case exception
-			c.JSON(http.StatusBadRequest, &gin.H{
-				"code":    http.StatusBadRequest,
-				"message": err.Error(),
-			})
-			return
-		}
-
-		// Generic error
-		c.JSON(http.StatusInternalServerError, &gin.H{
-			"code":    http.StatusInternalServerError,
-			"message": err.Error(),
-		})
-		return
-	}
-
-	// Return created media
-	media, err := m.mediaUseCase.GetByTitle(params.Title)
-	if err != nil {
-		if errors.Is(err, exception.EmptyQuery) {
-			c.JSON(http.StatusBadRequest, &gin.H{
-				"code":    http.StatusBadRequest,
-				"message": err.Error(),
-			})
-			return
-		} else if errors.Is(err, exception.EntityNotFound) {
-			c.JSON(http.StatusNotFound, &gin.H{
-				"code":    http.StatusNotFound,
-				"message": err.Error(),
-			})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, &gin.H{
-			"code":    http.StatusInternalServerError,
-			"message": err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, &gin.H{
-		"code":  http.StatusOK,
-		"media": media,
-	})
+func (h *MediaHandler) Create() *httptransport.Server {
+	return httptransport.NewServer(
+		action.MakeCreateMediaEndpoint(h.service, h.logger),
+		decodeCreateRequest,
+		encodeCreateRequest,
+	)
 }
 
-func (m *MediaHandler) Get(c *gin.Context) {
-	id := c.Param("media_id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, &gin.H{
-			"code":    http.StatusBadRequest,
-			"message": exception.InvalidID.Error(),
-		})
-		return
-	}
-
-	media, err := m.mediaUseCase.GetByID(id)
-	if err != nil {
-		if errors.Is(err, exception.EntityNotFound) {
-			c.JSON(http.StatusNotFound, &gin.H{
-				"code":    http.StatusNotFound,
-				"message": err.Error(),
-			})
-			return
-		} else if errors.Is(err, exception.InvalidID) {
-			c.JSON(http.StatusBadRequest, &gin.H{
-				"code":    http.StatusBadRequest,
-				"message": err.Error(),
-			})
-			return
-		}
-
-		// Generic error
-		c.JSON(http.StatusInternalServerError, &gin.H{
-			"code":    http.StatusInternalServerError,
-			"message": err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, &gin.H{
-		"code":  http.StatusOK,
-		"media": media,
-	})
+func (h *MediaHandler) List() *httptransport.Server {
+	return httptransport.NewServer(
+		action.MakeListMediaEndpoint(h.service, h.logger),
+		decodeListRequest,
+		encodeListResponse,
+	)
 }
 
-func (m *MediaHandler) List(c *gin.Context) {
-	pageTokenID := c.Query("page_token")
-	pageTokenUUID := c.Query("page_token")
-	pageSize := c.Query("page_size")
+func (h *MediaHandler) Get() *httptransport.Server {
+	return httptransport.NewServer(
+		action.MakeGetMediaEndpoint(h.service, h.logger),
+		decodeGetRequest,
+		encodeGetResponse,
+	)
+}
 
-	params := util.NewPaginationParams(pageTokenID, pageTokenUUID, pageSize)
+func (h *MediaHandler) Update() *httptransport.Server {
+	return httptransport.NewServer(
+		action.MakeUpdateMediaEndpoint(h.service, h.logger),
+		decodeUpdateRequest,
+		encodeUpdateResponse,
+	)
+}
 
-	filterMap := util.FilterParams{
-		"query":     c.Query("search_query"),
-		"author":    c.Query("author"),
-		"user":      c.Query("user"),
-		"media":     c.Query("media_type"),
-		"timestamp": c.Query("timestamp"),
-	}
+func (h *MediaHandler) Delete() *httptransport.Server {
+	return httptransport.NewServer(
+		action.MakeDeleteMediaEndpoint(h.service, h.logger),
+		decodeDeleteRequest,
+		encodeDeleteResponse,
+	)
+}
 
-	medias, err := m.mediaUseCase.GetAll(params, filterMap)
-	if err != nil {
-		if errors.Is(err, exception.EntitiesNotFound) {
-			c.JSON(http.StatusNotFound, &gin.H{
-				"code":    http.StatusNotFound,
-				"message": err.Error(),
-			})
-			return
-		} else if errors.Is(err, exception.InvalidFieldFormat) {
-			errDesc := strings.Split(err.Error(), ":")
-			c.JSON(http.StatusBadRequest, &gin.H{
-				"code":    http.StatusBadRequest,
-				"message": errDesc[len(errDesc)-1],
-			})
-			return
-		}
+func decodeCreateRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	return action.CreateRequest{
+		Title:       r.PostFormValue("title"),
+		DisplayName: r.PostFormValue("display_name"),
+		Description: r.PostFormValue("description"),
+		UserID:      r.PostFormValue("user_id"),
+		AuthorID:    r.PostFormValue("author_id"),
+		PublishDate: r.PostFormValue("publish_date"),
+		MediaType:   r.PostFormValue("media_type"),
+	}, nil
+}
 
-		// Generic error
-		c.JSON(http.StatusInternalServerError, &gin.H{
-			"code":    http.StatusInternalServerError,
-			"message": err.Error(),
-		})
-		return
-	}
+func decodeListRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	return action.ListRequest{
+		PageToken: r.URL.Query().Get("page_token"),
+		PageSize:  r.URL.Query().Get("page_size"),
+		FilterParams: util.FilterParams{
+			"query":     r.URL.Query().Get("search_query"),
+			"timestamp": r.URL.Query().Get("timestamp"),
+			"author":    r.URL.Query().Get("author"),
+			"user":      r.URL.Query().Get("user"),
+			"media":     r.URL.Query().Get("media"),
+			"title":     r.URL.Query().Get("title"),
+		},
+	}, nil
+}
 
-	nextPage := ""
-	if len(medias) >= int(params.Size) {
-		/*
-			if params.TokenUUID != "" {
-				nextPage = medias[len(medias)-1].ExternalID
+func decodeGetRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	params := mux.Vars(r)
+	return action.GetRequest{params["id"]}, nil
+}
+
+func decodeUpdateRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	return action.UpdateRequest{
+		ID:          mux.Vars(r)["id"],
+		Title:       r.PostFormValue("title"),
+		DisplayName: r.PostFormValue("display_name"),
+		Description: r.PostFormValue("description"),
+		UserID:      r.PostFormValue("user_id"),
+		AuthorID:    r.PostFormValue("author_id"),
+		PublishDate: r.PostFormValue("publish_date"),
+		MediaType:   r.PostFormValue("media_type"),
+	}, nil
+}
+
+func decodeDeleteRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	params := mux.Vars(r)
+	return action.DeleteRequest{params["id"]}, nil
+}
+
+func encodeCreateRequest(_ context.Context, w http.ResponseWriter, response interface{}) error {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	r, ok := response.(action.CreateResponse)
+	if ok {
+		if r.Err != nil {
+			if errors.Is(r.Err, exception.InvalidFieldFormat) || errors.Is(r.Err, exception.InvalidFieldRange) || errors.Is(r.Err, exception.RequiredField) {
+				errDesc := strings.Split(r.Err.Error(), ":")
+				w.WriteHeader(http.StatusBadRequest)
+				return json.NewEncoder(w).Encode(shared.Error{errDesc[len(errDesc)-1]})
+			} else if errors.Is(r.Err, exception.EntityExists) {
+				w.WriteHeader(http.StatusConflict)
 			} else {
-				nextPage = strconv.Itoa(int(medias[len(medias)-1].MediaID))
-			}*/
-		nextPage = medias[len(medias)-1].ExternalID
-
-		medias = medias[0 : len(medias)-1]
-	}
-
-	c.JSON(http.StatusOK, &gin.H{
-		"code":            http.StatusOK,
-		"next_page_token": nextPage,
-		"media":           medias,
-	})
-}
-
-func (m *MediaHandler) UpdateOne(c *gin.Context) {
-	id := c.Param("media_id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, &gin.H{
-			"code":    http.StatusBadRequest,
-			"message": exception.InvalidID.Error(),
-		})
-		return
-	}
-
-	params := &interactor.MediaParams{
-		MediaID:     id,
-		Title:       c.PostForm("title"),
-		DisplayName: c.PostForm("display_name"),
-		Description: c.PostForm("description"),
-		UserID:      c.PostForm("user_id"),
-		AuthorID:    c.PostForm("author_id"),
-		PublishDate: c.PostForm("publish_date"),
-		MediaType:   c.PostForm("media_type"),
-	}
-
-	var err error
-	// PUT - Atomic operation
-	if params.Title != "" && params.DisplayName != "" && params.Description != "" && params.UserID != "" &&
-		params.AuthorID != "" && params.PublishDate != "" && params.MediaType != "" {
-		err = m.mediaUseCase.UpdateOneAtomic(params)
-
-	} else {
-		// PATCH - dynamic operation
-		err = m.mediaUseCase.UpdateOne(params)
-	}
-
-	if err != nil {
-		if errors.Is(err, exception.EntityExists) {
-			c.JSON(http.StatusConflict, &gin.H{
-				"code":    http.StatusConflict,
-				"message": err.Error(),
-			})
-			return
-		} else if errors.Is(err, exception.EmptyBody) {
-			c.JSON(http.StatusBadRequest, &gin.H{
-				"code":    http.StatusBadRequest,
-				"message": err,
-			})
-			return
-		} else if errors.Is(err, exception.InvalidID) || errors.Is(err, exception.RequiredField) || errors.Is(err, exception.InvalidFieldFormat) ||
-			errors.Is(err, exception.InvalidFieldRange) {
-			errs := multierr.Errors(err)
-			for _, err = range errs {
-				errDesc := strings.Split(err.Error(), ":")
-				if len(errDesc) > 1 {
-					c.JSON(http.StatusBadRequest, &gin.H{
-						"code":    http.StatusBadRequest,
-						"message": errDesc[1],
-					})
-					return
-				}
-
-				c.JSON(http.StatusBadRequest, &gin.H{
-					"code":    http.StatusBadRequest,
-					"message": err,
-				})
-				return
+				w.WriteHeader(http.StatusInternalServerError)
 			}
-		}
 
-		// Generic error
-		c.JSON(http.StatusInternalServerError, &gin.H{
-			"code":    http.StatusInternalServerError,
-			"message": err.Error(),
-		})
-		return
+			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
+		}
 	}
 
-	// Return updated resource
-	media, err := m.mediaUseCase.GetByID(params.MediaID)
-	if err != nil {
-		if errors.Is(err, exception.EntityNotFound) {
-			c.JSON(http.StatusNotFound, &gin.H{
-				"code":    http.StatusNotFound,
-				"message": err.Error(),
-			})
-			return
-		} else if errors.Is(err, exception.InvalidID) {
-			c.JSON(http.StatusBadRequest, &gin.H{
-				"code":    http.StatusBadRequest,
-				"message": err.Error(),
-			})
-			return
-		}
-
-		// Generic error
-		c.JSON(http.StatusInternalServerError, &gin.H{
-			"code":    http.StatusInternalServerError,
-			"message": err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, &gin.H{
-		"code":  http.StatusOK,
-		"media": media,
-	})
+	return json.NewEncoder(w).Encode(r)
 }
 
-func (m *MediaHandler) DeleteOne(c *gin.Context) {
-	id := c.Param("media_id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, &gin.H{
-			"code":    http.StatusBadRequest,
-			"message": exception.InvalidID.Error(),
-		})
-		return
-	}
+func encodeListResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	r, ok := response.(action.ListResponse)
+	if ok {
+		if r.Err != nil {
+			if errors.Is(r.Err, exception.InvalidID) {
+				w.WriteHeader(http.StatusBadRequest)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
 
-	err := m.mediaUseCase.RemoveOne(id)
-	if err != nil {
-		if errors.Is(err, exception.InvalidID) {
-			c.JSON(http.StatusBadRequest, &gin.H{
-				"code":    http.StatusBadRequest,
-				"message": err.Error(),
-			})
-			return
+			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
+		} else if r.Err == nil && len(r.Media) == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			return json.NewEncoder(w).Encode(shared.Error{exception.EntitiesNotFound.Error()})
 		}
-
-		// Generic error
-		c.JSON(http.StatusInternalServerError, &gin.H{
-			"code":    http.StatusInternalServerError,
-			"message": err.Error(),
-		})
-		return
 	}
 
-	c.JSON(http.StatusOK, &gin.H{
-		"code":    http.StatusOK,
-		"message": nil,
-	})
+	return json.NewEncoder(w).Encode(r)
+}
+
+func encodeGetResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	r, ok := response.(action.GetResponse)
+	if ok {
+		if r.Err != nil {
+			if errors.Is(r.Err, exception.InvalidID) {
+				w.WriteHeader(http.StatusBadRequest)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+
+			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
+		} else if r.Err == nil && r.Media == nil {
+			w.WriteHeader(http.StatusNotFound)
+			return json.NewEncoder(w).Encode(shared.Error{exception.EntityNotFound.Error()})
+		}
+	}
+
+	return json.NewEncoder(w).Encode(r)
+}
+
+func encodeUpdateResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	r, ok := response.(action.UpdateResponse)
+	if ok {
+		if r.Err != nil {
+			if errors.Is(r.Err, exception.InvalidFieldFormat) || errors.Is(r.Err, exception.InvalidFieldRange) {
+				errDesc := strings.Split(r.Err.Error(), ":")
+				w.WriteHeader(http.StatusBadRequest)
+				return json.NewEncoder(w).Encode(shared.Error{errDesc[len(errDesc)-1]})
+			} else if errors.Is(r.Err, exception.InvalidID) || errors.Is(r.Err, exception.EmptyBody) {
+				w.WriteHeader(http.StatusBadRequest)
+			} else if errors.Is(r.Err, exception.EntityExists) {
+				w.WriteHeader(http.StatusConflict)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+
+			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
+		}
+	}
+
+	return json.NewEncoder(w).Encode(r)
+}
+
+func encodeDeleteResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	r, ok := response.(action.DeleteResponse)
+	if ok {
+		if r.Err != nil {
+			if errors.Is(r.Err, exception.InvalidID) {
+				w.WriteHeader(http.StatusBadRequest)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+
+			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
+		}
+	}
+
+	return json.NewEncoder(w).Encode(r)
 }

@@ -5,62 +5,37 @@ import (
 	"strconv"
 )
 
-// PaginationParams Parameters required for database pagination
+// FilterParams Optional fields for query filtering
+type FilterParams map[string]string
+
+// PaginationParams Required struct to handle fetch pagination
 type PaginationParams struct {
-	TokenID   int64
-	TokenUUID string
-	Size      int32
+	Token string
+	Size  int
 }
 
-func NewPaginationParams(TokenIDString, TokenUUID, sizeString string) *PaginationParams {
-	var pageTokenID, size int64
-	var err error
-
-	if TokenIDString != "" {
-		pageTokenID, err = strconv.ParseInt(TokenIDString, 10, 64)
-		if err != nil {
-			pageTokenID = 1
-		}
-	} else {
-		pageTokenID = 0
-	}
-
-	if sizeString != "" {
-		size, err = strconv.ParseInt(sizeString, 10, 32)
-		if err != nil {
-			size = 10
-		}
-	} else {
-		size = 10
-	}
-
+// NewPaginationParams Create a new pagination token and size
+func NewPaginationParams(token, size string) *PaginationParams {
+	// Pagination default values
 	params := &PaginationParams{
-		TokenID:   pageTokenID,
-		TokenUUID: TokenUUID,
-		Size:      int32(size),
+		Token: "",
+		Size:  10,
 	}
-	params.Sanitize()
+
+	// If fields are valid, then change default param's values
+	_, err := uuid.Parse(token)
+	if err == nil {
+		params.Token = token
+	}
+
+	sizeInt, err := strconv.Atoi(size)
+	if err == nil && sizeInt > 0 {
+		if sizeInt > 100 {
+			params.Size = 100
+		} else {
+			params.Size = sizeInt
+		}
+	}
 
 	return params
-}
-
-func (p *PaginationParams) Sanitize() {
-	if p.Size > 100 {
-		p.Size = 100
-	} else if p.Size <= 0 {
-		p.Size = 10
-	} else if p.TokenUUID != "" {
-		_, err := uuid.Parse(p.TokenUUID)
-		if err != nil {
-			p.TokenUUID = ""
-		}
-	}
-}
-
-func GetIndex(pageTokenID int64, size int32) int64 {
-	// Index-from-limit algorithm formula
-	// f(x)= w-x
-	// w (omega) = xy
-	// where x = limit and y = page
-	return int64(size)*pageTokenID - int64(size)
 }

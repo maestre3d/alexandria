@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/config"
 	"net/http"
 	"time"
 )

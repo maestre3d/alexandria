@@ -1,4 +1,4 @@
-package global
+package exception
 
 import (
 	"errors"
@@ -18,9 +18,6 @@ var InvalidFieldRangeString = "request field %s is out of range [%s, %s)"
 // InvalidFieldFormat A field has a bad format
 var InvalidFieldFormat = errors.New("request field has an invalid format")
 var InvalidFieldFormatString = "request field %v has an invalid format, expected %v"
-
-// EmptyQuery Query is empty
-var EmptyQuery = errors.New("empty query")
 
 // EmptyBody Body is empty
 var EmptyBody = errors.New("empty body")

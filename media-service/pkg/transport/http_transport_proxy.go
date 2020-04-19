@@ -1,79 +1,95 @@
 package transport
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/global"
-	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/media-service/pkg/transport/handler"
+	"context"
+	"io"
 	"net/http"
+
+	"github.com/go-kit/kit/log"
+	"github.com/gorilla/mux"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/global"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/config"
+	"github.com/maestre3d/alexandria/media-service/pkg/transport/handler"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-type HTTPServiceProxy struct {
+type HTTPTransportProxy struct {
 	Server        *http.Server
-	publicGroup   *gin.RouterGroup
-	privateGroup  *gin.RouterGroup
-	adminGroup    *gin.RouterGroup
-	proxyHandlers *ProxyHandlers
-	logger        util.ILogger
+	Config        *config.KernelConfig
+	publicRouter  *mux.Router
+	privateRouter *mux.Router
+	adminRouter   *mux.Router
+	logger        log.Logger
+	handlers      *ProxyHandlers
 }
 
 type ProxyHandlers struct {
 	MediaHandler *handler.MediaHandler
 }
 
-func NewHTTPServiceProxy(logger util.ILogger, server *http.Server, handlers *ProxyHandlers) *HTTPServiceProxy {
-	var engine *gin.Engine
-	engine, ok := server.Handler.(*gin.Engine)
+func NewHTTPTransportProxy(logger log.Logger, server *http.Server, cfg *config.KernelConfig, handlers *ProxyHandlers) (*HTTPTransportProxy, func()) {
+	// TODO: Add metrics with OpenCensus and Prometheus/Zipkin
+	router, ok := server.Handler.(*mux.Router)
 	if !ok {
-		// Replace handler with current (gin)
-		gin.SetMode("release")
-		server.Handler = gin.Default()
-		engine = server.Handler.(*gin.Engine)
+		server.Handler = mux.NewRouter()
+		router = server.Handler.(*mux.Router)
 	}
-	service := &HTTPServiceProxy{
+
+	proxy := &HTTPTransportProxy{
 		Server:        server,
-		publicGroup:   newHTTPPublicProxy(logger, engine),
-		privateGroup:  newHTTPPrivateProxy(logger, engine),
-		adminGroup:    newHTTPAdminProxy(logger, engine),
-		proxyHandlers: handlers,
+		Config:        cfg,
+		publicRouter:  newHTTPPublicRouter(router),
+		privateRouter: newHTTPPrivateRouter(router),
+		adminRouter:   newHTTPAdminRouter(router),
 		logger:        logger,
+		handlers:      handlers,
 	}
 
-	// Start routing-mapping
-	service.mapMediaRoutes()
+	// TODO: Change public policies to admin
+	proxy.setHealthCheck()
+	proxy.setMetrics()
 
-	logger.Print("http proxy transport started", "transport.delivery")
+	proxy.mapRoutes()
 
-	return service
+	cleanup := func() {
+		server.Shutdown(context.Background())
+	}
+
+	return proxy, cleanup
 }
 
-func (p *HTTPServiceProxy) mapMediaRoutes() {
-	mediaRouter := p.publicGroup.Group("/media")
-
-	mediaRouter.GET("", p.proxyHandlers.MediaHandler.List)
-	mediaRouter.GET("/:media_id", p.proxyHandlers.MediaHandler.Get)
-
-	mediaRouter.POST("", p.proxyHandlers.MediaHandler.Create)
-	mediaRouter.PATCH("/:media_id", p.proxyHandlers.MediaHandler.UpdateOne)
-	mediaRouter.PUT("/:media_id", p.proxyHandlers.MediaHandler.UpdateOne)
-	mediaRouter.DELETE("/:media_id", p.proxyHandlers.MediaHandler.DeleteOne)
+func (p *HTTPTransportProxy) setHealthCheck() {
+	p.publicRouter.PathPrefix("/health").Methods(http.MethodGet).HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Add("Content-Type", "application/json; charset=utf-8")
+		writer.WriteHeader(http.StatusOK)
+		io.WriteString(writer, `{"alive":true}`)
+	})
 }
 
-// newHTTPPublicProxy Start HTTP Service's public proxy
-func newHTTPPublicProxy(logger util.ILogger, engine *gin.Engine) *gin.RouterGroup {
-	publicGroup := engine.Group(global.PublicAPI)
-
-	return publicGroup
+func (p *HTTPTransportProxy) setMetrics() {
+	p.publicRouter.PathPrefix("/metrics").Methods(http.MethodGet).Handler(promhttp.Handler())
 }
 
-func newHTTPPrivateProxy(logger util.ILogger, engine *gin.Engine) *gin.RouterGroup {
-	publicGroup := engine.Group(global.PrivateAPI)
+func (p *HTTPTransportProxy) mapRoutes() {
+	authorRouter := p.publicRouter.PathPrefix("/media").Subrouter()
+	authorRouter.Path("").Methods(http.MethodPost).Handler(p.handlers.MediaHandler.Create())
+	authorRouter.Path("").Methods(http.MethodGet).Handler(p.handlers.MediaHandler.List())
+	authorRouter.Path("/").Methods(http.MethodPost).Handler(p.handlers.MediaHandler.Create())
+	authorRouter.Path("/").Methods(http.MethodGet).Handler(p.handlers.MediaHandler.List())
 
-	return publicGroup
+	authorRouter.Path("/{id}").Methods(http.MethodGet).Handler(p.handlers.MediaHandler.Get())
+	authorRouter.Path("/{id}").Methods(http.MethodPatch, http.MethodPut).Handler(p.handlers.MediaHandler.Update())
+	authorRouter.Path("/{id}").Methods(http.MethodDelete).Handler(p.handlers.MediaHandler.Delete())
 }
 
-func newHTTPAdminProxy(logger util.ILogger, engine *gin.Engine) *gin.RouterGroup {
-	publicGroup := engine.Group(global.AdminAPI)
+func newHTTPPublicRouter(r *mux.Router) *mux.Router {
+	return r.PathPrefix(global.PublicAPI).Subrouter()
+}
 
-	return publicGroup
+func newHTTPPrivateRouter(r *mux.Router) *mux.Router {
+	return r.PathPrefix(global.PrivateAPI).Subrouter()
+}
+
+func newHTTPAdminRouter(r *mux.Router) *mux.Router {
+	return r.PathPrefix(global.AdminAPI).Subrouter()
 }

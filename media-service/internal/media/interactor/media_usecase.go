@@ -1,213 +1,159 @@
-package application
+package interactor
 
 import (
-	"errors"
-	"github.com/maestre3d/alexandria/media-service/internal/media/domain"
+	"fmt"
+	"github.com/google/uuid"
 	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/global"
-	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
 	"strings"
+	"time"
+
+	"github.com/go-kit/kit/log"
+	"github.com/maestre3d/alexandria/media-service/internal/media/domain"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/exception"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
 )
 
 type MediaUseCase struct {
-	logger     util.ILogger
+	logger     log.Logger
 	repository domain.IMediaRepository
 }
 
-// MediaParams Required parameters to create/update a media
-type MediaParams struct {
-	MediaID     string
-	Title       string
-	DisplayName string
-	Description string
-	UserID      string
-	AuthorID    string
-	PublishDate string
-	MediaType   string
-}
-
-func NewMediaUseCase(logger util.ILogger, repository domain.IMediaRepository) *MediaUseCase {
+func NewMediaUseCase(logger log.Logger, repository domain.IMediaRepository) *MediaUseCase {
 	return &MediaUseCase{logger, repository}
 }
 
-func (m *MediaUseCase) Create(params *MediaParams) error {
-	if params == nil {
-		return global.EmptyBody
+func (u *MediaUseCase) Create(title, displayName, description, userID, authorID, publishDate, mediaType string) (*domain.MediaEntity, error) {
+	if title == "" && displayName == "" && userID == "" && authorID == "" && publishDate == "" && mediaType == "" {
+		return nil, exception.EmptyBody
+	}
+
+	// Validate
+	var descriptionP *string
+	descriptionP = nil
+	if description != "" {
+		descriptionP = &description
+	}
+	publish, err := time.Parse(global.RFC3339Micro, publishDate)
+	if err != nil {
+		return nil, fmt.Errorf("%w:%s", exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"publish_date", global.RFC3339Micro))
 	}
 
 	mediaParams := &domain.MediaEntityParams{
-		Title:       params.Title,
-		DisplayName: params.DisplayName,
-		Description: params.Description,
-		UserID:      params.UserID,
-		AuthorID:    params.AuthorID,
-		PublishDate: params.PublishDate,
-		MediaType:   params.MediaType,
+		Title:       title,
+		DisplayName: displayName,
+		Description: descriptionP,
+		UserID:      userID,
+		AuthorID:    authorID,
+		PublishDate: publish,
+		MediaType:   mediaType,
 	}
-	media, err := domain.NewMediaEntity(mediaParams)
+	media := domain.NewMediaEntity(mediaParams)
+	err = media.IsValid()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// Check media's title uniqueness
-	// unique constraint by default is case sensitive, while our getByTitle func is not
-	existingMedia, err := m.GetByTitle(media.Title.Value)
-	if !errors.Is(err, global.EntityNotFound) {
-		return err
-	} else if existingMedia != nil {
-		return global.EntityExists
+	// Check title uniqueness
+	existingMedia, _, err := u.List("0", "1", util.FilterParams{"title": title})
+	if err == nil && len(existingMedia) > 0 {
+		return nil, exception.EntityExists
 	}
 
-	return m.repository.Save(media.ToMediaAggregate())
+	err = u.repository.Save(media)
+	if err != nil {
+		return nil, err
+	}
+
+	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
+	// TODO: Fire up "alexandria.media.created" domain event
+
+	return media, nil
 }
 
-func (m *MediaUseCase) GetByID(idString string) (*domain.MediaAggregate, error) {
-	id, err := util.SanitizeID(idString)
-	if err != nil {
-		id = 0
-	}
-	err = util.SanitizeUUID(idString)
-	if err != nil {
-		if id <= 0 {
-			return nil, err
-		}
-		idString = ""
-	}
+func (u *MediaUseCase) List(pageToken, pageSize string, filterParams util.FilterParams) (output []*domain.MediaEntity, nextToken string, err error) {
+	params := util.NewPaginationParams(pageToken, pageSize)
+	output, err = u.repository.Fetch(params, filterParams)
 
-	return m.repository.FetchByID(id, idString)
+	nextToken = ""
+	if len(output) >= params.Size {
+		nextToken = output[len(output)-1].ExternalID
+		output = output[0 : len(output)-1]
+	}
+	return
 }
 
-func (m *MediaUseCase) GetByTitle(title string) (*domain.MediaAggregate, error) {
-	if title == "" {
-		return nil, global.EmptyQuery
+func (u *MediaUseCase) Get(id string) (*domain.MediaEntity, error) {
+	_, err := uuid.Parse(id)
+	if err != nil {
+		return nil, exception.InvalidID
 	}
 
-	return m.repository.FetchByTitle(title)
+	return u.repository.FetchByID(id)
 }
 
-func (m *MediaUseCase) GetAll(params *util.PaginationParams, filterMap util.FilterParams) ([]*domain.MediaAggregate, error) {
-	for filterKey, value := range filterMap {
-		switch {
-		case filterKey == "author" && value != "":
-			author := domain.AuthorID{value}
-			if err := author.IsValid(); err != nil {
-				return nil, err
-			}
-		case filterKey == "user" && value != "":
-			user := domain.UserID{value}
-			if err := user.IsValid(); err != nil {
-				return nil, err
-			}
-		case filterKey == "media" && value != "":
-			value = strings.ToUpper(value)
-			mediaType := domain.MediaType{value}
-
-			if err := mediaType.IsValid(); err != nil {
-				return nil, err
-			}
-		}
+func (u *MediaUseCase) Update(id, title, displayName, description, userID, authorID, publishDate, mediaType string) (*domain.MediaEntity, error) {
+	if id == "" && title == "" && displayName == "" && userID == "" && authorID == "" && publishDate == "" && mediaType == "" {
+		return nil, exception.EmptyBody
 	}
 
-	return m.repository.Fetch(params, filterMap)
-}
-
-func (m *MediaUseCase) UpdateOneAtomic(params *MediaParams) error {
-	if params == nil {
-		return global.EmptyBody
-	}
-
-	id, err := util.SanitizeID(params.MediaID)
+	// Get previous version
+	media, err := u.Get(id)
 	if err != nil {
-		id = 0
-	}
-	err = util.SanitizeUUID(params.MediaID)
-	if err != nil {
-		if id <= 0 {
-			return err
-		}
-		params.MediaID = ""
+		return nil, err
 	}
 
-	mediaParams := &domain.MediaEntityParams{
-		Title:       params.Title,
-		DisplayName: params.DisplayName,
-		Description: params.Description,
-		UserID:      params.UserID,
-		AuthorID:    params.AuthorID,
-		PublishDate: params.PublishDate,
-		MediaType:   params.MediaType,
-	}
-	media, err := domain.NewMediaEntity(mediaParams)
-	if err != nil {
-		return err
-	}
-
-	return m.repository.UpdateOne(id, params.MediaID, media.ToMediaAggregate())
-}
-
-func (m *MediaUseCase) UpdateOne(params *MediaParams) error {
-	if params == nil {
-		return global.EmptyBody
-	}
-
-	id, err := util.SanitizeID(params.MediaID)
-	if err != nil {
-		id = 0
-	}
-	err = util.SanitizeUUID(params.MediaID)
-	if err != nil {
-		if id <= 0 {
-			return err
-		}
-		params.MediaID = ""
-	}
-
-	media, err := m.repository.FetchByID(id, params.MediaID)
-	if err != nil {
-		return err
-	}
-
-	// Ensure PATCH RPC/HTTP verb
+	// Update entity dynamically
 	switch {
-	case params.Title != "":
-		media.Title = params.Title
-	case params.MediaType != "":
-		media.MediaType = strings.ToUpper(params.MediaType)
-	case params.DisplayName != "":
-		media.DisplayName = params.DisplayName
-	case params.Description != "":
-		media.Description = &params.Description
-	case params.PublishDate != "":
-		publishDate, err := domain.ParsePublishDate(params.PublishDate)
-		if err != nil {
-			return err
+	case title != "":
+		existingMedia, _, err := u.List("0", "1", util.FilterParams{"title": title})
+		if err == nil && len(existingMedia) > 0 {
+			return nil, exception.EntityExists
 		}
-		media.PublishDate = publishDate
-	case params.UserID != "":
-		media.UserID = params.UserID
-	case params.AuthorID != "":
-		media.AuthorID = params.AuthorID
+		media.Title = title
+	case mediaType != "":
+		media.MediaType = strings.ToUpper(mediaType)
+	case displayName != "":
+		media.DisplayName = displayName
+	case description != "":
+		media.Description = &description
+	case publishDate != "":
+		publish, err := time.Parse(global.RFC3339Micro, publishDate)
+		if err != nil {
+			return nil, fmt.Errorf("%w:%s", exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+				"publish_date", global.RFC3339Micro))
+		}
+		media.PublishDate = publish
+	case userID != "":
+		media.UserID = userID
+	case authorID != "":
+		media.AuthorID = authorID
 	}
 
-	err = media.ToMediaEntity().IsValid()
+	err = media.IsValid()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return m.repository.UpdateOne(id, params.MediaID, media)
+	err = u.repository.Update(media)
+	if err != nil {
+		return nil, err
+	}
+
+	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
+	// TODO: Fire up "alexandria.media.updated" domain event
+
+	return media, nil
 }
 
-func (m *MediaUseCase) RemoveOne(idString string) error {
-	id, err := util.SanitizeID(idString)
+func (u *MediaUseCase) Delete(id string) error {
+	_, err := uuid.Parse(id)
 	if err != nil {
-		id = 0
-	}
-	err = util.SanitizeUUID(idString)
-	if err != nil {
-		if id <= 0 {
-			return err
-		}
-		idString = ""
+		return exception.InvalidID
 	}
 
-	return m.repository.RemoveOne(id, idString)
+	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
+	// TODO: Fire up "alexandria.media.deleted" domain event
+
+	return u.repository.Remove(id)
 }

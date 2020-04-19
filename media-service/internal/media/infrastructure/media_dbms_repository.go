@@ -5,35 +5,34 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-redis/redis/v7"
 	"github.com/lib/pq"
-	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/exception"
-	"strings"
-	"time"
-
 	"github.com/maestre3d/alexandria/media-service/internal/media/domain"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/exception"
 	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
 )
 
 type MediaDBMSRepository struct {
 	db     *sql.DB
+	ctx    context.Context
 	mem    *redis.Client
 	logger log.Logger
-	ctx    context.Context
 }
 
-func NewMediaRDBMSRepository(db *sql.DB, mem *redis.Client, logger log.Logger, ctx context.Context) *MediaRDBMSRepository {
-	return &MediaRDBMSRepository{
+func NewMediaRDBMSRepository(db *sql.DB, mem *redis.Client, logger log.Logger, ctx context.Context) *MediaDBMSRepository {
+	return &MediaDBMSRepository{
 		db,
+		ctx,
 		mem,
 		logger,
-		ctx,
 	}
 }
 
-func (m *MediaRDBMSRepository) Save(media *domain.MediaEntity) error {
-	conn, err := m.db.Conn(m.ctx)
+func (r *MediaDBMSRepository) Save(media *domain.MediaEntity) error {
+	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return err
 	}
@@ -44,7 +43,7 @@ func (m *MediaRDBMSRepository) Save(media *domain.MediaEntity) error {
 	statement := `INSERT INTO MEDIA(EXTERNAL_ID, TITLE, DISPLAY_NAME, DESCRIPTION, USER_ID, AUTHOR_ID, PUBLISH_DATE, MEDIA_TYPE) VALUES
 	($1, $2, $3, $4, $5, $6, $7, $8);`
 
-	_, err = conn.ExecContext(m.ctx, statement, media.ExternalID, media.Title, media.DisplayName, media.Description, media.UserID, media.AuthorID,
+	_, err = conn.ExecContext(r.ctx, statement, media.ExternalID, media.Title, media.DisplayName, media.Description, media.UserID, media.AuthorID,
 		media.PublishDate, media.MediaType)
 
 	if customErr, ok := err.(*pq.Error); ok {
@@ -56,8 +55,8 @@ func (m *MediaRDBMSRepository) Save(media *domain.MediaEntity) error {
 	return err
 }
 
-func (m *MediaRDBMSRepository) UpdateOne(id int64, external_id string, mediaUpdated *domain.MediaAggregate) error {
-	conn, err := m.db.Conn(m.ctx)
+func (r *MediaDBMSRepository) Update(media *domain.MediaEntity) error {
+	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return err
 	}
@@ -65,45 +64,35 @@ func (m *MediaRDBMSRepository) UpdateOne(id int64, external_id string, mediaUpda
 		err = conn.Close()
 	}()
 
-	mediaUpdated.UpdateTime = time.Now()
+	media.UpdateTime = time.Now()
 
-	if id > 0 {
-		statement := `UPDATE MEDIA SET TITLE = $1, DISPLAY_NAME = $2, DESCRIPTION = $3, USER_ID = $4, AUTHOR_ID = $5, PUBLISH_DATE = $6, MEDIA_TYPE = $7, 
-                 UPDATE_TIME = $8 WHERE MEDIA_ID = $9`
-
-		_, err = conn.ExecContext(m.ctx, statement, mediaUpdated.Title, mediaUpdated.DisplayName, mediaUpdated.Description, mediaUpdated.UserID, mediaUpdated.AuthorID,
-			mediaUpdated.PublishDate, mediaUpdated.MediaType, mediaUpdated.UpdateTime, id)
-	} else {
-		statement := `UPDATE MEDIA SET TITLE = $1, DISPLAY_NAME = $2, DESCRIPTION = $3, USER_ID = $4, AUTHOR_ID = $5, PUBLISH_DATE = $6, MEDIA_TYPE = $7, 
+	statement := `UPDATE MEDIA SET TITLE = $1, DISPLAY_NAME = $2, DESCRIPTION = $3, USER_ID = $4, AUTHOR_ID = $5, PUBLISH_DATE = $6, MEDIA_TYPE = $7, 
                  UPDATE_TIME = $8 WHERE EXTERNAL_ID = $9`
-
-		_, err = conn.ExecContext(m.ctx, statement, mediaUpdated.Title, mediaUpdated.DisplayName, mediaUpdated.Description, mediaUpdated.UserID, mediaUpdated.AuthorID,
-			mediaUpdated.PublishDate, mediaUpdated.MediaType, mediaUpdated.UpdateTime, external_id)
-	}
+	_, err = conn.ExecContext(r.ctx, statement, media.Title, media.DisplayName, media.Description, media.UserID, media.AuthorID,
+		media.PublishDate, media.MediaType, media.UpdateTime, media.ExternalID)
 
 	if customErr, ok := err.(*pq.Error); ok {
 		if customErr.Code == "23505" {
 			return exception.EntityExists
 		}
 	}
-
 	if err != nil {
 		return err
 	}
 
 	// Async Write-through pattern
-	if m.mem != nil {
+	if r.mem != nil {
 		go func() {
-			memConn := m.mem.Conn()
+			memConn := r.mem.Conn()
 			defer func() {
 				err = memConn.Close()
 			}()
 
-			err := memConn.Get(fmt.Sprintf(`media:%s`, external_id)).Err()
+			err := memConn.Get(fmt.Sprintf(`media:%s`, media.ExternalID)).Err()
 			if err == nil {
-				mediaJSON, err := json.Marshal(mediaUpdated)
+				mediaJSON, err := json.Marshal(media)
 				if err == nil {
-					err = memConn.Set(fmt.Sprintf(`media:%s`, external_id), mediaJSON, (time.Hour * time.Duration(24))).Err()
+					err = memConn.Set(fmt.Sprintf(`media:%s`, media.ExternalID), mediaJSON, (time.Hour * time.Duration(24))).Err()
 				}
 			}
 		}()
@@ -112,8 +101,8 @@ func (m *MediaRDBMSRepository) UpdateOne(id int64, external_id string, mediaUpda
 	return nil
 }
 
-func (m *MediaRDBMSRepository) RemoveOne(id int64, external_id string) error {
-	conn, err := m.db.Conn(m.ctx)
+func (r *MediaDBMSRepository) Remove(id string) error {
+	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return err
 	}
@@ -123,28 +112,31 @@ func (m *MediaRDBMSRepository) RemoveOne(id int64, external_id string) error {
 
 	// Soft-delete
 	statement := `UPDATE MEDIA SET DELETED = TRUE WHERE EXTERNAL_ID = $1 AND DELETED = FALSE`
-	_, err = conn.ExecContext(m.ctx, statement, external_id)
+	_, err = conn.ExecContext(r.ctx, statement, id)
+	if err != nil {
+		return err
+	}
 
 	// Async Write-through pattern
-	if m.mem != nil {
+	if r.mem != nil {
 		go func() {
-			memConn := m.mem.Conn()
+			memConn := r.mem.Conn()
 			defer func() {
 				err = memConn.Close()
 			}()
 
-			err := memConn.Get(fmt.Sprintf(`media:%s`, external_id)).Err()
+			err := memConn.Get(fmt.Sprintf(`media:%s`, id)).Err()
 			if err == nil {
-				err = memConn.Del(fmt.Sprintf(`media:%s`, external_id)).Err()
+				err = memConn.Del(fmt.Sprintf(`media:%s`, id)).Err()
 			}
 		}()
 	}
 
-	return err
+	return nil
 }
 
-func (m *MediaRDBMSRepository) FetchByID(id string) (*domain.MediaEntity, error) {
-	conn, err := m.db.Conn(m.ctx)
+func (r *MediaDBMSRepository) FetchByID(id string) (*domain.MediaEntity, error) {
+	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -153,11 +145,11 @@ func (m *MediaRDBMSRepository) FetchByID(id string) (*domain.MediaEntity, error)
 	}()
 
 	// Cache-aside pattern first
-	if m.mem != nil {
+	if r.mem != nil {
 		mediaChan := make(chan *domain.MediaEntity)
 
 		go func() {
-			memConn := m.mem.Conn()
+			memConn := r.mem.Conn()
 			defer func() {
 				err := memConn.Close()
 				if err != nil {
@@ -191,7 +183,7 @@ func (m *MediaRDBMSRepository) FetchByID(id string) (*domain.MediaEntity, error)
 	statement := `SELECT * FROM MEDIA WHERE EXTERNAL_ID = $1 AND DELETED = FALSE`
 
 	media := new(domain.MediaEntity)
-	err = conn.QueryRowContext(m.ctx, statement, id).Scan(&media.MediaID, &media.ExternalID, &media.Title, &media.DisplayName, &media.Description, &media.UserID, &media.AuthorID,
+	err = conn.QueryRowContext(r.ctx, statement, id).Scan(&media.MediaID, &media.ExternalID, &media.Title, &media.DisplayName, &media.Description, &media.UserID, &media.AuthorID,
 		&media.PublishDate, &media.MediaType, &media.CreateTime, &media.UpdateTime, &media.DeleteTime, &media.Metadata, &media.Deleted)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -202,9 +194,9 @@ func (m *MediaRDBMSRepository) FetchByID(id string) (*domain.MediaEntity, error)
 	}
 
 	// Async Write-through pattern
-	if m.mem != nil {
+	if r.mem != nil {
 		go func() {
-			memConn := m.mem.Conn()
+			memConn := r.mem.Conn()
 			defer func() {
 				err = memConn.Close()
 			}()
@@ -219,8 +211,8 @@ func (m *MediaRDBMSRepository) FetchByID(id string) (*domain.MediaEntity, error)
 	return media, nil
 }
 
-func (m *MediaRDBMSRepository) Fetch(params *util.PaginationParams, filterParams util.FilterParams) ([]*domain.MediaEntity, error) {
-	conn, err := m.db.Conn(m.ctx)
+func (r *MediaDBMSRepository) Fetch(params *util.PaginationParams, filterParams util.FilterParams) ([]*domain.MediaEntity, error) {
+	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -241,12 +233,19 @@ func (m *MediaRDBMSRepository) Fetch(params *util.PaginationParams, filterParams
 		switch {
 		case filterKey == "query" && value != "":
 			statement += AndCriteriaSQL(QueryCriteriaSQL(value))
+			continue
 		case filterKey == "author" && value != "":
 			statement += AndCriteriaSQL(AuthorCriteriaSQL(value))
+			continue
 		case filterKey == "user" && value != "":
 			statement += AndCriteriaSQL(PublisherCriteriaSQL(value))
+			continue
 		case filterKey == "media" && value != "":
 			statement += AndCriteriaSQL(MediaTypeCriteriaSQL(value))
+			continue
+		case filterKey == "title" && value != "":
+			statement += AndCriteriaSQL(TitleCriteriaSQL(value))
+			continue
 		}
 	}
 
@@ -271,7 +270,7 @@ func (m *MediaRDBMSRepository) Fetch(params *util.PaginationParams, filterParams
 		}
 	}
 
-	rows, err := conn.QueryContext(m.ctx, statement)
+	rows, err := conn.QueryContext(r.ctx, statement)
 	if rows != nil && rows.Err() != nil {
 		return nil, err
 	}
