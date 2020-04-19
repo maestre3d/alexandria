@@ -129,6 +129,6 @@ alexandria:
 ## Versioning
 For every single release, all software deployed **must** use [Semantic Versioning](https://semver.org/) guidelines to keep consistency and inform every single developer the best way possible.
 
-### Specific Guidelines
+## Specific Guidelines
 - [Golang](https://github.com/maestre3d/alexandria/blob/master/docs/GO_CONTRIBUTION.md)
 
