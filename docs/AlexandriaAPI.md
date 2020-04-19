@@ -18,7 +18,7 @@ _“In resource-oriented APIs, resources are named entities, and resource names 
 
 In the following list, we define our API’s resources and collection IDs.
 
-### User API
+### Identity API
 | Method     |     HTTP Mapping                |  HTTP Request body |  HTTP Response body    |
 |------------|:-------------------------------:|:------------------:|:----------------------:|
 | **List**   |  GET /user                      |   N/A              |   User* list           |
@@ -27,6 +27,14 @@ In the following list, we define our API’s resources and collection IDs.
 | **Update** |  PUT or PATCH /user/{user-id}   |   User             |   User*                |
 | **Delete** |  DELETE /user/{user-id}         |   N/A              |   protobuf.empty/{}    |
 
+| Method      |     HTTP Mapping                |  HTTP Request body |  HTTP Response body    |
+|-------------|:-------------------------------:|:------------------:|:----------------------:|
+| **Auth**    |  POST /auth                     |   Credentials      |   JWTToken*            |
+| **Refresh** |  GET /auth/refresh              |   Credentials      |   JWTToken*            |
+
+_*Refresh uses Cookies, Set-Cookie:refresh_token_
+
+_For more information, please [click here](https://hasura.io/blog/best-practices-of-using-jwt-with-graphql/)._
 
 ### Author API
 | Method     |     HTTP Mapping                    |  HTTP Request body |  HTTP Response body    |
