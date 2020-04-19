@@ -93,7 +93,7 @@ Every configuration **must** have an _"alexandria-config.yaml"_ file containing 
 - _/etc/alexandria/_
 - _._
 
-Every configuration system **must** fetch secrets from AWS KMS or similar. If not available, read configuration from _"alexandria-config.yaml"_ file.
+Every configuration system **must** fetch secrets from _AWS KMS_ or similar. If not available, read configuration from _"alexandria-config.yaml"_ file.
 
 **Configuration file example**
 ```yaml
