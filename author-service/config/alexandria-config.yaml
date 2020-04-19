@@ -4,16 +4,16 @@ alexandria:
     version: 1.0.0
   persistence:
     dbms:
-      url: "postgres://postgres:root@0.0.0.0:5432/alexandria-author?sslmode=disable"
+      url: "postgres://postgres:root@postgres:5432/alexandria_author?sslmode=disable"
       driver: "postgres"
       user: "postgres"
       password: "root"
-      host: "0.0.0.0"
+      host: "postgres"
       port: 5432
       database: "alexandria-author"
     mem:
       network: ""
-      host: "0.0.0.0"
+      host: "redis"
       port: 6379
       password: ""
       database: 0

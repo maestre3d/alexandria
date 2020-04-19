@@ -3,7 +3,7 @@ alexandria:
     version: 1.0.0
   persistence:
     dbms:
-      url: "postgres://postgres:root@postgres:5432/alexandria-media?sslmode=disable"
+      url: "postgres://postgres:root@postgres:5432/alexandria_media?sslmode=disable"
     mem:
       host: "redis:6379"
       password: ""
