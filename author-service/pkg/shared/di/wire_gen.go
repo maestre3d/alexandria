@@ -17,6 +17,7 @@ import (
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/handler"
+	"github.com/maestre3d/alexandria/author-service/pkg/transport/tracer"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -32,10 +33,13 @@ func InjectHTTPProxy() (*transport.HTTPTransportProxy, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	authorHandler := handler.NewAuthorHandler(iAuthorService, logger)
+	zipkinTracer, cleanup2 := tracer.NewZipkinTracer(logger, kernelConfig)
+	opentracingTracer := tracer.NewOpenTracer(logger, kernelConfig, zipkinTracer)
+	authorHandler := handler.NewAuthorHandler(iAuthorService, logger, opentracingTracer, zipkinTracer)
 	proxyHandlers := ProvideProxyHandlers(authorHandler)
-	httpTransportProxy, cleanup2 := transport.NewHTTPTransportProxy(logger, server, kernelConfig, proxyHandlers)
+	httpTransportProxy, cleanup3 := transport.NewHTTPTransportProxy(logger, server, kernelConfig, proxyHandlers)
 	return httpTransportProxy, func() {
+		cleanup3()
 		cleanup2()
 		cleanup()
 	}, nil
@@ -49,12 +53,12 @@ var authorServiceSet = wire.NewSet(
 )
 
 var proxyHandlersSet = wire.NewSet(
-	authorServiceSet, handler.NewAuthorHandler, ProvideProxyHandlers,
+	authorServiceSet, config.NewKernelConfig, tracer.NewZipkinTracer, tracer.NewOpenTracer, handler.NewAuthorHandler, ProvideProxyHandlers,
 )
 
 var httpProxySet = wire.NewSet(
 	proxyHandlersSet,
-	ProvideContext, config.NewKernelConfig, shared.NewHTTPServer, transport.NewHTTPTransportProxy,
+	ProvideContext, shared.NewHTTPServer, transport.NewHTTPTransportProxy,
 )
 
 func ProvideContext() context.Context {

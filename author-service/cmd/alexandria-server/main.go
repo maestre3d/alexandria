@@ -49,5 +49,8 @@ func main() {
 		})
 	}
 
-	g.Run()
+	err := g.Run()
+	if err != nil {
+		os.Exit(2)
+	}
 }

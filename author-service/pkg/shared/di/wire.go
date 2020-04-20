@@ -14,6 +14,7 @@ import (
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/handler"
+	"github.com/maestre3d/alexandria/author-service/pkg/transport/tracer"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -25,6 +26,9 @@ var authorServiceSet = wire.NewSet(
 
 var proxyHandlersSet = wire.NewSet(
 	authorServiceSet,
+	config.NewKernelConfig,
+	tracer.NewZipkinTracer,
+	tracer.NewOpenTracer,
 	handler.NewAuthorHandler,
 	ProvideProxyHandlers,
 )
@@ -32,7 +36,6 @@ var proxyHandlersSet = wire.NewSet(
 var httpProxySet = wire.NewSet(
 	proxyHandlersSet,
 	ProvideContext,
-	config.NewKernelConfig,
 	shared.NewHTTPServer,
 	transport.NewHTTPTransportProxy,
 )

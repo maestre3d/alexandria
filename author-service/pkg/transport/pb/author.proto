@@ -1,0 +1,59 @@
+syntax = "proto3";
+package pb;
+
+option go_package = ".;pb";
+
+service AuthorService {
+  rpc Save(SaveRequest) returns (Author) {}
+  rpc List(ListRequest) returns (ListResponse) {}
+  rpc Get(GetRequest) returns (Author) {}
+  rpc Update(UpdateRequest) returns (Author) {}
+  rpc Delete(DeleteRequest) returns (Empty) {}
+}
+
+message Author {
+  string id = 1;
+  string firstName = 2;
+  string lastName = 3;
+  string displayName = 4;
+  string birthDate = 5;
+  string createTime = 6;
+  string updateTime = 7;
+}
+
+/* Body */
+message SaveRequest {
+  string firstName = 1;
+  string lastName = 2;
+  string displayName = 3;
+  string birthDate = 4;
+}
+
+message ListRequest {
+  string pageToken = 1;
+  string pageSize = 2;
+  map<string, string> filterParams = 3;
+}
+
+message ListResponse {
+  repeated Author authors = 1;
+  string nextPageToken = 2;
+}
+
+message GetRequest {
+  string id = 1;
+}
+
+message UpdateRequest {
+  string id = 1;
+  string firstName = 2;
+  string lastName = 3;
+  string displayName = 4;
+  string birthDate = 5;
+}
+
+message DeleteRequest {
+  string id = 1;
+}
+
+message Empty {}

@@ -55,6 +55,14 @@ services:
     networks:
       - alexandrianet
 
+  zipkin:
+    image: "openzipkin/zipkin"
+    restart: always
+    ports:
+      - "9411:9411"
+    networks:
+      - alexandrianet
+
 volumes:
   api:
   database_postgres:
