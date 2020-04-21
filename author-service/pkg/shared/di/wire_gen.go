@@ -17,6 +17,8 @@ import (
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/handler"
+	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
+	"github.com/maestre3d/alexandria/author-service/pkg/transport/proxy"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/tracer"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -24,21 +26,26 @@ import (
 
 // Injectors from wire.go:
 
-func InjectHTTPProxy() (*transport.HTTPTransportProxy, func(), error) {
+func InjectTransportService() (*transport.TransportService, func(), error) {
 	logger := ProvideLogger()
-	context := ProvideContext()
-	kernelConfig := config.NewKernelConfig(context, logger)
-	server := shared.NewHTTPServer(logger, kernelConfig)
 	iAuthorService, cleanup, err := ProvideAuthorService(logger)
 	if err != nil {
 		return nil, nil, err
 	}
+	context := ProvideContext()
+	kernelConfig := config.NewKernelConfig(context, logger)
 	zipkinTracer, cleanup2 := tracer.NewZipkinTracer(logger, kernelConfig)
 	opentracingTracer := tracer.NewOpenTracer(logger, kernelConfig, zipkinTracer)
+	authorServer := handler.NewAuthorRPCServer(iAuthorService, logger, opentracingTracer, zipkinTracer)
+	rpcProxyHandlers := ProvideRPCProxyHandlers(authorServer)
+	server, cleanup3 := proxy.NewRPCTransportProxy(rpcProxyHandlers)
+	httpServer := shared.NewHTTPServer(logger, kernelConfig)
 	authorHandler := handler.NewAuthorHandler(iAuthorService, logger, opentracingTracer, zipkinTracer)
 	proxyHandlers := ProvideProxyHandlers(authorHandler)
-	httpTransportProxy, cleanup3 := transport.NewHTTPTransportProxy(logger, server, kernelConfig, proxyHandlers)
-	return httpTransportProxy, func() {
+	httpTransportProxy, cleanup4 := proxy.NewHTTPTransportProxy(logger, httpServer, kernelConfig, proxyHandlers)
+	transportService := transport.NewTransportService(server, httpTransportProxy)
+	return transportService, func() {
+		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()
@@ -53,12 +60,18 @@ var authorServiceSet = wire.NewSet(
 )
 
 var proxyHandlersSet = wire.NewSet(
-	authorServiceSet, config.NewKernelConfig, tracer.NewZipkinTracer, tracer.NewOpenTracer, handler.NewAuthorHandler, ProvideProxyHandlers,
+	authorServiceSet, config.NewKernelConfig, tracer.NewOpenTracer, tracer.NewZipkinTracer, handler.NewAuthorHandler, ProvideProxyHandlers,
 )
 
 var httpProxySet = wire.NewSet(
 	proxyHandlersSet,
-	ProvideContext, shared.NewHTTPServer, transport.NewHTTPTransportProxy,
+	ProvideContext, shared.NewHTTPServer, proxy.NewHTTPTransportProxy,
+)
+
+var rpcProxyHandlersSet = wire.NewSet(handler.NewAuthorRPCServer, ProvideRPCProxyHandlers)
+
+var rpcProxySet = wire.NewSet(
+	rpcProxyHandlersSet, proxy.NewRPCTransportProxy,
 )
 
 func ProvideContext() context.Context {
@@ -81,6 +94,10 @@ func ProvideAuthorService(logger log.Logger) (service.IAuthorService, func(), er
 	return authorService, cleanup, err
 }
 
-func ProvideProxyHandlers(authorHandler *handler.AuthorHandler) *transport.ProxyHandlers {
-	return &transport.ProxyHandlers{authorHandler}
+func ProvideProxyHandlers(authorHandler *handler.AuthorHandler) *proxy.ProxyHandlers {
+	return &proxy.ProxyHandlers{authorHandler}
+}
+
+func ProvideRPCProxyHandlers(authorHandler pb.AuthorServer) *proxy.RPCProxyHandlers {
+	return &proxy.RPCProxyHandlers{authorHandler}
 }
