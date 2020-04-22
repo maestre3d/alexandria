@@ -127,7 +127,7 @@ func decodeListRequest(_ context.Context, r *http.Request) (interface{}, error) 
 		PageToken: r.URL.Query().Get("page_token"),
 		PageSize:  r.URL.Query().Get("page_size"),
 		FilterParams: util.FilterParams{
-			"query":     r.URL.Query().Get("search_query"),
+			"query":     r.URL.Query().Get("query"),
 			"timestamp": r.URL.Query().Get("timestamp"),
 		},
 	}, nil
