@@ -11,6 +11,7 @@ services:
       - api:/usr/src/media/
     ports:
       - "3001:8080"
+      - "4001:31337"
     depends_on:
       - postgres
       - redis
@@ -24,6 +25,7 @@ services:
       - api:/usr/src/author/
     ports:
       - "3002:8080"
+      - "4002:31337"
     depends_on:
       - postgres
       - redis
@@ -52,6 +54,14 @@ services:
       - POSTGRES_PASSWORD=root
     volumes:
       - ./scripts/migrations/:/docker-entrypoint-initdb.d/
+    networks:
+      - alexandrianet
+
+  zipkin:
+    image: "openzipkin/zipkin"
+    restart: always
+    ports:
+      - "9412:9411"
     networks:
       - alexandrianet
 

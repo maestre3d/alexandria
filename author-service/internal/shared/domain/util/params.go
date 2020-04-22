@@ -7,10 +7,11 @@ import (
 
 // FilterParams Optional fields for query filtering
 type FilterParams map[string]string
+
 // PaginationParams Required struct to handle fetch pagination
 type PaginationParams struct {
 	Token string
-	Size int
+	Size  int
 }
 
 // NewPaginationParams Create a new pagination token and size

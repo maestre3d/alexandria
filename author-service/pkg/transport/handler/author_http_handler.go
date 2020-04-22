@@ -4,10 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
+	kitoc "github.com/go-kit/kit/tracing/opencensus"
+	"github.com/go-kit/kit/tracing/opentracing"
+	"github.com/go-kit/kit/tracing/zipkin"
+	"github.com/go-kit/kit/transport"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/exception"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/util"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
+	"github.com/maestre3d/alexandria/author-service/pkg/transport/helper"
+	stdopentracing "github.com/opentracing/opentracing-go"
+	stdzipkin "github.com/openzipkin/zipkin-go"
+	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"strings"
 
@@ -18,53 +27,91 @@ import (
 )
 
 type AuthorHandler struct {
-	service service.IAuthorService
-	logger log.Logger
+	service      service.IAuthorService
+	logger       log.Logger
+	duration     *kitprometheus.Summary
+	tracer       stdopentracing.Tracer
+	zipkinTracer *stdzipkin.Tracer
+	options      []httptransport.ServerOption
 }
 
-func NewAuthorHandler(svc service.IAuthorService, logger log.Logger) *AuthorHandler {
-	return &AuthorHandler{svc, logger}
+func NewAuthorHandler(svc service.IAuthorService, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) *AuthorHandler {
+	duration := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
+		Namespace:   "alexandria",
+		Subsystem:   "author_service",
+		Name:        "request_duration_seconds",
+		Help:        "total duration of requests in microseconds",
+		ConstLabels: nil,
+		Objectives:  nil,
+		MaxAge:      0,
+		AgeBuckets:  0,
+		BufCap:      0,
+	}, []string{"method", "success"})
+
+	options := []httptransport.ServerOption{
+		httptransport.ServerErrorEncoder(helper.ErrorEncoder),
+		kitoc.HTTPServerTrace(),
+		httptransport.ServerErrorHandler(transport.NewLogErrorHandler(logger)),
+	}
+
+	if zipkinTracer != nil {
+		// Zipkin HTTP Server Trace can either be instantiated per endpoint with a
+		// provided operation name or a global tracing service can be instantiated
+		// without an operation name and fed to each Go kit endpoint as ServerOption.
+		// In the latter case, the operation name will be the endpoint's http method.
+		// We demonstrate a global tracing service here.
+		options = append(options, zipkin.HTTPServerTrace(zipkinTracer))
+	}
+
+	return &AuthorHandler{svc, logger, duration, tracer, zipkinTracer, options}
 }
 
 func (h *AuthorHandler) Create() *httptransport.Server {
 	return httptransport.NewServer(
-		action.MakeCreateAuthorEndpoint(h.service, h.logger),
+		action.MakeCreateAuthorEndpoint(h.service, h.logger, h.duration, h.tracer, h.zipkinTracer),
 		decodeCreateRequest,
-		encodeCreateRequest,
+		encodeCreateResponse,
+		append(h.options, httptransport.ServerBefore(opentracing.HTTPToContext(h.tracer, "Create", h.logger)))...,
 	)
 }
 
 func (h *AuthorHandler) List() *httptransport.Server {
 	return httptransport.NewServer(
-		action.MakeListAuthorEndpoint(h.service, h.logger),
+		action.MakeListAuthorEndpoint(h.service, h.logger, h.duration, h.tracer, h.zipkinTracer),
 		decodeListRequest,
 		encodeListResponse,
+		append(h.options, httptransport.ServerBefore(opentracing.HTTPToContext(h.tracer, "List", h.logger)))...,
 	)
 }
 
 func (h *AuthorHandler) Get() *httptransport.Server {
 	return httptransport.NewServer(
-		action.MakeGetAuthorEndpoint(h.service, h.logger),
+		action.MakeGetAuthorEndpoint(h.service, h.logger, h.duration, h.tracer, h.zipkinTracer),
 		decodeGetRequest,
 		encodeGetResponse,
+		append(h.options, httptransport.ServerBefore(opentracing.HTTPToContext(h.tracer, "Get", h.logger)))...,
 	)
 }
 
 func (h *AuthorHandler) Update() *httptransport.Server {
 	return httptransport.NewServer(
-		action.MakeUpdateAuthorEndpoint(h.service, h.logger),
+		action.MakeUpdateAuthorEndpoint(h.service, h.logger, h.duration, h.tracer, h.zipkinTracer),
 		decodeUpdateRequest,
 		encodeUpdateResponse,
+		append(h.options, httptransport.ServerBefore(opentracing.HTTPToContext(h.tracer, "Update", h.logger)))...,
 	)
 }
 
 func (h *AuthorHandler) Delete() *httptransport.Server {
 	return httptransport.NewServer(
-		action.MakeDeleteAuthorEndpoint(h.service, h.logger),
+		action.MakeDeleteAuthorEndpoint(h.service, h.logger, h.duration, h.tracer, h.zipkinTracer),
 		decodeDeleteRequest,
 		encodeDeleteResponse,
+		append(h.options, httptransport.ServerBefore(opentracing.HTTPToContext(h.tracer, "Delete", h.logger)))...,
 	)
 }
+
+/* Decoders/Encoders */
 
 func decodeCreateRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	return action.CreateRequest{
@@ -77,11 +124,11 @@ func decodeCreateRequest(_ context.Context, r *http.Request) (interface{}, error
 
 func decodeListRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	return action.ListRequest{
-		PageToken:    r.URL.Query().Get("page_token"),
-		PageSize:     r.URL.Query().Get("page_size"),
+		PageToken: r.URL.Query().Get("page_token"),
+		PageSize:  r.URL.Query().Get("page_size"),
 		FilterParams: util.FilterParams{
-			"query":r.URL.Query().Get("search_query"),
-			"timestamp":r.URL.Query().Get("timestamp"),
+			"query":     r.URL.Query().Get("query"),
+			"timestamp": r.URL.Query().Get("timestamp"),
 		},
 	}, nil
 }
@@ -106,7 +153,7 @@ func decodeDeleteRequest(_ context.Context, r *http.Request) (interface{}, error
 	return action.DeleteRequest{params["id"]}, nil
 }
 
-func encodeCreateRequest(_ context.Context, w http.ResponseWriter, response interface{}) error {
+func encodeCreateResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	r, ok := response.(action.CreateResponse)
 	if ok {
@@ -114,7 +161,7 @@ func encodeCreateRequest(_ context.Context, w http.ResponseWriter, response inte
 			if errors.Is(r.Err, exception.InvalidFieldFormat) || errors.Is(r.Err, exception.InvalidFieldRange) || errors.Is(r.Err, exception.RequiredField) {
 				errDesc := strings.Split(r.Err.Error(), ":")
 				w.WriteHeader(http.StatusBadRequest)
-				return json.NewEncoder(w).Encode(shared.Error{errDesc[len(errDesc) - 1]})
+				return json.NewEncoder(w).Encode(shared.Error{errDesc[len(errDesc)-1]})
 			} else if errors.Is(r.Err, exception.EntityExists) {
 				w.WriteHeader(http.StatusConflict)
 			} else {
@@ -128,7 +175,7 @@ func encodeCreateRequest(_ context.Context, w http.ResponseWriter, response inte
 	return json.NewEncoder(w).Encode(r)
 }
 
-func encodeListResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+func encodeListResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	r, ok := response.(action.ListResponse)
 	if ok {
@@ -178,7 +225,7 @@ func encodeUpdateResponse(_ context.Context, w http.ResponseWriter, response int
 			if errors.Is(r.Err, exception.InvalidFieldFormat) || errors.Is(r.Err, exception.InvalidFieldRange) {
 				errDesc := strings.Split(r.Err.Error(), ":")
 				w.WriteHeader(http.StatusBadRequest)
-				return json.NewEncoder(w).Encode(shared.Error{errDesc[len(errDesc) - 1]})
+				return json.NewEncoder(w).Encode(shared.Error{errDesc[len(errDesc)-1]})
 			} else if errors.Is(r.Err, exception.InvalidID) || errors.Is(r.Err, exception.EmptyBody) {
 				w.WriteHeader(http.StatusBadRequest)
 			} else if errors.Is(r.Err, exception.EntityExists) {

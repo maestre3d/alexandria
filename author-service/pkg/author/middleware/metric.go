@@ -10,9 +10,9 @@ import (
 )
 
 type InstrumentingAuthorMiddleware struct {
-	RequestCount metrics.Counter
+	RequestCount   metrics.Counter
 	RequestLatency metrics.Histogram
-	Next service.IAuthorService
+	Next           service.IAuthorService
 }
 
 func (mw InstrumentingAuthorMiddleware) Create(firstName, lastName, displayName, birthDate string) (output *domain.AuthorEntity, err error) {
