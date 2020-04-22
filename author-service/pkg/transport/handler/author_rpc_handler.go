@@ -16,6 +16,8 @@ import (
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"strings"
 )
 
@@ -87,14 +89,16 @@ func NewAuthorRPCServer(svc service.IAuthorService, logger log.Logger, tracer st
 	}
 }
 
-/* RPC Implementations */
+/* RPC Binding/Implementations */
 
 func (a AuthorRPCServer) Create(ctx context.Context, req *pb.CreateRequest) (*pb.AuthorMessage, error) {
 	_, rep, err := a.create.ServeGRPC(ctx, req)
 	if err != nil {
 		if errors.Is(err, exception.InvalidFieldFormat) || errors.Is(err, exception.InvalidFieldRange) || errors.Is(err, exception.RequiredField) {
 			errDesc := strings.Split(err.Error(), ":")
-			return nil, errors.New(errDesc[len(errDesc)-1])
+			return nil, status.Error(codes.InvalidArgument, errDesc[len(errDesc)-1])
+		} else if errors.Is(err, exception.EntityExists) {
+			return nil, status.Error(codes.AlreadyExists, err.Error())
 		}
 
 		return nil, err
@@ -123,7 +127,9 @@ func (a AuthorRPCServer) Update(ctx context.Context, req *pb.UpdateRequest) (*pb
 	if err != nil {
 		if errors.Is(err, exception.InvalidFieldFormat) || errors.Is(err, exception.InvalidFieldRange) || errors.Is(err, exception.RequiredField) {
 			errDesc := strings.Split(err.Error(), ":")
-			return nil, errors.New(errDesc[len(errDesc)-1])
+			return nil, status.Error(codes.InvalidArgument, errDesc[len(errDesc)-1])
+		} else if errors.Is(err, exception.EntityExists) {
+			return nil, status.Error(codes.AlreadyExists, err.Error())
 		}
 
 		return nil, err
@@ -183,11 +189,6 @@ func decodeRPCDeleteRequest(_ context.Context, rpcReq interface{}) (interface{},
 func encodeRPCCreateResponse(_ context.Context, response interface{}) (interface{}, error) {
 	r := response.(action.CreateResponse)
 	if r.Err != nil {
-		if errors.Is(r.Err, exception.InvalidFieldFormat) || errors.Is(r.Err, exception.InvalidFieldRange) || errors.Is(r.Err, exception.RequiredField) {
-			errDesc := strings.Split(r.Err.Error(), ":")
-			return nil, errors.New(errDesc[len(errDesc)-1])
-		}
-
 		return nil, r.Err
 	}
 
@@ -213,7 +214,7 @@ func encodeRPCListResponse(_ context.Context, response interface{}) (interface{}
 	}
 
 	if len(resp.Authors) == 0 {
-		return nil, exception.EntitiesNotFound
+		return nil, status.Error(codes.NotFound, exception.EntitiesNotFound.Error())
 	}
 
 	authorsRPC := make([]*pb.AuthorMessage, 0)
@@ -243,7 +244,7 @@ func encodeRPCGetResponse(_ context.Context, response interface{}) (interface{},
 	}
 
 	if resp.Author == nil {
-		return nil, exception.EntityNotFound
+		return nil, status.Error(codes.NotFound, exception.EntityNotFound.Error())
 	}
 
 	return &pb.AuthorMessage{
@@ -260,11 +261,6 @@ func encodeRPCGetResponse(_ context.Context, response interface{}) (interface{},
 func encodeRPCUpdateResponse(_ context.Context, response interface{}) (interface{}, error) {
 	resp := response.(action.UpdateResponse)
 	if resp.Err != nil {
-		if errors.Is(resp.Err, exception.InvalidFieldFormat) || errors.Is(resp.Err, exception.InvalidFieldRange) || errors.Is(resp.Err, exception.RequiredField) {
-			errDesc := strings.Split(resp.Err.Error(), ":")
-			return nil, errors.New(errDesc[len(errDesc)-1])
-		}
-
 		return nil, resp.Err
 	}
 
