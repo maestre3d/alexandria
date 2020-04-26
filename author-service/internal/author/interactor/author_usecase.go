@@ -16,11 +16,12 @@ import (
 type AuthorUseCase struct {
 	log        log.Logger
 	repository domain.IAuthorRepository
+	eventBus domain.IAuthorEventBus
 }
 
 // NewAuthorUseCase Create a new author interact
-func NewAuthorUseCase(logger log.Logger, repository domain.IAuthorRepository) *AuthorUseCase {
-	return &AuthorUseCase{logger, repository}
+func NewAuthorUseCase(logger log.Logger, repository domain.IAuthorRepository, bus domain.IAuthorEventBus) *AuthorUseCase {
+	return &AuthorUseCase{logger, repository, bus}
 }
 
 // Create Store a new entity
@@ -51,6 +52,14 @@ func (u *AuthorUseCase) Create(firstName, LastName, displayName, birthDate strin
 
 	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
 	// TODO: Fire up "alexandria.author.created" domain event
+	go func() {
+		err = u.eventBus.AuthorCreated(author)
+		if err != nil {
+			u.log.Log("method", "author.create", "err", err.Error())
+		} else {
+			u.log.Log("method", "author.create", "msg", "event alexandria.author.created published")
+		}
+	}()
 
 	return author, nil
 }
@@ -135,8 +144,18 @@ func (u *AuthorUseCase) Delete(id string) error {
 		return exception.InvalidID
 	}
 
+	err = u.repository.Remove(id)
 	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
 	// TODO: Fire up "alexandria.author.deleted" domain event
+	go func() {
+		if err == nil {
+			if errBus := u.eventBus.AuthorDeleted(id); errBus != nil {
+				u.log.Log("method", "author.delete", "err", errBus.Error())
+			} else {
+				u.log.Log("method", "author.delete", "msg", "event alexandria.author.deleted published")
+			}
+		}
+	}()
 
-	return u.repository.Remove(id)
+	return err
 }
