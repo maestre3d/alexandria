@@ -17,14 +17,6 @@ import (
 	"go.uber.org/zap"
 )
 
-/*
-var LoggerSet = wire.NewSet(
-	wire.Bind(new(util.ILogger) , new(*logging.ZapLogger)),
-	logging.NewZapLogger,
-)
-
-*/
-
 var configSet = wire.NewSet(
 	ProvideContext,
 	ProvideLogger,
@@ -43,8 +35,10 @@ var AuthorDBMSRepositorySet = wire.NewSet(
 	infrastructure.NewAuthorDBMSRepository,
 )
 
-var AuthorServiceSet = wire.NewSet(
+var AuthorUseCaseSet = wire.NewSet(
 	AuthorDBMSRepositorySet,
+	wire.Bind(new(domain.IAuthorEventBus), new(*infrastructure.AuthorAWSEventBus)),
+	infrastructure.NewAuthorAWSEventBus,
 	interactor.NewAuthorUseCase,
 )
 
@@ -61,7 +55,7 @@ func ProvideLogger() log.Logger {
 }
 
 func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
-	wire.Build(AuthorServiceSet)
+	wire.Build(AuthorUseCaseSet)
 
 	return &interactor.AuthorUseCase{}, nil, nil
 }

@@ -35,7 +35,8 @@ func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 		return nil, nil, err
 	}
 	authorDBMSRepository := infrastructure.NewAuthorDBMSRepository(db, client, context, logger)
-	authorUseCase := interactor.NewAuthorUseCase(logger, authorDBMSRepository)
+	authorAWSEventBus := infrastructure.NewAuthorAWSEventBus(context)
+	authorUseCase := interactor.NewAuthorUseCase(logger, authorDBMSRepository, authorAWSEventBus)
 	return authorUseCase, func() {
 		cleanup2()
 		cleanup()
@@ -57,8 +58,8 @@ var AuthorDBMSRepositorySet = wire.NewSet(
 	DBMSPoolSet, persistence.NewRedisPool, wire.Bind(new(domain.IAuthorRepository), new(*infrastructure.AuthorDBMSRepository)), infrastructure.NewAuthorDBMSRepository,
 )
 
-var AuthorServiceSet = wire.NewSet(
-	AuthorDBMSRepositorySet, interactor.NewAuthorUseCase,
+var AuthorUseCaseSet = wire.NewSet(
+	AuthorDBMSRepositorySet, wire.Bind(new(domain.IAuthorEventBus), new(*infrastructure.AuthorAWSEventBus)), infrastructure.NewAuthorAWSEventBus, interactor.NewAuthorUseCase,
 )
 
 func ProvideContext() context.Context {
