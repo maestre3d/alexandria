@@ -10,7 +10,7 @@ import (
 
 func main() {
 	log.Print("Hello from author service")
-	authorService, cleanup, err := dependency.InjectAuthorService()
+	authorService, cleanup, err := dependency.InjectAuthorUseCase()
 	if err != nil {
 		panic(err)
 	}
@@ -60,7 +60,7 @@ func main() {
 		"query": "Ethan",
 	}
 
-	authors, err := authorService.List("", "0", filterParams)
+	authors, _ , err := authorService.List("", "0", filterParams)
 	if err != nil {
 		log.Print(err)
 		return
