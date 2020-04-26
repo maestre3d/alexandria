@@ -5,13 +5,13 @@ import (
 )
 
 func main() {
-	proxyHTTP, cleanup, err := di.InjectHTTPProxy()
+	proxyHTTP, cleanup, err := di.InjectTransportService()
 	if err != nil {
 		panic(err)
 	}
 	defer cleanup()
 
-	err = proxyHTTP.Server.ListenAndServe()
+	err = proxyHTTP.HTTPProxy.Server.ListenAndServe()
 	if err != nil {
 		panic(err)
 	}
