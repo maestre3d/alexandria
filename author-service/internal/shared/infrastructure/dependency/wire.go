@@ -18,35 +18,35 @@ import (
 )
 
 var configSet = wire.NewSet(
-	ProvideContext,
-	ProvideLogger,
+	provideContext,
+	provideLogger,
 	config.NewKernelConfig,
 )
 
-var DBMSPoolSet = wire.NewSet(
+var dBMSPoolSet = wire.NewSet(
 	configSet,
 	persistence.NewPostgresPool,
 )
 
-var AuthorDBMSRepositorySet = wire.NewSet(
-	DBMSPoolSet,
+var authorDBMSRepositorySet = wire.NewSet(
+	dBMSPoolSet,
 	persistence.NewRedisPool,
 	wire.Bind(new(domain.IAuthorRepository), new(*infrastructure.AuthorDBMSRepository)),
 	infrastructure.NewAuthorDBMSRepository,
 )
 
-var AuthorUseCaseSet = wire.NewSet(
-	AuthorDBMSRepositorySet,
+var authorUseCaseSet = wire.NewSet(
+	authorDBMSRepositorySet,
 	wire.Bind(new(domain.IAuthorEventBus), new(*infrastructure.AuthorAWSEventBus)),
 	infrastructure.NewAuthorAWSEventBus,
 	interactor.NewAuthorUseCase,
 )
 
-func ProvideContext() context.Context {
+func provideContext() context.Context {
 	return context.Background()
 }
 
-func ProvideLogger() log.Logger {
+func provideLogger() log.Logger {
 	loggerZap, _ := zap.NewProduction()
 	defer loggerZap.Sync()
 	level := zapcore.Level(8)
@@ -55,7 +55,7 @@ func ProvideLogger() log.Logger {
 }
 
 func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
-	wire.Build(AuthorUseCaseSet)
+	wire.Build(authorUseCaseSet)
 
 	return &interactor.AuthorUseCase{}, nil, nil
 }

@@ -22,8 +22,8 @@ import (
 // Injectors from wire.go:
 
 func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
-	logger := ProvideLogger()
-	context := ProvideContext()
+	logger := provideLogger()
+	context := provideContext()
 	kernelConfig := config.NewKernelConfig(context, logger)
 	db, cleanup, err := persistence.NewPostgresPool(context, logger, kernelConfig)
 	if err != nil {
@@ -46,27 +46,27 @@ func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 // wire.go:
 
 var configSet = wire.NewSet(
-	ProvideContext,
-	ProvideLogger, config.NewKernelConfig,
+	provideContext,
+	provideLogger, config.NewKernelConfig,
 )
 
-var DBMSPoolSet = wire.NewSet(
+var dBMSPoolSet = wire.NewSet(
 	configSet, persistence.NewPostgresPool,
 )
 
-var AuthorDBMSRepositorySet = wire.NewSet(
-	DBMSPoolSet, persistence.NewRedisPool, wire.Bind(new(domain.IAuthorRepository), new(*infrastructure.AuthorDBMSRepository)), infrastructure.NewAuthorDBMSRepository,
+var authorDBMSRepositorySet = wire.NewSet(
+	dBMSPoolSet, persistence.NewRedisPool, wire.Bind(new(domain.IAuthorRepository), new(*infrastructure.AuthorDBMSRepository)), infrastructure.NewAuthorDBMSRepository,
 )
 
-var AuthorUseCaseSet = wire.NewSet(
-	AuthorDBMSRepositorySet, wire.Bind(new(domain.IAuthorEventBus), new(*infrastructure.AuthorAWSEventBus)), infrastructure.NewAuthorAWSEventBus, interactor.NewAuthorUseCase,
+var authorUseCaseSet = wire.NewSet(
+	authorDBMSRepositorySet, wire.Bind(new(domain.IAuthorEventBus), new(*infrastructure.AuthorAWSEventBus)), infrastructure.NewAuthorAWSEventBus, interactor.NewAuthorUseCase,
 )
 
-func ProvideContext() context.Context {
+func provideContext() context.Context {
 	return context.Background()
 }
 
-func ProvideLogger() log.Logger {
+func provideLogger() log.Logger {
 	loggerZap, _ := zap.NewProduction()
 	defer loggerZap.Sync()
 	level := zapcore.Level(8)
