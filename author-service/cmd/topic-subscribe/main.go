@@ -21,7 +21,7 @@ func main() {
 		g.Add(func() error {
 			// Env must be like
 			// "awssqs://AWS_SQS_URL?region=us-east-1"
-			subscriptionCreated, err := pubsub.OpenSubscription(ctx, os.Getenv("AWS_SQS_AUTHOR_DELETED"))
+			subscriptionCreated, err := pubsub.OpenSubscription(ctx, os.Getenv("AWS_SQS_AUTHOR_CREATED"))
 			if err != nil {
 				return err
 			}
