@@ -9,6 +9,7 @@ import (
 
 type KernelConfig struct {
 	TransportConfig transportCfg
+	MetricConfig    metricCfg
 	DBMSConfig      dbmsCfg
 	MemConfig       memCfg
 	Version         string
@@ -20,6 +21,12 @@ type transportCfg struct {
 	HTTPPort int
 	RPCHost  string
 	RPCPort  int
+}
+
+type metricCfg struct {
+	ZipkinHost     string
+	ZipkinEndpoint string
+	ZipkinBridge   bool
 }
 
 type dbmsCfg struct {
@@ -52,6 +59,7 @@ func NewKernelConfig(ctx context.Context, logger log.Logger) *KernelConfig {
 	viper.AddConfigPath(".")
 
 	// Set default
+	// Data source - DBMS
 	viper.SetDefault("alexandria.persistence.dbms.url", "postgres://postgres:root@localhost/alexandria-media?sslmode=disable")
 	viper.SetDefault("alexandria.persistence.dbms.driver", "postgres")
 	viper.SetDefault("alexandria.persistence.dbms.user", "postgres")
@@ -60,19 +68,29 @@ func NewKernelConfig(ctx context.Context, logger log.Logger) *KernelConfig {
 	viper.SetDefault("alexandria.persistence.dbms.port", 5432)
 	viper.SetDefault("alexandria.persistence.dbms.database", "alexandria-media")
 
+	// Data source - In-memory
 	viper.SetDefault("alexandria.persistence.mem.network", "")
 	viper.SetDefault("alexandria.persistence.mem.host", "0.0.0.0")
 	viper.SetDefault("alexandria.persistence.mem.port", 6379)
 	viper.SetDefault("alexandria.persistence.mem.password", "")
 	viper.SetDefault("alexandria.persistence.mem.database", "0")
 
-	viper.SetDefault("alexandria.transport.transport.http.host", "0.0.0.0")
-	viper.SetDefault("alexandria.transport.transport.http.port", 8080)
-	viper.SetDefault("alexandria.transport.transport.rpc.host", "0.0.0.0")
-	viper.SetDefault("alexandria.transport.transport.rpc.port", 31337)
+	// Transport - HTTP
+	viper.SetDefault("alexandria.service.transport.http.host", "0.0.0.0")
+	viper.SetDefault("alexandria.service.transport.http.port", 8080)
 
+	// Transport - RPC
+	viper.SetDefault("alexandria.service.transport.rpc.host", "0.0.0.0")
+	viper.SetDefault("alexandria.service.transport.rpc.port", 31337)
+
+	// Metric/Instrumentation
+	viper.SetDefault("alexandria.service.metric.zipkin.host", "http://localhost:9411/api/v2/spans")
+	viper.SetDefault("alexandria.service.metric.zipkin.endpoint", "0.0.0.0:8080")
+	viper.SetDefault("alexandria.service.metric.zipkin.bridge", true)
+
+	// Service info
 	viper.SetDefault("alexandria.info.version", "1.0.0")
-	viper.SetDefault("alexandria.info.transport", "media")
+	viper.SetDefault("alexandria.info.service", "media")
 
 	// Open config
 	if err := viper.ReadInConfig(); err != nil {
@@ -95,14 +113,18 @@ func NewKernelConfig(ctx context.Context, logger log.Logger) *KernelConfig {
 	}
 
 	// Set up services ports
-	kernelConfig.TransportConfig.HTTPHost = viper.GetString("alexandria.transport.transport.http.host")
-	kernelConfig.TransportConfig.HTTPPort = viper.GetInt("alexandria.transport.transport.http.port")
+	kernelConfig.TransportConfig.HTTPHost = viper.GetString("alexandria.service.transport.http.host")
+	kernelConfig.TransportConfig.HTTPPort = viper.GetInt("alexandria.service.transport.http.port")
 
-	kernelConfig.TransportConfig.RPCHost = viper.GetString("alexandria.transport.transport.rpc.host")
-	kernelConfig.TransportConfig.RPCPort = viper.GetInt("alexandria.transport.transport.rpc.port")
+	kernelConfig.TransportConfig.RPCHost = viper.GetString("alexandria.service.transport.rpc.host")
+	kernelConfig.TransportConfig.RPCPort = viper.GetInt("alexandria.service.transport.rpc.port")
+
+	kernelConfig.MetricConfig.ZipkinHost = viper.GetString("alexandria.service.metric.zipkin.host")
+	kernelConfig.MetricConfig.ZipkinEndpoint = viper.GetString("alexandria.service.metric.zipkin.endpoint")
+	kernelConfig.MetricConfig.ZipkinBridge = viper.GetBool("alexandria.service.metric.zipkin.bridge")
 
 	kernelConfig.Version = viper.GetString("alexandria.info.version")
-	kernelConfig.Service = viper.GetString("alexandria.info.transport")
+	kernelConfig.Service = viper.GetString("alexandria.info.service")
 
 	// Prefer AWS KMS/Key Parameter Store over local
 	// Get main DBMS connection string

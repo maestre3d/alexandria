@@ -10,7 +10,7 @@ alexandria:
       password: "root"
       host: "postgres"
       port: 5432
-      database: "alexandria_media"
+      database: "alexandria-media"
     mem:
       network: ""
       host: "redis"
@@ -25,3 +25,8 @@ alexandria:
       rpc:
         host: "0.0.0.0"
         port: 31337
+    metric:
+      zipkin:
+        host: "http://zipkin:9411/api/v2/spans"
+        endpoint: "0.0.0.0:8080"
+        bridge: true
