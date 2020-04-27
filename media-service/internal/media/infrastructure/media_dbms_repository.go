@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -20,18 +21,22 @@ type MediaDBMSRepository struct {
 	ctx    context.Context
 	mem    *redis.Client
 	logger log.Logger
+	mtx sync.RWMutex
 }
 
 func NewMediaRDBMSRepository(db *sql.DB, mem *redis.Client, logger log.Logger, ctx context.Context) *MediaDBMSRepository {
 	return &MediaDBMSRepository{
-		db,
-		ctx,
-		mem,
-		logger,
+		db: db,
+		ctx: ctx,
+		mem: mem,
+		logger: logger,
 	}
 }
 
 func (r *MediaDBMSRepository) Save(media *domain.MediaEntity) error {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return err
@@ -56,6 +61,9 @@ func (r *MediaDBMSRepository) Save(media *domain.MediaEntity) error {
 }
 
 func (r *MediaDBMSRepository) Update(media *domain.MediaEntity) error {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return err
@@ -102,6 +110,9 @@ func (r *MediaDBMSRepository) Update(media *domain.MediaEntity) error {
 }
 
 func (r *MediaDBMSRepository) Remove(id string) error {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return err
@@ -136,6 +147,9 @@ func (r *MediaDBMSRepository) Remove(id string) error {
 }
 
 func (r *MediaDBMSRepository) FetchByID(id string) (*domain.MediaEntity, error) {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return nil, err
@@ -212,6 +226,9 @@ func (r *MediaDBMSRepository) FetchByID(id string) (*domain.MediaEntity, error) 
 }
 
 func (r *MediaDBMSRepository) Fetch(params *util.PaginationParams, filterParams util.FilterParams) ([]*domain.MediaEntity, error) {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return nil, err
