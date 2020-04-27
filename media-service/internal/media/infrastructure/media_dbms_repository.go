@@ -24,7 +24,7 @@ type MediaDBMSRepository struct {
 	mtx sync.RWMutex
 }
 
-func NewMediaRDBMSRepository(db *sql.DB, mem *redis.Client, logger log.Logger, ctx context.Context) *MediaDBMSRepository {
+func NewMediaDBMSRepository(db *sql.DB, mem *redis.Client, logger log.Logger, ctx context.Context) *MediaDBMSRepository {
 	return &MediaDBMSRepository{
 		db: db,
 		ctx: ctx,
