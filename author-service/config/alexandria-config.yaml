@@ -10,7 +10,7 @@ alexandria:
       password: "root"
       host: "postgres"
       port: 5432
-      database: "alexandria-author"
+      database: "alexandria_author"
     mem:
       network: ""
       host: "redis"
