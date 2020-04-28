@@ -17,25 +17,36 @@ import (
 	"github.com/maestre3d/alexandria/media-service/pkg/shared"
 	"github.com/maestre3d/alexandria/media-service/pkg/transport"
 	"github.com/maestre3d/alexandria/media-service/pkg/transport/handler"
+	"github.com/maestre3d/alexandria/media-service/pkg/transport/pb"
+	"github.com/maestre3d/alexandria/media-service/pkg/transport/proxy"
+	"github.com/maestre3d/alexandria/media-service/pkg/transport/tracer"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 // Injectors from wire.go:
 
-func InjectHTTPProxy() (*transport.HTTPTransportProxy, func(), error) {
-	logger := ProvideLogger()
-	context := ProvideContext()
-	kernelConfig := config.NewKernelConfig(context, logger)
-	server := shared.NewHTTPServer(logger, kernelConfig)
-	iMediaService, cleanup, err := ProvideAuthorService(logger)
+func InjectTransportService() (*transport.TransportService, func(), error) {
+	logger := provideLogger()
+	iMediaService, cleanup, err := provideMediaService(logger)
 	if err != nil {
 		return nil, nil, err
 	}
-	mediaHandler := handler.NewMediaHandler(iMediaService, logger)
-	proxyHandlers := ProvideProxyHandlers(mediaHandler)
-	httpTransportProxy, cleanup2 := transport.NewHTTPTransportProxy(logger, server, kernelConfig, proxyHandlers)
-	return httpTransportProxy, func() {
+	context := provideContext()
+	kernelConfig := config.NewKernelConfig(context, logger)
+	zipkinTracer, cleanup2 := tracer.NewZipkinTracer(logger, kernelConfig)
+	opentracingTracer := tracer.NewOpenTracer(logger, kernelConfig, zipkinTracer)
+	mediaServer := handler.NewMediaRPCServer(iMediaService, logger, opentracingTracer, zipkinTracer)
+	rpcProxyHandlers := provideRPCProxyHandlers(mediaServer)
+	server, cleanup3 := proxy.NewRPCTransportProxy(rpcProxyHandlers, logger, kernelConfig)
+	httpServer := shared.NewHTTPServer(logger, kernelConfig)
+	mediaHandler := handler.NewMediaHandler(iMediaService, logger, opentracingTracer, zipkinTracer)
+	proxyHandlers := provideProxyHandlers(mediaHandler)
+	httpTransportProxy, cleanup4 := proxy.NewHTTPTransportProxy(logger, httpServer, kernelConfig, proxyHandlers)
+	transportService := transport.NewTransportService(server, httpTransportProxy)
+	return transportService, func() {
+		cleanup4()
+		cleanup3()
 		cleanup2()
 		cleanup()
 	}, nil
@@ -44,24 +55,30 @@ func InjectHTTPProxy() (*transport.HTTPTransportProxy, func(), error) {
 // wire.go:
 
 var mediaServiceSet = wire.NewSet(
-	ProvideLogger,
-	ProvideAuthorService,
+	provideLogger,
+	provideMediaService,
 )
 
 var proxyHandlersSet = wire.NewSet(
-	mediaServiceSet, handler.NewMediaHandler, ProvideProxyHandlers,
+	mediaServiceSet, config.NewKernelConfig, tracer.NewOpenTracer, tracer.NewZipkinTracer, handler.NewMediaHandler, provideProxyHandlers,
 )
 
 var httpProxySet = wire.NewSet(
 	proxyHandlersSet,
-	ProvideContext, config.NewKernelConfig, shared.NewHTTPServer, transport.NewHTTPTransportProxy,
+	provideContext, shared.NewHTTPServer, proxy.NewHTTPTransportProxy,
 )
 
-func ProvideContext() context.Context {
+var rpcProxyHandlersSet = wire.NewSet(handler.NewMediaRPCServer, provideRPCProxyHandlers)
+
+var rpcProxySet = wire.NewSet(
+	rpcProxyHandlersSet, proxy.NewRPCTransportProxy,
+)
+
+func provideContext() context.Context {
 	return context.Background()
 }
 
-func ProvideLogger() log.Logger {
+func provideLogger() log.Logger {
 	zapLogger, _ := zap.NewProduction()
 	defer zapLogger.Sync()
 	level := zapcore.Level(8)
@@ -69,14 +86,18 @@ func ProvideLogger() log.Logger {
 	return zap2.NewZapSugarLogger(zapLogger, level)
 }
 
-func ProvideAuthorService(logger log.Logger) (service.IMediaService, func(), error) {
-	authorUseCase, cleanup, err := dependency.InjectMediaUseCase()
+func provideMediaService(logger log.Logger) (service.IMediaService, func(), error) {
+	mediaUseCase, cleanup, err := dependency.InjectMediaUseCase()
 
-	authorService := media.NewMediaService(authorUseCase, logger)
+	mediaService := media.NewMediaService(mediaUseCase, logger)
 
-	return authorService, cleanup, err
+	return mediaService, cleanup, err
 }
 
-func ProvideProxyHandlers(mediaHandler *handler.MediaHandler) *transport.ProxyHandlers {
-	return &transport.ProxyHandlers{mediaHandler}
+func provideProxyHandlers(mediaHandler *handler.MediaHandler) *proxy.ProxyHandlers {
+	return &proxy.ProxyHandlers{mediaHandler}
+}
+
+func provideRPCProxyHandlers(mediaHandler pb.MediaServer) *proxy.RPCProxyHandlers {
+	return &proxy.RPCProxyHandlers{mediaHandler}
 }

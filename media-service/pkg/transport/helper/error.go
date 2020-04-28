@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/exception"
-	"github.com/maestre3d/alexandria/author-service/pkg/shared"
+	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/exception"
+	"github.com/maestre3d/alexandria/media-service/pkg/shared"
 	"net/http"
 )
 

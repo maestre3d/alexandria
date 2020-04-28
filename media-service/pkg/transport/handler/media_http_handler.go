@@ -4,10 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
+	kitoc "github.com/go-kit/kit/tracing/opencensus"
+	"github.com/go-kit/kit/tracing/opentracing"
+	"github.com/go-kit/kit/tracing/zipkin"
+	"github.com/go-kit/kit/transport"
 	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/exception"
 	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
 	"github.com/maestre3d/alexandria/media-service/pkg/media/service"
 	"github.com/maestre3d/alexandria/media-service/pkg/shared"
+	"github.com/maestre3d/alexandria/media-service/pkg/transport/helper"
+	stdopentracing "github.com/opentracing/opentracing-go"
+	stdzipkin "github.com/openzipkin/zipkin-go"
+	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"strings"
 
@@ -20,51 +29,89 @@ import (
 type MediaHandler struct {
 	service service.IMediaService
 	logger  log.Logger
+	duration     *kitprometheus.Summary
+	tracer       stdopentracing.Tracer
+	zipkinTracer *stdzipkin.Tracer
+	options      []httptransport.ServerOption
 }
 
-func NewMediaHandler(svc service.IMediaService, logger log.Logger) *MediaHandler {
-	return &MediaHandler{svc, logger}
+func NewMediaHandler(svc service.IMediaService, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) *MediaHandler {
+	duration := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
+		Namespace:   "alexandria",
+		Subsystem:   "media_service",
+		Name:        "request_duration_seconds",
+		Help:        "total duration of requests in microseconds",
+		ConstLabels: nil,
+		Objectives:  nil,
+		MaxAge:      0,
+		AgeBuckets:  0,
+		BufCap:      0,
+	}, []string{"method", "success"})
+
+	options := []httptransport.ServerOption{
+		httptransport.ServerErrorEncoder(helper.ErrorEncoder),
+		kitoc.HTTPServerTrace(),
+		httptransport.ServerErrorHandler(transport.NewLogErrorHandler(logger)),
+	}
+
+	if zipkinTracer != nil {
+		// Zipkin HTTP Server Trace can either be instantiated per endpoint with a
+		// provided operation name or a global tracing service can be instantiated
+		// without an operation name and fed to each Go kit endpoint as ServerOption.
+		// In the latter case, the operation name will be the endpoint's http method.
+		// We demonstrate a global tracing service here.
+		options = append(options, zipkin.HTTPServerTrace(zipkinTracer))
+	}
+
+	return &MediaHandler{svc, logger, duration, tracer, zipkinTracer, options}
 }
 
 func (h *MediaHandler) Create() *httptransport.Server {
 	return httptransport.NewServer(
-		action.MakeCreateMediaEndpoint(h.service, h.logger),
+		action.MakeCreateMediaEndpoint(h.service, h.logger, h.duration, h.tracer, h.zipkinTracer),
 		decodeCreateRequest,
 		encodeCreateRequest,
+		append(h.options, httptransport.ServerBefore(opentracing.HTTPToContext(h.tracer, "Create", h.logger)))...,
 	)
 }
 
 func (h *MediaHandler) List() *httptransport.Server {
 	return httptransport.NewServer(
-		action.MakeListMediaEndpoint(h.service, h.logger),
+		action.MakeListMediaEndpoint(h.service, h.logger, h.duration, h.tracer, h.zipkinTracer),
 		decodeListRequest,
 		encodeListResponse,
+		append(h.options, httptransport.ServerBefore(opentracing.HTTPToContext(h.tracer, "List", h.logger)))...,
 	)
 }
 
 func (h *MediaHandler) Get() *httptransport.Server {
 	return httptransport.NewServer(
-		action.MakeGetMediaEndpoint(h.service, h.logger),
+		action.MakeGetMediaEndpoint(h.service, h.logger, h.duration, h.tracer, h.zipkinTracer),
 		decodeGetRequest,
 		encodeGetResponse,
+		append(h.options, httptransport.ServerBefore(opentracing.HTTPToContext(h.tracer, "Get", h.logger)))...,
 	)
 }
 
 func (h *MediaHandler) Update() *httptransport.Server {
 	return httptransport.NewServer(
-		action.MakeUpdateMediaEndpoint(h.service, h.logger),
+		action.MakeUpdateMediaEndpoint(h.service, h.logger, h.duration, h.tracer, h.zipkinTracer),
 		decodeUpdateRequest,
 		encodeUpdateResponse,
+		append(h.options, httptransport.ServerBefore(opentracing.HTTPToContext(h.tracer, "Update", h.logger)))...,
 	)
 }
 
 func (h *MediaHandler) Delete() *httptransport.Server {
 	return httptransport.NewServer(
-		action.MakeDeleteMediaEndpoint(h.service, h.logger),
+		action.MakeDeleteMediaEndpoint(h.service, h.logger, h.duration, h.tracer, h.zipkinTracer),
 		decodeDeleteRequest,
 		encodeDeleteResponse,
+		append(h.options, httptransport.ServerBefore(opentracing.HTTPToContext(h.tracer, "Delete", h.logger)))...,
 	)
 }
+
+/* Decoders/Encoders */
 
 func decodeCreateRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	return action.CreateRequest{
