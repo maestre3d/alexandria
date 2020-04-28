@@ -28,7 +28,6 @@ type ProxyHandlers struct {
 }
 
 func NewHTTPTransportProxy(logger log.Logger, server *http.Server, cfg *config.KernelConfig, handlers *ProxyHandlers) (*HTTPTransportProxy, func()) {
-	// TODO: Add metrics with OpenCensus and Prometheus/Zipkin
 	router, ok := server.Handler.(*mux.Router)
 	if !ok {
 		server.Handler = mux.NewRouter()

@@ -10,16 +10,22 @@ import (
 )
 
 func NewZipkinTracer(logger log.Logger, cfg *config.KernelConfig) (*zipkin.Tracer, func()) {
-	if cfg.MetricConfig.ZipkinHost != "" {
-		reporter := zipkinhttp.NewReporter(cfg.MetricConfig.ZipkinHost)
-		zEP, _ := zipkin.NewEndpoint(cfg.Service, cfg.MetricConfig.ZipkinEndpoint)
-		zipkinTrace, err := zipkin.NewTracer(reporter, zipkin.WithLocalEndpoint(zEP))
-		if err != nil {
-			logger.Log("err", "failed to start zipkin tracer", "resource", "public.infrastructure.transport.metrics")
+	if cfg.MetricConfig.ZipkinHost != "" && cfg.MetricConfig.ZipkinEndpoint != "" {
+		zipkinReporter := zipkinhttp.NewReporter(cfg.MetricConfig.ZipkinHost)
+		cleanup := func() {
+			zipkinReporter.Close()
 		}
 
-		cleanup := func() {
-			err = reporter.Close()
+		zipkinEndpoint, err := zipkin.NewEndpoint(cfg.Service, cfg.MetricConfig.ZipkinEndpoint)
+		if err != nil {
+			logger.Log("method", "public.infrastructure.transport.tracing", "err", err.Error())
+			return nil, cleanup
+		}
+
+		zipkinTrace, err := zipkin.NewTracer(zipkinReporter, zipkin.WithLocalEndpoint(zipkinEndpoint))
+		if err != nil {
+			logger.Log("method", "public.infrastructure.transport.tracing", "err", err.Error())
+			return nil, cleanup
 		}
 
 		return zipkinTrace, cleanup
@@ -35,6 +41,6 @@ func NewOpenTracer(logger log.Logger, cfg *config.KernelConfig, zipTracer *zipki
 		return zipkinot.Wrap(zipTracer)
 	}
 
-	// No operation
+	// Return Non-zipkin tracing
 	return stdopentracing.GlobalTracer()
 }
