@@ -27,7 +27,7 @@ type DeleteResponse struct {
 	Err error `json:"-"`
 }
 
-func MakeDeleteAuthorEndpoint(svc service.IAuthorService, logger log.Logger, duration metrics.Histogram, otTracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
+func MakeDeleteAuthorEndpoint(svc service.IAuthorService, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
 	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(DeleteRequest)
 		err = svc.Delete(req.ID)
@@ -38,23 +38,29 @@ func MakeDeleteAuthorEndpoint(svc service.IAuthorService, logger log.Logger, dur
 		return DeleteResponse{nil}, nil
 	}
 
+	// Transport's fault-tolerant patterns
 	limiter := rate.NewLimiter(rate.Every(time.Second), 1)
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:          "author.delete",
 		MaxRequests:   100,
 		Interval:      0,
-		Timeout:       250 * time.Millisecond,
+		Timeout:       15 * time.Second,
 		ReadyToTrip:   nil,
 		OnStateChange: nil,
 	})
-
 	ep = ratelimit.NewErroringLimiter(limiter)(ep)
 	ep = circuitbreaker.Gobreaker(cb)(ep)
+
+	// Distributed Tracing
+	// OpenCensus tracer
 	ep = kitoc.TraceEndpoint("gokit:endpoint delete")(ep)
-	ep = opentracing.TraceServer(otTracer, "Delete")(ep)
+	// OpenTracing server
+	ep = opentracing.TraceServer(tracer, "Delete")(ep)
 	if zipkinTracer != nil {
 		ep = zipkin.TraceEndpoint(zipkinTracer, "Delete")(ep)
 	}
+
+	// Transport metrics
 	ep = shared.LoggingMiddleware(log.With(logger, "method", "author.delete"))(ep)
 	ep = shared.InstrumentingMiddleware(duration.With("method", "author.delete"))(ep)
 

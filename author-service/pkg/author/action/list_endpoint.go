@@ -33,7 +33,7 @@ type ListResponse struct {
 	Err           error                  `json:"-"`
 }
 
-func MakeListAuthorEndpoint(svc service.IAuthorService, logger log.Logger, duration metrics.Histogram, otTracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
+func MakeListAuthorEndpoint(svc service.IAuthorService, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
 	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(ListRequest)
 		authors, nextToken, err := svc.List(req.PageToken, req.PageSize, req.FilterParams)
@@ -52,6 +52,7 @@ func MakeListAuthorEndpoint(svc service.IAuthorService, logger log.Logger, durat
 		}, nil
 	}
 
+	// Transport's fault-tolerant patterns
 	limiter := rate.NewLimiter(rate.Every(time.Second), 1)
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:          "author.list",
@@ -61,14 +62,19 @@ func MakeListAuthorEndpoint(svc service.IAuthorService, logger log.Logger, durat
 		ReadyToTrip:   nil,
 		OnStateChange: nil,
 	})
-
 	ep = ratelimit.NewErroringLimiter(limiter)(ep)
 	ep = circuitbreaker.Gobreaker(cb)(ep)
+
+	// Distributed Tracing
+	// OpenCensus tracer
 	ep = kitoc.TraceEndpoint("gokit:endpoint list")(ep)
-	ep = opentracing.TraceServer(otTracer, "List")(ep)
+	// OpenTracing server
+	ep = opentracing.TraceServer(tracer, "List")(ep)
 	if zipkinTracer != nil {
 		ep = zipkin.TraceEndpoint(zipkinTracer, "List")(ep)
 	}
+
+	// Transport metrics
 	ep = shared.LoggingMiddleware(log.With(logger, "method", "author.list"))(ep)
 	ep = shared.InstrumentingMiddleware(duration.With("method", "author.list"))(ep)
 
