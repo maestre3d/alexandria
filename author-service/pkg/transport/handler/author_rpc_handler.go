@@ -167,7 +167,7 @@ func decodeRPCListRequest(_ context.Context, rpcReq interface{}) (interface{}, e
 
 func decodeRPCGetRequest(_ context.Context, rpcReq interface{}) (interface{}, error) {
 	req := rpcReq.(*pb.GetRequest)
-	return action.GetRequest{req.Id}, nil
+	return action.GetRequest{ID: req.Id}, nil
 }
 
 func decodeRPCUpdateRequest(_ context.Context, rpcReq interface{}) (interface{}, error) {
@@ -183,42 +183,42 @@ func decodeRPCUpdateRequest(_ context.Context, rpcReq interface{}) (interface{},
 
 func decodeRPCDeleteRequest(_ context.Context, rpcReq interface{}) (interface{}, error) {
 	req := rpcReq.(*action.DeleteRequest)
-	return action.DeleteRequest{req.ID}, nil
+	return action.DeleteRequest{ID: req.ID}, nil
 }
 
 func encodeRPCCreateResponse(_ context.Context, response interface{}) (interface{}, error) {
-	r := response.(action.CreateResponse)
-	if r.Err != nil {
-		return nil, r.Err
+	res := response.(action.CreateResponse)
+	if res.Err != nil {
+		return nil, res.Err
 	}
 
-	if r.Author == nil {
+	if res.Author == nil {
 		return nil, exception.EmptyBody
 	}
 
 	return &pb.AuthorMessage{
-		Id:          r.Author.ExternalID,
-		FirstName:   r.Author.FirstName,
-		LastName:    r.Author.LastName,
-		DisplayName: r.Author.DisplayName,
-		BirthDate:   r.Author.BirthDate.String(),
-		CreateTime:  r.Author.CreateTime.String(),
-		UpdateTime:  r.Author.UpdateTime.String(),
+		Id:          res.Author.ExternalID,
+		FirstName:   res.Author.FirstName,
+		LastName:    res.Author.LastName,
+		DisplayName: res.Author.DisplayName,
+		BirthDate:   res.Author.BirthDate.String(),
+		CreateTime:  res.Author.CreateTime.String(),
+		UpdateTime:  res.Author.UpdateTime.String(),
 	}, nil
 }
 
 func encodeRPCListResponse(_ context.Context, response interface{}) (interface{}, error) {
-	resp := response.(action.ListResponse)
-	if resp.Err != nil {
-		return nil, resp.Err
+	res := response.(action.ListResponse)
+	if res.Err != nil {
+		return nil, res.Err
 	}
 
-	if len(resp.Authors) == 0 {
+	if len(res.Authors) == 0 {
 		return nil, status.Error(codes.NotFound, exception.EntitiesNotFound.Error())
 	}
 
 	authorsRPC := make([]*pb.AuthorMessage, 0)
-	for _, author := range resp.Authors {
+	for _, author := range res.Authors {
 		authorRPC := &pb.AuthorMessage{
 			Id:          author.ExternalID,
 			FirstName:   author.FirstName,
@@ -233,56 +233,56 @@ func encodeRPCListResponse(_ context.Context, response interface{}) (interface{}
 
 	return &pb.ListResponse{
 		Authors:       authorsRPC,
-		NextPageToken: resp.NextPageToken,
+		NextPageToken: res.NextPageToken,
 	}, nil
 }
 
 func encodeRPCGetResponse(_ context.Context, response interface{}) (interface{}, error) {
-	resp := response.(action.GetResponse)
-	if resp.Err != nil {
-		return nil, resp.Err
+	res := response.(action.GetResponse)
+	if res.Err != nil {
+		return nil, res.Err
 	}
 
-	if resp.Author == nil {
+	if res.Author == nil {
 		return nil, status.Error(codes.NotFound, exception.EntityNotFound.Error())
 	}
 
 	return &pb.AuthorMessage{
-		Id:          resp.Author.ExternalID,
-		FirstName:   resp.Author.FirstName,
-		LastName:    resp.Author.LastName,
-		DisplayName: resp.Author.DisplayName,
-		BirthDate:   resp.Author.BirthDate.String(),
-		CreateTime:  resp.Author.CreateTime.String(),
-		UpdateTime:  resp.Author.UpdateTime.String(),
+		Id:          res.Author.ExternalID,
+		FirstName:   res.Author.FirstName,
+		LastName:    res.Author.LastName,
+		DisplayName: res.Author.DisplayName,
+		BirthDate:   res.Author.BirthDate.String(),
+		CreateTime:  res.Author.CreateTime.String(),
+		UpdateTime:  res.Author.UpdateTime.String(),
 	}, nil
 }
 
 func encodeRPCUpdateResponse(_ context.Context, response interface{}) (interface{}, error) {
-	resp := response.(action.UpdateResponse)
-	if resp.Err != nil {
-		return nil, resp.Err
+	res := response.(action.UpdateResponse)
+	if res.Err != nil {
+		return nil, res.Err
 	}
 
-	if resp.Author == nil {
+	if res.Author == nil {
 		return nil, exception.EmptyBody
 	}
 
 	return &pb.AuthorMessage{
-		Id:          resp.Author.ExternalID,
-		FirstName:   resp.Author.FirstName,
-		LastName:    resp.Author.LastName,
-		DisplayName: resp.Author.DisplayName,
-		BirthDate:   resp.Author.BirthDate.String(),
-		CreateTime:  resp.Author.CreateTime.String(),
-		UpdateTime:  resp.Author.UpdateTime.String(),
+		Id:          res.Author.ExternalID,
+		FirstName:   res.Author.FirstName,
+		LastName:    res.Author.LastName,
+		DisplayName: res.Author.DisplayName,
+		BirthDate:   res.Author.BirthDate.String(),
+		CreateTime:  res.Author.CreateTime.String(),
+		UpdateTime:  res.Author.UpdateTime.String(),
 	}, nil
 }
 
 func encodeRPCDeleteResponse(_ context.Context, response interface{}) (interface{}, error) {
-	resp := response.(action.DeleteResponse)
-	if resp.Err != nil {
-		return nil, resp.Err
+	res := response.(action.DeleteResponse)
+	if res.Err != nil {
+		return nil, res.Err
 	}
 
 	return nil, nil
