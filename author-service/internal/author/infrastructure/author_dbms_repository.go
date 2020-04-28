@@ -46,6 +46,8 @@ func (r *AuthorDBMSRepository) Save(author *domain.AuthorEntity) error {
 	defer func() {
 		err = conn.Close()
 	}()
+	// Use Go CDK OpenCensus database metrics
+	r.logger.Log("method", "author.infrastructure.dbmsrepository.save", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `INSERT INTO AUTHOR(EXTERNAL_ID, FIRST_NAME, LAST_NAME, DISPLAY_NAME, BIRTH_DATE) VALUES ($1, $2, $3, $4, $5)`
 
@@ -70,6 +72,8 @@ func (r *AuthorDBMSRepository) Update(author *domain.AuthorEntity) error {
 	defer func() {
 		err = conn.Close()
 	}()
+	// Use Go CDK OpenCensus database metrics
+	r.logger.Log("method", "author.infrastructure.dbmsrepository.update", "db_connection", r.db.Stats().OpenConnections)
 
 	author.UpdateTime = time.Now()
 
@@ -120,6 +124,8 @@ func (r *AuthorDBMSRepository) Remove(id string) error {
 	defer func() {
 		err = conn.Close()
 	}()
+	// Use Go CDK OpenCensus database metrics
+	r.logger.Log("method", "author.infrastructure.dbmsrepository.remove", "db_connection", r.db.Stats().OpenConnections)
 
 	// Soft-delete
 	statement := `UPDATE AUTHOR SET DELETED = TRUE WHERE EXTERNAL_ID = $1 AND DELETED = FALSE`
@@ -154,6 +160,8 @@ func (r *AuthorDBMSRepository) FetchByID(id string) (*domain.AuthorEntity, error
 	defer func() {
 		err = conn.Close()
 	}()
+	// Use Go CDK OpenCensus database metrics
+	r.logger.Log("method", "author.infrastructure.dbmsrepository.fetchbyid", "db_connection", r.db.Stats().OpenConnections)
 
 	// Add cache-aside pattern
 	if r.mem != nil {
@@ -233,6 +241,8 @@ func (r *AuthorDBMSRepository) Fetch(params *util.PaginationParams, filterParams
 	defer func() {
 		err = conn.Close()
 	}()
+	// Use Go CDK OpenCensus database metrics
+	r.logger.Log("method", "author.infrastructure.dbmsrepository.fetch", "db_connection", r.db.Stats().OpenConnections)
 
 	if params == nil {
 		params = util.NewPaginationParams("", "0")
