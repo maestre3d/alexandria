@@ -27,21 +27,21 @@ import (
 // Injectors from wire.go:
 
 func InjectTransportService() (*transport.TransportService, func(), error) {
-	logger := ProvideLogger()
-	iAuthorService, cleanup, err := ProvideAuthorService(logger)
+	logger := provideLogger()
+	iAuthorService, cleanup, err := provideAuthorService(logger)
 	if err != nil {
 		return nil, nil, err
 	}
-	context := ProvideContext()
+	context := provideContext()
 	kernelConfig := config.NewKernelConfig(context, logger)
 	zipkinTracer, cleanup2 := tracer.NewZipkinTracer(logger, kernelConfig)
 	opentracingTracer := tracer.NewOpenTracer(logger, kernelConfig, zipkinTracer)
 	authorServer := handler.NewAuthorRPCServer(iAuthorService, logger, opentracingTracer, zipkinTracer)
-	rpcProxyHandlers := ProvideRPCProxyHandlers(authorServer)
-	server, cleanup3 := proxy.NewRPCTransportProxy(rpcProxyHandlers)
+	rpcProxyHandlers := provideRPCProxyHandlers(authorServer)
+	server, cleanup3 := proxy.NewRPCTransportProxy(rpcProxyHandlers, logger, kernelConfig)
 	httpServer := shared.NewHTTPServer(logger, kernelConfig)
 	authorHandler := handler.NewAuthorHandler(iAuthorService, logger, opentracingTracer, zipkinTracer)
-	proxyHandlers := ProvideProxyHandlers(authorHandler)
+	proxyHandlers := provideProxyHandlers(authorHandler)
 	httpTransportProxy, cleanup4 := proxy.NewHTTPTransportProxy(logger, httpServer, kernelConfig, proxyHandlers)
 	transportService := transport.NewTransportService(server, httpTransportProxy)
 	return transportService, func() {
@@ -55,30 +55,30 @@ func InjectTransportService() (*transport.TransportService, func(), error) {
 // wire.go:
 
 var authorServiceSet = wire.NewSet(
-	ProvideLogger,
-	ProvideAuthorService,
+	provideLogger,
+	provideAuthorService,
 )
 
 var proxyHandlersSet = wire.NewSet(
-	authorServiceSet, config.NewKernelConfig, tracer.NewOpenTracer, tracer.NewZipkinTracer, handler.NewAuthorHandler, ProvideProxyHandlers,
+	authorServiceSet, config.NewKernelConfig, tracer.NewOpenTracer, tracer.NewZipkinTracer, handler.NewAuthorHandler, provideProxyHandlers,
 )
 
 var httpProxySet = wire.NewSet(
 	proxyHandlersSet,
-	ProvideContext, shared.NewHTTPServer, proxy.NewHTTPTransportProxy,
+	provideContext, shared.NewHTTPServer, proxy.NewHTTPTransportProxy,
 )
 
-var rpcProxyHandlersSet = wire.NewSet(handler.NewAuthorRPCServer, ProvideRPCProxyHandlers)
+var rpcProxyHandlersSet = wire.NewSet(handler.NewAuthorRPCServer, provideRPCProxyHandlers)
 
 var rpcProxySet = wire.NewSet(
 	rpcProxyHandlersSet, proxy.NewRPCTransportProxy,
 )
 
-func ProvideContext() context.Context {
+func provideContext() context.Context {
 	return context.Background()
 }
 
-func ProvideLogger() log.Logger {
+func provideLogger() log.Logger {
 	zapLogger, _ := zap.NewProduction()
 	defer zapLogger.Sync()
 	level := zapcore.Level(8)
@@ -86,7 +86,7 @@ func ProvideLogger() log.Logger {
 	return zap2.NewZapSugarLogger(zapLogger, level)
 }
 
-func ProvideAuthorService(logger log.Logger) (service.IAuthorService, func(), error) {
+func provideAuthorService(logger log.Logger) (service.IAuthorService, func(), error) {
 	authorUseCase, cleanup, err := dependency.InjectAuthorUseCase()
 
 	authorService := author.NewAuthorService(authorUseCase, logger)
@@ -94,10 +94,10 @@ func ProvideAuthorService(logger log.Logger) (service.IAuthorService, func(), er
 	return authorService, cleanup, err
 }
 
-func ProvideProxyHandlers(authorHandler *handler.AuthorHandler) *proxy.ProxyHandlers {
+func provideProxyHandlers(authorHandler *handler.AuthorHandler) *proxy.ProxyHandlers {
 	return &proxy.ProxyHandlers{authorHandler}
 }
 
-func ProvideRPCProxyHandlers(authorHandler pb.AuthorServer) *proxy.RPCProxyHandlers {
+func provideRPCProxyHandlers(authorHandler pb.AuthorServer) *proxy.RPCProxyHandlers {
 	return &proxy.RPCProxyHandlers{authorHandler}
 }

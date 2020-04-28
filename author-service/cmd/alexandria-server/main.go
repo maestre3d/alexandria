@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared/di"
 	"github.com/oklog/run"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -23,7 +24,7 @@ func main() {
 	{
 		l, err := net.Listen("tcp", transportService.HTTPProxy.Server.Addr)
 		if err != nil {
-			os.Exit(1)
+			log.Fatalf("failed to start http server\nerror: %v", err)
 		}
 		g.Add(func() error {
 			return http.Serve(l, transportService.HTTPProxy.Server.Handler)
@@ -36,7 +37,7 @@ func main() {
 		grpcListener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", transportService.HTTPProxy.Config.TransportConfig.RPCHost,
 			transportService.HTTPProxy.Config.TransportConfig.RPCPort))
 		if err != nil {
-			os.Exit(1)
+			log.Fatalf("failed to start http server\nerror: %v", err)
 		}
 		g.Add(func() error {
 			// we add the Go Kit gRPC Interceptor to our gRPC service as it is used by

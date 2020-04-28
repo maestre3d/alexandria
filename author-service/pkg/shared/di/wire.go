@@ -22,8 +22,8 @@ import (
 )
 
 var authorServiceSet = wire.NewSet(
-	ProvideLogger,
-	ProvideAuthorService,
+	provideLogger,
+	provideAuthorService,
 )
 
 var proxyHandlersSet = wire.NewSet(
@@ -32,19 +32,19 @@ var proxyHandlersSet = wire.NewSet(
 	tracer.NewOpenTracer,
 	tracer.NewZipkinTracer,
 	handler.NewAuthorHandler,
-	ProvideProxyHandlers,
+	provideProxyHandlers,
 )
 
 var httpProxySet = wire.NewSet(
 	proxyHandlersSet,
-	ProvideContext,
+	provideContext,
 	shared.NewHTTPServer,
 	proxy.NewHTTPTransportProxy,
 )
 
 var rpcProxyHandlersSet = wire.NewSet(
 	handler.NewAuthorRPCServer,
-	ProvideRPCProxyHandlers,
+	provideRPCProxyHandlers,
 )
 
 var rpcProxySet = wire.NewSet(
@@ -52,11 +52,11 @@ var rpcProxySet = wire.NewSet(
 	proxy.NewRPCTransportProxy,
 )
 
-func ProvideContext() context.Context {
+func provideContext() context.Context {
 	return context.Background()
 }
 
-func ProvideLogger() log.Logger {
+func provideLogger() log.Logger {
 	zapLogger, _ := zap.NewProduction()
 	defer zapLogger.Sync()
 	level := zapcore.Level(8)
@@ -64,7 +64,7 @@ func ProvideLogger() log.Logger {
 	return logzap.NewZapSugarLogger(zapLogger, level)
 }
 
-func ProvideAuthorService(logger log.Logger) (service.IAuthorService, func(), error) {
+func provideAuthorService(logger log.Logger) (service.IAuthorService, func(), error) {
 	authorUseCase, cleanup, err := dependency.InjectAuthorUseCase()
 
 	authorService := author.NewAuthorService(authorUseCase, logger)
@@ -72,11 +72,11 @@ func ProvideAuthorService(logger log.Logger) (service.IAuthorService, func(), er
 	return authorService, cleanup, err
 }
 
-func ProvideProxyHandlers(authorHandler *handler.AuthorHandler) *proxy.ProxyHandlers {
+func provideProxyHandlers(authorHandler *handler.AuthorHandler) *proxy.ProxyHandlers {
 	return &proxy.ProxyHandlers{authorHandler}
 }
 
-func ProvideRPCProxyHandlers(authorHandler pb.AuthorServer) *proxy.RPCProxyHandlers {
+func provideRPCProxyHandlers(authorHandler pb.AuthorServer) *proxy.RPCProxyHandlers {
 	return &proxy.RPCProxyHandlers{authorHandler}
 }
 
