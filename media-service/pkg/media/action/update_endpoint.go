@@ -2,6 +2,12 @@ package action
 
 import (
 	"context"
+	"github.com/go-kit/kit/metrics"
+	kitoc "github.com/go-kit/kit/tracing/opencensus"
+	"github.com/go-kit/kit/tracing/opentracing"
+	"github.com/go-kit/kit/tracing/zipkin"
+	stdopentracing "github.com/opentracing/opentracing-go"
+	stdzipkin "github.com/openzipkin/zipkin-go"
 	"time"
 
 	"github.com/go-kit/kit/circuitbreaker"
@@ -31,7 +37,7 @@ type UpdateResponse struct {
 	Err   error               `json:"-"`
 }
 
-func MakeUpdateMediaEndpoint(svc service.IMediaService, logger log.Logger) endpoint.Endpoint {
+func MakeUpdateMediaEndpoint(svc service.IMediaService, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
 	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(UpdateRequest)
 		updatedMedia, err := svc.Update(req.ID, req.Title, req.DisplayName, req.Description, req.UserID, req.AuthorID, req.PublishDate, req.MediaType)
@@ -48,19 +54,38 @@ func MakeUpdateMediaEndpoint(svc service.IMediaService, logger log.Logger) endpo
 		}, nil
 	}
 
-	limiter := rate.NewLimiter(rate.Every(30*time.Second), 100)
+	// Transport's fault-tolerant patterns
+	limiter := rate.NewLimiter(rate.Every(time.Second), 1)
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:          "media.update",
 		MaxRequests:   100,
 		Interval:      0,
-		Timeout:       0,
+		Timeout:       15 * time.Second,
 		ReadyToTrip:   nil,
 		OnStateChange: nil,
 	})
-
-	ep = shared.LoggingMiddleware(log.With(logger, "method", "media.update"))(ep)
 	ep = ratelimit.NewErroringLimiter(limiter)(ep)
 	ep = circuitbreaker.Gobreaker(cb)(ep)
 
+	// Distributed Tracing
+	// OpenCensus tracer
+	ep = kitoc.TraceEndpoint("gokit:endpoint update")(ep)
+	// OpenTracing server
+	ep = opentracing.TraceServer(tracer, "Update")(ep)
+	if zipkinTracer != nil {
+		ep = zipkin.TraceEndpoint(zipkinTracer, "Update")(ep)
+	}
+
+	// Transport metrics
+	ep = shared.LoggingMiddleware(log.With(logger, "method", "media.update"))(ep)
+	ep = shared.InstrumentingMiddleware(duration.With("method", "media.update"))(ep)
+
 	return ep
 }
+
+// compile time assertions for our response types implementing endpoint.Failer.
+var (
+	_ endpoint.Failer = UpdateResponse{}
+)
+
+func (r UpdateResponse) Failed() error { return r.Err }
