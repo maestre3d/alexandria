@@ -17,25 +17,36 @@ import (
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/handler"
+	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
+	"github.com/maestre3d/alexandria/author-service/pkg/transport/proxy"
+	"github.com/maestre3d/alexandria/author-service/pkg/transport/tracer"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 // Injectors from wire.go:
 
-func InjectHTTPProxy() (*transport.HTTPTransportProxy, func(), error) {
-	logger := ProvideLogger()
-	context := ProvideContext()
-	kernelConfig := config.NewKernelConfig(context, logger)
-	server := shared.NewHTTPServer(logger, kernelConfig)
-	iAuthorService, cleanup, err := ProvideAuthorService(logger)
+func InjectTransportService() (*transport.TransportService, func(), error) {
+	logger := provideLogger()
+	iAuthorService, cleanup, err := provideAuthorService(logger)
 	if err != nil {
 		return nil, nil, err
 	}
-	authorHandler := handler.NewAuthorHandler(iAuthorService, logger)
-	proxyHandlers := ProvideProxyHandlers(authorHandler)
-	httpTransportProxy, cleanup2 := transport.NewHTTPTransportProxy(logger, server, kernelConfig, proxyHandlers)
-	return httpTransportProxy, func() {
+	context := provideContext()
+	kernelConfig := config.NewKernelConfig(context, logger)
+	zipkinTracer, cleanup2 := tracer.NewZipkinTracer(logger, kernelConfig)
+	opentracingTracer := tracer.NewOpenTracer(logger, kernelConfig, zipkinTracer)
+	authorServer := handler.NewAuthorRPCServer(iAuthorService, logger, opentracingTracer, zipkinTracer)
+	rpcProxyHandlers := provideRPCProxyHandlers(authorServer)
+	server, cleanup3 := proxy.NewRPCTransportProxy(rpcProxyHandlers, logger, kernelConfig)
+	httpServer := shared.NewHTTPServer(logger, kernelConfig)
+	authorHandler := handler.NewAuthorHandler(iAuthorService, logger, opentracingTracer, zipkinTracer)
+	proxyHandlers := provideProxyHandlers(authorHandler)
+	httpTransportProxy, cleanup4 := proxy.NewHTTPTransportProxy(logger, httpServer, kernelConfig, proxyHandlers)
+	transportService := transport.NewTransportService(server, httpTransportProxy)
+	return transportService, func() {
+		cleanup4()
+		cleanup3()
 		cleanup2()
 		cleanup()
 	}, nil
@@ -44,24 +55,30 @@ func InjectHTTPProxy() (*transport.HTTPTransportProxy, func(), error) {
 // wire.go:
 
 var authorServiceSet = wire.NewSet(
-	ProvideLogger,
-	ProvideAuthorService,
+	provideLogger,
+	provideAuthorService,
 )
 
 var proxyHandlersSet = wire.NewSet(
-	authorServiceSet, handler.NewAuthorHandler, ProvideProxyHandlers,
+	authorServiceSet, config.NewKernelConfig, tracer.NewOpenTracer, tracer.NewZipkinTracer, handler.NewAuthorHandler, provideProxyHandlers,
 )
 
 var httpProxySet = wire.NewSet(
 	proxyHandlersSet,
-	ProvideContext, config.NewKernelConfig, shared.NewHTTPServer, transport.NewHTTPTransportProxy,
+	provideContext, shared.NewHTTPServer, proxy.NewHTTPTransportProxy,
 )
 
-func ProvideContext() context.Context {
+var rpcProxyHandlersSet = wire.NewSet(handler.NewAuthorRPCServer, provideRPCProxyHandlers)
+
+var rpcProxySet = wire.NewSet(
+	rpcProxyHandlersSet, proxy.NewRPCTransportProxy,
+)
+
+func provideContext() context.Context {
 	return context.Background()
 }
 
-func ProvideLogger() log.Logger {
+func provideLogger() log.Logger {
 	zapLogger, _ := zap.NewProduction()
 	defer zapLogger.Sync()
 	level := zapcore.Level(8)
@@ -69,7 +86,7 @@ func ProvideLogger() log.Logger {
 	return zap2.NewZapSugarLogger(zapLogger, level)
 }
 
-func ProvideAuthorService(logger log.Logger) (service.IAuthorService, func(), error) {
+func provideAuthorService(logger log.Logger) (service.IAuthorService, func(), error) {
 	authorUseCase, cleanup, err := dependency.InjectAuthorUseCase()
 
 	authorService := author.NewAuthorService(authorUseCase, logger)
@@ -77,6 +94,10 @@ func ProvideAuthorService(logger log.Logger) (service.IAuthorService, func(), er
 	return authorService, cleanup, err
 }
 
-func ProvideProxyHandlers(authorHandler *handler.AuthorHandler) *transport.ProxyHandlers {
-	return &transport.ProxyHandlers{authorHandler}
+func provideProxyHandlers(authorHandler *handler.AuthorHandler) *proxy.ProxyHandlers {
+	return &proxy.ProxyHandlers{authorHandler}
+}
+
+func provideRPCProxyHandlers(authorHandler pb.AuthorServer) *proxy.RPCProxyHandlers {
+	return &proxy.RPCProxyHandlers{authorHandler}
 }

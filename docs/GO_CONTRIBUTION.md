@@ -44,37 +44,39 @@ Every collaborator **must** use oklog run’s group to keep all service/signal h
 ## Error handling
 We expect to keep consistency in error handling; we use multiple packages like _Uber’s multierr_ and _Go’s 1.13 errors_, so we **should** be able to use error wrapping functionality.
 
-In the following section, we show our error handling scenarios.
+In the following section, we show our error handling scenarios by layer.
 
-_**Symbology**_
 
-- RULE(S) - HTTP_CODE/FAULT
-    - EXTRA_METHOD -> RETURN_VALUE
-        - EXCEPTION_CONTAINED
-    - EXCEPTION
+**Domain**: _Business rule(s) validations_
 
-_Domain Layer_
-- Business rule(s) - 400/user
-    - IsValid() -> multierr.combine()
-        - InvalidID
-        - RequiredField
-        - InvalidFieldFormat
-        - InvalidFieldRange
+| Type                   |     Description                                            |  HTTP Status Code     |  Return value     |
+|------------------------|------------------------------------------------------------|:---------------------:|:---------------------:|
+| **InvalidID**          |  Invalid identifier                                        |   400                 |   Exception                 | 
+| **RequiredField**      |  Missing required request field _x_                        |   400                 |   Exception                 |
+| **InvalidFieldFormat** |  Request field _x_ has an invalid format, expect _value_   |   400                 |   Exception                 |
+| **InvalidFieldRange**  |  Request field _x_ is out of range `[x, y)`                |   400                 |   Exception                 |
 
-_Repository Layer_
-- Empty row - 404/not_found
-    - Nil Entity
-- Already Exists / Unique key - 409/conflict
-    - EntityExists
-- Infrastructure - 500/internal_server
-    - SQL/Docstore_exception(s)
 
-_Use case Layer_
-- Parsing - 400/user
-    - InvalidID
-    - InvalidFieldFormat
-    - Required data
-    - RequiredField
+
+**Repository**: _Data source(s) validations_
+
+| Type                    |     Description                                                 |  HTTP Status Code   |  Return value     |
+|-------------------------|-----------------------------------------------------------------|:-------------------:|:---------------------:|
+| **EmptyRow**            |  Resource(s) not found                  |   404                 |   Null/Nil          |
+| **Infrastructure**      |  SQL/Docstore/API internal error        |   500                 |   Exception         |
+
+
+**Interactor**: _Domain's cases validation_
+
+| Type                   |     Description                                            |  HTTP Status Code     |  Return value     |
+|------------------------|------------------------------------------------------------|:---------------------:|:---------------------:|
+| **InvalidID**          |  Invalid identifier                                        |   400                 |   Exception                 | 
+| **RequiredField**      |  Missing required request field _x_                        |   400                 |   Exception                 |
+| **InvalidFieldFormat** |  Request field _x_ has an invalid format, expect _value_   |   400                 |   Exception                 |
+| **InvalidFieldRange**  |  Request field _x_ is out of range `[x, y)`                |   400                 |   Exception                 |
+| **AlreadyExists**      |  Resource already exists                                   |   409                 |   Exception                 |
+| **EmptyBody**          |  Request body is empty                                     |   400                 |   Exception                 |
+
 
 
 ## Logging
@@ -94,13 +96,13 @@ In the following section, we define our runtine configuration guideline.
 
 Every configuration **must** define default values inside code.
 
-Every configuration **must** have an _"alexandria-config.yaml"_ file containing required keys, it must be stored on the following locations:
+Every configuration **must** have an _"alexandria-config.yaml"_ file containing required keys, it must be stored in the following locations:
 - _$HOME/.alexandria/_
 - _./config/_
 - _/etc/alexandria/_
 - _._
 
-Every configuration system **must** fetch secrets from AWS KMS or similar. If not available, read configuration from _"alexandria-config.yaml"_ file.
+Every configuration system **must** fetch secrets from _AWS KMS_ or similar. If not available, read configuration from _"alexandria-config.yaml"_ file.
 
 **Configuration file example**
 ```yaml
@@ -133,6 +135,8 @@ alexandria:
         port: 31337
 ```
 
+## Versioning
+For every single release, all software deployed **must** use [Semantic Versioning](https://semver.org/) guidelines to keep consistency and inform every single developer the best way possible.
 
 ## 3rd-Party Packages
 The following specified packages **must** be used for every new service written.

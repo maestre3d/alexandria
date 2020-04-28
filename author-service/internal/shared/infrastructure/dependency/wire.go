@@ -8,51 +8,45 @@ import (
 
 	"github.com/go-kit/kit/log"
 	logZap "github.com/go-kit/kit/log/zap"
-	"go.uber.org/zap"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/author-service/internal/author/domain"
 	"github.com/maestre3d/alexandria/author-service/internal/author/infrastructure"
 	"github.com/maestre3d/alexandria/author-service/internal/author/interactor"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/persistence"
+	"go.uber.org/zap"
 )
-
-/*
-var LoggerSet = wire.NewSet(
-	wire.Bind(new(util.ILogger) , new(*logging.ZapLogger)),
-	logging.NewZapLogger,
-)
-
- */
 
 var configSet = wire.NewSet(
-	ProvideContext,
-	ProvideLogger,
+	provideContext,
+	provideLogger,
 	config.NewKernelConfig,
 )
 
-var DBMSPoolSet = wire.NewSet(
+var dBMSPoolSet = wire.NewSet(
 	configSet,
 	persistence.NewPostgresPool,
 )
 
-var AuthorDBMSRepositorySet = wire.NewSet(
-	DBMSPoolSet,
+var authorDBMSRepositorySet = wire.NewSet(
+	dBMSPoolSet,
 	persistence.NewRedisPool,
 	wire.Bind(new(domain.IAuthorRepository), new(*infrastructure.AuthorDBMSRepository)),
 	infrastructure.NewAuthorDBMSRepository,
 )
 
-var AuthorServiceSet = wire.NewSet(
-	AuthorDBMSRepositorySet,
+var authorUseCaseSet = wire.NewSet(
+	authorDBMSRepositorySet,
+	wire.Bind(new(domain.IAuthorEventBus), new(*infrastructure.AuthorAWSEventBus)),
+	infrastructure.NewAuthorAWSEventBus,
 	interactor.NewAuthorUseCase,
 )
 
-func ProvideContext() context.Context {
+func provideContext() context.Context {
 	return context.Background()
 }
 
-func ProvideLogger() log.Logger {
+func provideLogger() log.Logger {
 	loggerZap, _ := zap.NewProduction()
 	defer loggerZap.Sync()
 	level := zapcore.Level(8)
@@ -61,7 +55,7 @@ func ProvideLogger() log.Logger {
 }
 
 func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
-	wire.Build(AuthorServiceSet)
+	wire.Build(authorUseCaseSet)
 
 	return &interactor.AuthorUseCase{}, nil, nil
 }

@@ -23,10 +23,6 @@ func NewMediaUseCase(logger log.Logger, repository domain.IMediaRepository) *Med
 }
 
 func (u *MediaUseCase) Create(title, displayName, description, userID, authorID, publishDate, mediaType string) (*domain.MediaEntity, error) {
-	if title == "" && displayName == "" && userID == "" && authorID == "" && publishDate == "" && mediaType == "" {
-		return nil, exception.EmptyBody
-	}
-
 	// Validate
 	var descriptionP *string
 	descriptionP = nil

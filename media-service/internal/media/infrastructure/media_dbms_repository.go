@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -20,18 +21,22 @@ type MediaDBMSRepository struct {
 	ctx    context.Context
 	mem    *redis.Client
 	logger log.Logger
+	mtx sync.RWMutex
 }
 
-func NewMediaRDBMSRepository(db *sql.DB, mem *redis.Client, logger log.Logger, ctx context.Context) *MediaDBMSRepository {
+func NewMediaDBMSRepository(db *sql.DB, mem *redis.Client, logger log.Logger, ctx context.Context) *MediaDBMSRepository {
 	return &MediaDBMSRepository{
-		db,
-		ctx,
-		mem,
-		logger,
+		db: db,
+		ctx: ctx,
+		mem: mem,
+		logger: logger,
 	}
 }
 
 func (r *MediaDBMSRepository) Save(media *domain.MediaEntity) error {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return err
@@ -39,6 +44,8 @@ func (r *MediaDBMSRepository) Save(media *domain.MediaEntity) error {
 	defer func() {
 		err = conn.Close()
 	}()
+	// Use Go CDK OpenCensus database metrics
+	r.logger.Log("method", "media.infrastructure.dbmsrepository.save", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `INSERT INTO MEDIA(EXTERNAL_ID, TITLE, DISPLAY_NAME, DESCRIPTION, USER_ID, AUTHOR_ID, PUBLISH_DATE, MEDIA_TYPE) VALUES
 	($1, $2, $3, $4, $5, $6, $7, $8);`
@@ -56,6 +63,9 @@ func (r *MediaDBMSRepository) Save(media *domain.MediaEntity) error {
 }
 
 func (r *MediaDBMSRepository) Update(media *domain.MediaEntity) error {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return err
@@ -63,6 +73,8 @@ func (r *MediaDBMSRepository) Update(media *domain.MediaEntity) error {
 	defer func() {
 		err = conn.Close()
 	}()
+	// Use Go CDK OpenCensus database metrics
+	r.logger.Log("method", "media.infrastructure.dbmsrepository.update", "db_connection", r.db.Stats().OpenConnections)
 
 	media.UpdateTime = time.Now()
 
@@ -102,6 +114,9 @@ func (r *MediaDBMSRepository) Update(media *domain.MediaEntity) error {
 }
 
 func (r *MediaDBMSRepository) Remove(id string) error {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return err
@@ -109,6 +124,8 @@ func (r *MediaDBMSRepository) Remove(id string) error {
 	defer func() {
 		err = conn.Close()
 	}()
+	// Use Go CDK OpenCensus database metrics
+	r.logger.Log("method", "media.infrastructure.dbmsrepository.remove", "db_connection", r.db.Stats().OpenConnections)
 
 	// Soft-delete
 	statement := `UPDATE MEDIA SET DELETED = TRUE WHERE EXTERNAL_ID = $1 AND DELETED = FALSE`
@@ -136,6 +153,9 @@ func (r *MediaDBMSRepository) Remove(id string) error {
 }
 
 func (r *MediaDBMSRepository) FetchByID(id string) (*domain.MediaEntity, error) {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return nil, err
@@ -143,6 +163,8 @@ func (r *MediaDBMSRepository) FetchByID(id string) (*domain.MediaEntity, error) 
 	defer func() {
 		err = conn.Close()
 	}()
+	// Use Go CDK OpenCensus database metrics
+	r.logger.Log("method", "media.infrastructure.dbmsrepository.fetchbyid", "db_connection", r.db.Stats().OpenConnections)
 
 	// Cache-aside pattern first
 	if r.mem != nil {
@@ -212,6 +234,9 @@ func (r *MediaDBMSRepository) FetchByID(id string) (*domain.MediaEntity, error) 
 }
 
 func (r *MediaDBMSRepository) Fetch(params *util.PaginationParams, filterParams util.FilterParams) ([]*domain.MediaEntity, error) {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
 	conn, err := r.db.Conn(r.ctx)
 	if err != nil {
 		return nil, err
@@ -219,6 +244,8 @@ func (r *MediaDBMSRepository) Fetch(params *util.PaginationParams, filterParams 
 	defer func() {
 		err = conn.Close()
 	}()
+	// Use Go CDK OpenCensus database metrics
+	r.logger.Log("method", "media.infrastructure.dbmsrepository.fetch", "db_connection", r.db.Stats().OpenConnections)
 
 	if params == nil {
 		params = util.NewPaginationParams("", "10")

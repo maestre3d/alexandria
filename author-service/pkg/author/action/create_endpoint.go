@@ -2,39 +2,46 @@ package action
 
 import (
 	"context"
+	"github.com/go-kit/kit/tracing/opentracing"
+	"github.com/go-kit/kit/tracing/zipkin"
+	"time"
+
 	"github.com/go-kit/kit/circuitbreaker"
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/ratelimit"
+	kitoc "github.com/go-kit/kit/tracing/opencensus"
 	"github.com/maestre3d/alexandria/author-service/internal/author/domain"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
+	stdopentracing "github.com/opentracing/opentracing-go"
+	stdzipkin "github.com/openzipkin/zipkin-go"
 	"github.com/sony/gobreaker"
 	"golang.org/x/time/rate"
-	"time"
 )
 
 type CreateRequest struct {
-	FirstName string `json:"first_name"`
-	LastName string `json:"last_name"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
 	DisplayName string `json:"display_name"`
-	BirthDate string `json:"birth_date"`
+	BirthDate   string `json:"birth_date"`
 }
 
 type CreateResponse struct {
 	Author *domain.AuthorEntity `json:"author"`
-	Err error `json:"-"`
+	Err    error                `json:"-"`
 }
 
-func MakeCreateAuthorEndpoint(svc service.IAuthorService, logger log.Logger) endpoint.Endpoint {
-	 ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
+func MakeCreateAuthorEndpoint(svc service.IAuthorService, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
+	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(CreateRequest)
 		createdAuthor, err := svc.Create(req.FirstName, req.LastName, req.DisplayName, req.BirthDate)
 		if err != nil {
 			return CreateResponse{
 				Author: nil,
 				Err:    err,
-			}, nil
+			}, err
 		}
 
 		return CreateResponse{
@@ -43,19 +50,38 @@ func MakeCreateAuthorEndpoint(svc service.IAuthorService, logger log.Logger) end
 		}, nil
 	}
 
-	limiter := rate.NewLimiter(rate.Every(30 * time.Second), 100)
+	// Transport's fault-tolerant patterns
+	limiter := rate.NewLimiter(rate.Every(time.Second), 1)
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:          "author.create",
 		MaxRequests:   100,
 		Interval:      0,
-		Timeout:       0,
+		Timeout:       15 * time.Second,
 		ReadyToTrip:   nil,
 		OnStateChange: nil,
 	})
-
-	ep = shared.LoggingMiddleware(log.With(logger, "method", "author.create"))(ep)
 	ep = ratelimit.NewErroringLimiter(limiter)(ep)
 	ep = circuitbreaker.Gobreaker(cb)(ep)
 
+	// Distributed Tracing
+	// OpenCensus tracer
+	ep = kitoc.TraceEndpoint("gokit:endpoint create")(ep)
+	// OpenTracing server
+	ep = opentracing.TraceServer(tracer, "Create")(ep)
+	if zipkinTracer != nil {
+		ep = zipkin.TraceEndpoint(zipkinTracer, "Create")(ep)
+	}
+
+	// Transport metrics
+	ep = shared.LoggingMiddleware(log.With(logger, "method", "author.create"))(ep)
+	ep = shared.InstrumentingMiddleware(duration.With("method", "author.create"))(ep)
+
 	return ep
 }
+
+// compile time assertions for our response types implementing endpoint.Failer.
+var (
+	_ endpoint.Failer = CreateResponse{}
+)
+
+func (r CreateResponse) Failed() error { return r.Err }

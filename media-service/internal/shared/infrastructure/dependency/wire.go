@@ -18,30 +18,32 @@ import (
 )
 
 var configSet = wire.NewSet(
-	ProvideContext,
-	ProvideLogger,
+	provideContext,
+	provideLogger,
 	config.NewKernelConfig,
 )
-var postgresPoolSet = wire.NewSet(
+var dBMSPoolSet = wire.NewSet(
 	configSet,
 	persistence.NewPostgresPool,
 )
-var mediaRepositorySet = wire.NewSet(
-	postgresPoolSet,
+var mediaDBMSRepositorySet = wire.NewSet(
+	dBMSPoolSet,
 	persistence.NewRedisPool,
-	infrastructure.NewMediaRDBMSRepository,
 	wire.Bind(new(domain.IMediaRepository), new(*infrastructure.MediaDBMSRepository)),
+	infrastructure.NewMediaDBMSRepository,
 )
+
+// Inject media's interactor EventBus
 var mediaUseCaseSet = wire.NewSet(
-	mediaRepositorySet,
+	mediaDBMSRepositorySet,
 	interactor.NewMediaUseCase,
 )
 
-func ProvideContext() context.Context {
+func provideContext() context.Context {
 	return context.Background()
 }
 
-func ProvideLogger() log.Logger {
+func provideLogger() log.Logger {
 	loggerZap, _ := zap.NewProduction()
 	defer loggerZap.Sync()
 	level := zapcore.Level(8)

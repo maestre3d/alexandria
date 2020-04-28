@@ -10,31 +10,31 @@ import (
 
 func main() {
 	log.Print("Hello from author service")
-	authorService, cleanup, err := dependency.InjectAuthorService()
+	authorService, cleanup, err := dependency.InjectAuthorUseCase()
 	if err != nil {
 		panic(err)
 	}
 	defer cleanup()
 	/*
-	authorCreated, err := authorService.Create("Joel", "Coen", "Joel Coen", "1975-06-30")
-	if err != nil {
-		if errors.Is(err, exception.RequiredField) || errors.Is(err, exception.InvalidFieldRange) || errors.Is(err, exception.InvalidFieldFormat) {
-			// 400 HTTP Error
-			errDesc := strings.Split(err.Error(), ":")
-			if len(errDesc) > 1 {
-				log.Print(errDesc[1])
-				return
+		authorCreated, err := authorService.Create("Joel", "Coen", "Joel Coen", "1975-06-30")
+		if err != nil {
+			if errors.Is(err, exception.RequiredField) || errors.Is(err, exception.InvalidFieldRange) || errors.Is(err, exception.InvalidFieldFormat) {
+				// 400 HTTP Error
+				errDesc := strings.Split(err.Error(), ":")
+				if len(errDesc) > 1 {
+					log.Print(errDesc[1])
+					return
+				}
+			} else if errors.Is(err, exception.EntityExists) {
+				// 409 HTTP Error
 			}
-		} else if errors.Is(err, exception.EntityExists) {
-			// 409 HTTP Error
+
+			// 500 HTTP Error
+			log.Print(err)
+			return
 		}
 
-		// 500 HTTP Error
-		log.Print(err)
-		return
-	}
-
-	log.Printf("%v", authorCreated)
+		log.Printf("%v", authorCreated)
 	*/
 
 	authorGet, err := authorService.Get("2590a2c6-7692-4e09-92c8-427f8e3824cf")
@@ -56,12 +56,11 @@ func main() {
 
 	log.Printf("%v", authorGet)
 
-
 	filterParams := util.FilterParams{
-		"query":"Ethan",
+		"query": "Ethan",
 	}
 
-	authors, err := authorService.List("", "0", filterParams)
+	authors, _ , err := authorService.List("", "0", filterParams)
 	if err != nil {
 		log.Print(err)
 		return

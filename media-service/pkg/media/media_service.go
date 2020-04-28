@@ -19,7 +19,7 @@ func NewMediaService(mediaUseCase service.IMediaService, logger log.Logger) serv
 	}, fieldKeys)
 	requestLatency := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
 		Namespace:   "alexandria",
-		Subsystem:   "author_service",
+		Subsystem:   "media_service",
 		Name:        "request_latency",
 		Help:        "total duration of requests in microseconds",
 		ConstLabels: nil,

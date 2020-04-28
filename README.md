@@ -1,4 +1,6 @@
 # The Alexandria Project
+[![StackShare](http://img.shields.io/badge/tech-stack-0690fa.svg?style=flat)](https://stackshare.io/alexandria/alexandria-technologies)
+
 The Alexandria Project is an open-source platform where people can share their knowledge through books, podcasts, docs and videos.
 
 Alexandria is currently licensed under the MIT license.

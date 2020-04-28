@@ -22,8 +22,8 @@ import (
 // Injectors from wire.go:
 
 func InjectMediaUseCase() (*interactor.MediaUseCase, func(), error) {
-	logger := ProvideLogger()
-	context := ProvideContext()
+	logger := provideLogger()
+	context := provideContext()
 	kernelConfig := config.NewKernelConfig(context, logger)
 	db, cleanup, err := persistence.NewPostgresPool(context, logger, kernelConfig)
 	if err != nil {
@@ -34,7 +34,7 @@ func InjectMediaUseCase() (*interactor.MediaUseCase, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	mediaDBMSRepository := infrastructure.NewMediaRDBMSRepository(db, client, logger, context)
+	mediaDBMSRepository := infrastructure.NewMediaDBMSRepository(db, client, logger, context)
 	mediaUseCase := interactor.NewMediaUseCase(logger, mediaDBMSRepository)
 	return mediaUseCase, func() {
 		cleanup2()
@@ -45,27 +45,28 @@ func InjectMediaUseCase() (*interactor.MediaUseCase, func(), error) {
 // wire.go:
 
 var configSet = wire.NewSet(
-	ProvideContext,
-	ProvideLogger, config.NewKernelConfig,
+	provideContext,
+	provideLogger, config.NewKernelConfig,
 )
 
-var postgresPoolSet = wire.NewSet(
+var dBMSPoolSet = wire.NewSet(
 	configSet, persistence.NewPostgresPool,
 )
 
-var mediaRepositorySet = wire.NewSet(
-	postgresPoolSet, persistence.NewRedisPool, infrastructure.NewMediaRDBMSRepository, wire.Bind(new(domain.IMediaRepository), new(*infrastructure.MediaDBMSRepository)),
+var mediaDBMSRepositorySet = wire.NewSet(
+	dBMSPoolSet, persistence.NewRedisPool, wire.Bind(new(domain.IMediaRepository), new(*infrastructure.MediaDBMSRepository)), infrastructure.NewMediaDBMSRepository,
 )
 
+// Inject media's interactor EventBus
 var mediaUseCaseSet = wire.NewSet(
-	mediaRepositorySet, interactor.NewMediaUseCase,
+	mediaDBMSRepositorySet, interactor.NewMediaUseCase,
 )
 
-func ProvideContext() context.Context {
+func provideContext() context.Context {
 	return context.Background()
 }
 
-func ProvideLogger() log.Logger {
+func provideLogger() log.Logger {
 	loggerZap, _ := zap.NewProduction()
 	defer loggerZap.Sync()
 	level := zapcore.Level(8)

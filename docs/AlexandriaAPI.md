@@ -30,9 +30,9 @@ In the following list, we define our API’s resources and collection IDs.
 | Method      |     HTTP Mapping                |  HTTP Request body |  HTTP Response body    |
 |-------------|:-------------------------------:|:------------------:|:----------------------:|
 | **Auth**    |  POST /auth                     |   Credentials      |   JWTToken*            |
-| **Refresh** |  GET /auth/refresh              |   Credentials      |   JWTToken*            |
+| **Refresh** |  GET /auth/refresh              |   N/A              |   JWTToken*            |
 
-_*Refresh uses Cookies, Set-Cookie:refresh_token_
+_*Refresh uses HttpOnly-Cookies, Set-Cookie:refresh_token_
 
 _For more information, please [click here](https://hasura.io/blog/best-practices-of-using-jwt-with-graphql/)._
 
