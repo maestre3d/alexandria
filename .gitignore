@@ -16,3 +16,10 @@
 
 # IDEA files
 .idea/
+
+# Kafka generated persistence
+third-party/kafka/config/
+third-party/kafka/data/
+
+# Zookeeper generated persistence
+third-party/zookeeper/data/

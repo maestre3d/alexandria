@@ -15,6 +15,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - kafka
     networks:
       - alexandrianet
   author:
@@ -29,6 +30,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - kafka
     networks:
       - alexandrianet
 
@@ -71,7 +73,7 @@ services:
     ports:
       - "2181:2181"
     environment:
-      - ZOO_ENABLE_AUTH=yes
+      - ZOO_ENABLE_AUTH=no
       - ZOO_SERVER_USERS=kafka
       - ZOO_SERVER_PASSWORDS=root
       - ALLOW_ANONYMOUS_LOGIN=yes
@@ -82,7 +84,7 @@ services:
 
   kafka:
     image: "bitnami/kafka:latest"
-    restart: on-failure
+    restart: always
     depends_on:
       - zookeeper
     ports:
