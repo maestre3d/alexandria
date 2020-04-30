@@ -37,8 +37,8 @@ var authorDBMSRepositorySet = wire.NewSet(
 
 var authorUseCaseSet = wire.NewSet(
 	authorDBMSRepositorySet,
-	wire.Bind(new(domain.IAuthorEventBus), new(*infrastructure.AuthorAWSEventBus)),
-	infrastructure.NewAuthorAWSEventBus,
+	wire.Bind(new(domain.IAuthorEventBus), new(*infrastructure.AuthorKafkaEventBus)),
+	infrastructure.NewAuthorKafkaEventBus,
 	interactor.NewAuthorUseCase,
 )
 

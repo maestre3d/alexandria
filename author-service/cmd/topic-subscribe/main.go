@@ -3,17 +3,32 @@ package main
 import (
 	"context"
 	"fmt"
+	logZap "github.com/go-kit/kit/log/zap"
+	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
 	"github.com/oklog/run"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"gocloud.dev/pubsub"
-	_ "gocloud.dev/pubsub/awssnssqs"
+	_ "gocloud.dev/pubsub/kafkapubsub"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
 func main() {
+	// Init dependencies
 	ctx := context.Background()
+
+	loggerZap, _ := zap.NewProduction()
+	defer loggerZap.Sync()
+	level := zapcore.Level(8)
+	logger := logZap.NewZapSugarLogger(loggerZap, level)
+
+	cfg := config.NewKernelConfig(ctx, logger)
+	logger.Log("method", "main.topic-example", "msg", "dependencies loaded")
+	logger.Log("method", "main.topic-example", "msg", "kafka brokers set to "+cfg.EventBusConfig.KafkaHost)
 
 	var g run.Group
 	{
@@ -21,13 +36,14 @@ func main() {
 		g.Add(func() error {
 			// Env must be like
 			// "awssqs://AWS_SQS_URL?region=us-east-1"
-			subscriptionCreated, err := pubsub.OpenSubscription(ctx, os.Getenv("AWS_SQS_AUTHOR_CREATED"))
+			subscriptionCreated, err := pubsub.OpenSubscription(ctx, fmt.Sprintf(`kafka://%s?topic=ALEXANDRIA_AUTHOR_CREATED`, strings.ToUpper(cfg.Service)))
 			if err != nil {
 				return err
 			}
 			listenQueue(ctx, subscriptionCreated)
 			return nil
 		}, func(err error) {
+			log.Print(err)
 			return
 		})
 	}
@@ -36,7 +52,7 @@ func main() {
 		g.Add(func() error {
 			// Env must be like
 			// "awssqs://AWS_SQS_URL?region=us-east-1"
-			subscriptionDeleted, err := pubsub.OpenSubscription(ctx, os.Getenv("AWS_SQS_AUTHOR_DELETED"))
+			subscriptionDeleted, err := pubsub.OpenSubscription(ctx, fmt.Sprintf(`kafka://%s?topic=ALEXANDRIA_AUTHOR_DELETED`, strings.ToUpper(cfg.Service)))
 			if err != nil {
 				return err
 			}
@@ -44,6 +60,7 @@ func main() {
 			listenQueue(ctx, subscriptionDeleted)
 			return nil
 		}, func(err error) {
+			log.Print(err)
 			return
 		})
 
@@ -80,33 +97,34 @@ func listenQueue(ctx context.Context, subscription *pubsub.Subscription) {
 	// to finish before exiting.
 	const maxHandlers = 10
 	sem := make(chan struct{}, maxHandlers)
-	recvLoop:
-		for {
-			msg, err := subscription.Receive(ctx)
-			if err != nil {
-				// Errors from Receive indicate that Receive will no longer succeed.
-				log.Printf("Receiving message: %v", err)
-				break
-			}
-
-			// Wait if there are too many active handle goroutines and acquire the
-			// semaphore. If the context is canceled, stop waiting and start shutting
-			// down.
-			select {
-			case sem <- struct{}{}:
-			case <-ctx.Done():
-				break recvLoop
-			}
-
-			// Handle the message in a new goroutine.
-			go func() {
-				defer func() { <-sem }() // Release the semaphore.
-				defer msg.Ack()          // Messages must always be acknowledged with Ack.
-
-				// Do work based on the message, for example:
-				fmt.Printf("Got message: %q\n", msg.Body)
-			}()
+recvLoop:
+	for {
+		msg, err := subscription.Receive(ctx)
+		if err != nil {
+			// Errors from Receive indicate that Receive will no longer succeed.
+			log.Printf("Receiving message: %v", err)
+			break
 		}
+
+		// Wait if there are too many active handle goroutines and acquire the
+		// semaphore. If the context is canceled, stop waiting and start shutting
+		// down.
+		select {
+		case sem <- struct{}{}:
+		case <-ctx.Done():
+			break recvLoop
+		}
+
+		// Handle the message in a new goroutine.
+		go func() {
+			defer func() { <-sem }() // Release the semaphore.
+			defer msg.Ack()          // Messages must always be acknowledged with Ack.
+
+			// Do work based on the message, for example:
+			fmt.Printf("Got message: %q\n", msg.Body)
+			fmt.Printf("Message metadata: %q\n", msg.Metadata)
+		}()
+	}
 
 	// We're no longer receiving messages. Wait to finish handling any
 	// unacknowledged messages by totally acquiring the semaphore.

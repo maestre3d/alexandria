@@ -2,14 +2,17 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-kit/kit/log"
 	"github.com/spf13/viper"
 	"gocloud.dev/runtimevar"
+	"os"
 )
 
 type KernelConfig struct {
 	TransportConfig transportCfg
 	MetricConfig    metricCfg
+	EventBusConfig  eventBusCfg
 	DBMSConfig      dbmsCfg
 	MemConfig       memCfg
 	Version         string
@@ -27,6 +30,11 @@ type metricCfg struct {
 	ZipkinHost     string
 	ZipkinEndpoint string
 	ZipkinBridge   bool
+}
+
+type eventBusCfg struct {
+	KafkaHost string
+	KafkaPort int
 }
 
 type dbmsCfg struct {
@@ -83,10 +91,14 @@ func NewKernelConfig(ctx context.Context, logger log.Logger) *KernelConfig {
 	viper.SetDefault("alexandria.service.transport.rpc.host", "0.0.0.0")
 	viper.SetDefault("alexandria.service.transport.rpc.port", 31337)
 
-	// Metric/Instrumentation
-	viper.SetDefault("alexandria.service.metric.zipkin.host", "http://localhost:9411/api/v2/spans")
-	viper.SetDefault("alexandria.service.metric.zipkin.endpoint", "0.0.0.0:8080")
-	viper.SetDefault("alexandria.service.metric.zipkin.bridge", true)
+	// Tracing/Instrumentation
+	viper.SetDefault("alexandria.tracing.zipkin.host", "http://localhost:9411/api/v2/spans")
+	viper.SetDefault("alexandria.tracing.zipkin.endpoint", "0.0.0.0:8080")
+	viper.SetDefault("alexandria.tracing.zipkin.bridge", true)
+
+	// Event Bus (Message Brokers, Queues, Notifications)
+	viper.SetDefault("alexandria.event.kafka.cluster.leader.host", "0.0.0.0")
+	viper.SetDefault("alexandria.event.kafka.cluster.leader.port", 9092)
 
 	// Service info
 	viper.SetDefault("alexandria.info.version", "1.0.0")
@@ -119,9 +131,12 @@ func NewKernelConfig(ctx context.Context, logger log.Logger) *KernelConfig {
 	kernelConfig.TransportConfig.RPCHost = viper.GetString("alexandria.service.transport.rpc.host")
 	kernelConfig.TransportConfig.RPCPort = viper.GetInt("alexandria.service.transport.rpc.port")
 
-	kernelConfig.MetricConfig.ZipkinHost = viper.GetString("alexandria.service.metric.zipkin.host")
-	kernelConfig.MetricConfig.ZipkinEndpoint = viper.GetString("alexandria.service.metric.zipkin.endpoint")
-	kernelConfig.MetricConfig.ZipkinBridge = viper.GetBool("alexandria.service.metric.zipkin.bridge")
+	kernelConfig.MetricConfig.ZipkinHost = viper.GetString("alexandria.tracing.zipkin.host")
+	kernelConfig.MetricConfig.ZipkinEndpoint = viper.GetString("alexandria.tracing.zipkin.endpoint")
+	kernelConfig.MetricConfig.ZipkinBridge = viper.GetBool("alexandria.tracing.zipkin.bridge")
+
+	kernelConfig.EventBusConfig.KafkaHost = viper.GetString("alexandria.event.kafka.cluster.leader.host")
+	kernelConfig.EventBusConfig.KafkaPort = viper.GetInt("alexandria.event.kafka.cluster.leader.port")
 
 	kernelConfig.Version = viper.GetString("alexandria.info.version")
 	kernelConfig.Service = viper.GetString("alexandria.info.service")
@@ -195,6 +210,9 @@ func NewKernelConfig(ctx context.Context, logger log.Logger) *KernelConfig {
 			"msg", "in-memory local host used",
 		)
 	}
+
+	// Start up env
+	os.Setenv("KAFKA_BROKERS", fmt.Sprintf("%s:%d", kernelConfig.EventBusConfig.KafkaHost, kernelConfig.EventBusConfig.KafkaPort))
 
 	logger.Log(
 		"method", "core.kernel.infrastructure.config",

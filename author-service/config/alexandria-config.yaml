@@ -21,12 +21,23 @@ alexandria:
     transport:
       http:
         host: "0.0.0.0"
-        port: 8080
+        port: 3000
       rpc:
         host: "0.0.0.0"
         port: 31337
-    metric:
-      zipkin:
-        host: "http://zipkin:9411/api/v2/spans"
-        endpoint: "0.0.0.0:8080"
-        bridge: true
+  tracing:
+    # OpenTracing consumers
+    zipkin:
+      host: "http://zipkin:9411/api/v2/spans"
+      endpoint: "0.0.0.0:8081"
+      bridge: true
+  event:
+    kafka:
+      cluster:
+        # Kafka Brokers nodes
+        leader:
+          host: "0.0.0.0"
+          port: 9092
+        1:
+          host: "kafka1"
+          port: 9092
