@@ -52,7 +52,7 @@ func (b *AuthorKafkaEventBus) AuthorCreated(author *domain.AuthorEntity) error {
 	return topic.Send(b.ctx, &pubsub.Message{
 		Body: authorJSON,
 		Metadata: map[string]string{
-			"transaction_id": strconv.FormatUint(transactionID, 10),
+			"transaction_id": strconv.FormatUint(transactionID, 16),
 			"type":           "domain_event",
 			"importance":     "low",
 		},

@@ -13,7 +13,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 )
 
@@ -27,8 +26,8 @@ func main() {
 	logger := logZap.NewZapSugarLogger(loggerZap, level)
 
 	cfg := config.NewKernelConfig(ctx, logger)
-	logger.Log("method", "main.topic-example", "msg", "dependencies loaded")
 	logger.Log("method", "main.topic-example", "msg", "kafka brokers set to "+cfg.EventBusConfig.KafkaHost)
+	logger.Log("method", "main.topic-example", "msg", "dependencies loaded")
 
 	var g run.Group
 	{
@@ -36,7 +35,7 @@ func main() {
 		g.Add(func() error {
 			// Env must be like
 			// "awssqs://AWS_SQS_URL?region=us-east-1"
-			subscriptionCreated, err := pubsub.OpenSubscription(ctx, fmt.Sprintf(`kafka://%s?topic=ALEXANDRIA_AUTHOR_CREATED`, strings.ToUpper(cfg.Service)))
+			subscriptionCreated, err := pubsub.OpenSubscription(ctx, fmt.Sprintf(`kafka://%s?topic=ALEXANDRIA_AUTHOR_CREATED`, "AUTHOR"))
 			if err != nil {
 				return err
 			}
@@ -52,7 +51,7 @@ func main() {
 		g.Add(func() error {
 			// Env must be like
 			// "awssqs://AWS_SQS_URL?region=us-east-1"
-			subscriptionDeleted, err := pubsub.OpenSubscription(ctx, fmt.Sprintf(`kafka://%s?topic=ALEXANDRIA_AUTHOR_DELETED`, strings.ToUpper(cfg.Service)))
+			subscriptionDeleted, err := pubsub.OpenSubscription(ctx, fmt.Sprintf(`kafka://%s?topic=ALEXANDRIA_AUTHOR_DELETED`, "AUTHOR"))
 			if err != nil {
 				return err
 			}

@@ -38,8 +38,8 @@ func (b *AuthorAWSEventBus) AuthorCreated(author *domain.AuthorEntity) error {
 	return topic.Send(b.ctx, &pubsub.Message{
 		Body: authorJSON,
 		Metadata: map[string]string{
-			"importance": "mid",
-			"type":       "integration",
+			"importance": "low",
+			"type":       "integration_event",
 		},
 		BeforeSend: nil,
 	})
@@ -60,8 +60,8 @@ func (b *AuthorAWSEventBus) AuthorDeleted(id string) error {
 	return topic.Send(b.ctx, &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{
-			"importance": "mid",
-			"type":       "integration",
+			"importance": "low",
+			"type":       "integration_event",
 		},
 		BeforeSend: nil,
 	})
