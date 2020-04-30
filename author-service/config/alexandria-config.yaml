@@ -21,7 +21,7 @@ alexandria:
     transport:
       http:
         host: "0.0.0.0"
-        port: 3000
+        port: 8080
       rpc:
         host: "0.0.0.0"
         port: 31337

@@ -65,6 +65,47 @@ services:
     networks:
       - alexandrianet
 
+  zookeeper:
+    image: "bitnami/zookeeper:latest"
+    restart: always
+    ports:
+      - "2181:2181"
+    environment:
+      - ZOO_ENABLE_AUTH=yes
+      - ZOO_SERVER_USERS=kafka
+      - ZOO_SERVER_PASSWORDS=root
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    volumes:
+      - ./third-party/zookeeper/:/bitnami/zookeeper
+    networks:
+      - alexandrianet
+
+  kafka:
+    image: "bitnami/kafka:latest"
+    restart: on-failure
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,PLAINTEXT_HOST://:29092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      - KAFKA_ZOOKEEPER_USER=kafka
+      - KAFKA_ZOOKEEPER_PASSWORD=root
+      - KAFKA_INTER_BROKER_USER=interuser
+      - KAFKA_INTER_BROKER_PASSWORD=interpassword
+      - KAFKA_BROKER_USER=user
+      - KAFKA_BROKER_PASSWORD=password
+    volumes:
+      - ./third-party/kafka/:/bitnami/kafka
+    networks:
+      - alexandrianet
+
+
 volumes:
   api:
   database_postgres:
