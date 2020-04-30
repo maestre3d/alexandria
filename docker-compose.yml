@@ -1,10 +1,11 @@
-version: "3.3"
+version: "3.7"
 services:
   #
   # Microservices
   #
   media:
     build: ./media-service
+    hostname: media.alexandria.com
     image: alexandria-media
     restart: on-failure
     volumes:
@@ -16,10 +17,13 @@ services:
       - postgres
       - redis
       - kafka
+      - zipkin
     networks:
       - alexandrianet
+
   author:
     build: ./author-service
+    hostname: author.alexandria.com
     image: alexandria-author
     restart: on-failure
     volumes:
@@ -31,6 +35,23 @@ services:
       - postgres
       - redis
       - kafka
+      - zipkin
+    networks:
+      - alexandrianet
+
+  event-tracer:
+    build: ./event-tracer-service
+    hostname: pubsub.alexandria.com
+    image: alexandria-event
+    restart: always
+    volumes:
+      - api:/usr/src/event/
+    ports:
+      - "3000:8080"
+      - "4000:31337"
+    depends_on:
+      - kafka
+      - zipkin
     networks:
       - alexandrianet
 
@@ -89,7 +110,6 @@ services:
       - zookeeper
     ports:
       - "9092:9092"
-      - "29092:29092"
     environment:
       - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
       - ALLOW_PLAINTEXT_LISTENER=yes
