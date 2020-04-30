@@ -36,7 +36,7 @@ alexandria:
       cluster:
         # Kafka Brokers nodes
         leader:
-          host: "0.0.0.0"
+          host: "kafka"
           port: 9092
         1:
           host: "kafka1"
