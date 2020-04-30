@@ -42,6 +42,7 @@ COPY --from=builder /go/src/github.com/maestre3d/alexandria/media-service/config
 
 # Expose port 8080 to the outside world
 EXPOSE 8080
+EXPOSE 31337
 
 # Command to run the executable
 CMD ["./media"]
