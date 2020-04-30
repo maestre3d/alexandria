@@ -15,11 +15,11 @@ import (
 
 type AuthorKafkaEventBus struct {
 	ctx context.Context
-	mtx sync.RWMutex
+	mtx *sync.Mutex
 }
 
 func NewAuthorKafkaEventBus(ctx context.Context) *AuthorKafkaEventBus {
-	return &AuthorKafkaEventBus{ctx: ctx}
+	return &AuthorKafkaEventBus{ctx, new(sync.Mutex)}
 }
 
 func (b *AuthorKafkaEventBus) AuthorCreated(author *domain.AuthorEntity) error {

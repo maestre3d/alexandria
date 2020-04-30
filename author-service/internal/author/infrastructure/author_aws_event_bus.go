@@ -12,11 +12,11 @@ import (
 
 type AuthorAWSEventBus struct {
 	ctx context.Context
-	mtx sync.RWMutex
+	mtx *sync.Mutex
 }
 
 func NewAuthorAWSEventBus(ctx context.Context) *AuthorAWSEventBus {
-	return &AuthorAWSEventBus{ctx: ctx}
+	return &AuthorAWSEventBus{ctx, new(sync.Mutex)}
 }
 
 func (b *AuthorAWSEventBus) AuthorCreated(author *domain.AuthorEntity) error {
