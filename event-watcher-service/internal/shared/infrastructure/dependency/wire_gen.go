@@ -7,28 +7,30 @@ package dependency
 
 import (
 	"context"
-	"github.com/go-kit/kit/log"
-	zap2 "github.com/go-kit/kit/log/zap"
+	"github.com/alexandria-oss/core/config"
+	"github.com/alexandria-oss/core/logger"
+	"github.com/alexandria-oss/core/persistence"
 	"github.com/google/wire"
-	"github.com/maestre3d/alexandria/event-watcher-service/internal/shared/infrastructure/config"
 	"github.com/maestre3d/alexandria/event-watcher-service/internal/watcher/domain"
 	"github.com/maestre3d/alexandria/event-watcher-service/internal/watcher/infrastructure"
 	"github.com/maestre3d/alexandria/event-watcher-service/internal/watcher/interactor"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 // Injectors from wire.go:
 
 func InjectWatcherUseCase() (*interactor.WatcherUseCase, func(), error) {
 	context := provideContext()
-	logger := provideZapLogger()
-	kernelConfig := config.NewKernelConfig(context, logger)
-	watcherDynamoRepository, cleanup, err := infrastructure.NewWatcherDynamoRepository(context, logger, kernelConfig)
+	logLogger := logger.NewZapLogger()
+	kernelConfiguration, err := config.NewKernelConfiguration(context)
 	if err != nil {
 		return nil, nil, err
 	}
-	watcherUseCase := interactor.NewWatcherUseCase(context, logger, watcherDynamoRepository)
+	collection, cleanup, err := persistence.NewDynamoDBCollectionPool(context, kernelConfiguration)
+	if err != nil {
+		return nil, nil, err
+	}
+	watcherDynamoRepository := infrastructure.NewWatcherDynamoRepository(context, logLogger, collection)
+	watcherUseCase := interactor.NewWatcherUseCase(context, logLogger, watcherDynamoRepository)
 	return watcherUseCase, func() {
 		cleanup()
 	}, nil
@@ -37,12 +39,11 @@ func InjectWatcherUseCase() (*interactor.WatcherUseCase, func(), error) {
 // wire.go:
 
 var configSet = wire.NewSet(
-	provideContext,
-	provideZapLogger, config.NewKernelConfig,
+	provideContext, logger.NewZapLogger, config.NewKernelConfiguration,
 )
 
 var watcherDynamoRepositorySet = wire.NewSet(
-	configSet, wire.Bind(new(domain.WatcherRepository), new(*infrastructure.WatcherDynamoRepository)), infrastructure.NewWatcherDynamoRepository,
+	configSet, persistence.NewDynamoDBCollectionPool, wire.Bind(new(domain.WatcherRepository), new(*infrastructure.WatcherDynamoRepository)), infrastructure.NewWatcherDynamoRepository,
 )
 
 var watcherUseCaseSet = wire.NewSet(
@@ -51,12 +52,4 @@ var watcherUseCaseSet = wire.NewSet(
 
 func provideContext() context.Context {
 	return context.Background()
-}
-
-func provideZapLogger() log.Logger {
-	loggerZap, _ := zap.NewProduction()
-	defer loggerZap.Sync()
-	level := zapcore.Level(8)
-
-	return zap2.NewZapSugarLogger(loggerZap, level)
 }

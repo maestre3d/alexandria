@@ -2,13 +2,11 @@ package infrastructure
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"sync"
 
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/event-watcher-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/event-watcher-service/internal/shared/infrastructure/config"
 	"github.com/maestre3d/alexandria/event-watcher-service/internal/watcher/domain"
 	"gocloud.dev/docstore"
 	_ "gocloud.dev/docstore/awsdynamodb"
@@ -22,19 +20,8 @@ type WatcherDynamoRepository struct {
 	db     *docstore.Collection
 }
 
-func NewWatcherDynamoRepository(ctx context.Context, logger log.Logger, config *config.KernelConfig) (*WatcherDynamoRepository, func(), error) {
-	// Start connection
-	db, err := docstore.OpenCollection(ctx, fmt.Sprintf("dynamodb://%s?partition_key=%s", config.DocstoreConfig.Collection,
-		config.DocstoreConfig.PartitionKey))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	cleanup := func() {
-		err = db.Close()
-	}
-
-	return &WatcherDynamoRepository{ctx, new(sync.Mutex), logger, db}, cleanup, nil
+func NewWatcherDynamoRepository(ctx context.Context, logger log.Logger, coll *docstore.Collection) *WatcherDynamoRepository {
+	return &WatcherDynamoRepository{ctx, new(sync.Mutex), logger, coll}
 }
 
 func (r *WatcherDynamoRepository) Save(watcher *domain.WatcherEntity) error {
