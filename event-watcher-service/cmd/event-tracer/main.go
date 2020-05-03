@@ -3,31 +3,30 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+
+	"github.com/go-kit/kit/log"
 	logZap "github.com/go-kit/kit/log/zap"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
+	"github.com/maestre3d/alexandria/event-watcher-service/internal/shared/infrastructure/config"
 	"github.com/oklog/run"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gocloud.dev/pubsub"
 	_ "gocloud.dev/pubsub/kafkapubsub"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 func main() {
 	// Init dependencies
 	ctx := context.Background()
 
-	loggerZap, _ := zap.NewProduction()
-	defer loggerZap.Sync()
-	level := zapcore.Level(8)
-	logger := logZap.NewZapSugarLogger(loggerZap, level)
+	logger := NewLogger()
 
 	cfg := config.NewKernelConfig(ctx, logger)
-	logger.Log("method", "main.topic-example", "msg", "kafka brokers set to "+cfg.EventBusConfig.KafkaHost)
-	logger.Log("method", "main.topic-example", "msg", "dependencies loaded")
+	logger.Log("method", "main.event-tracer", "msg", "kafka brokers set to "+cfg.EventBusConfig.KafkaHost)
+	logger.Log("method", "main.event-tracer", "msg", "dependencies loaded")
 
 	var g run.Group
 	{
@@ -35,15 +34,15 @@ func main() {
 		g.Add(func() error {
 			// Env must be like
 			// "awssqs://AWS_SQS_URL?region=us-east-1"
-			subscriptionCreated, err := pubsub.OpenSubscription(ctx, fmt.Sprintf(`kafka://%s?topic=ALEXANDRIA_AUTHOR_CREATED`, "AUTHOR"))
+			subscriptionCreated, err := pubsub.OpenSubscription(ctx, fmt.Sprintf(`kafka://%s?topic=ALEXANDRIA_AUTHOR_CREATED`, strings.ToUpper(cfg.Service)))
 			if err != nil {
 				return err
 			}
-			listenQueue(ctx, subscriptionCreated)
+			listenQueue(ctx, logger, subscriptionCreated)
 			return nil
 		}, func(err error) {
-			log.Print(err)
-			return
+			logger.Log("err", err.Error())
+			panic(err)
 		})
 	}
 	{
@@ -51,16 +50,16 @@ func main() {
 		g.Add(func() error {
 			// Env must be like
 			// "awssqs://AWS_SQS_URL?region=us-east-1"
-			subscriptionDeleted, err := pubsub.OpenSubscription(ctx, fmt.Sprintf(`kafka://%s?topic=ALEXANDRIA_AUTHOR_DELETED`, "AUTHOR"))
+			subscriptionDeleted, err := pubsub.OpenSubscription(ctx, fmt.Sprintf(`kafka://%s?topic=ALEXANDRIA_AUTHOR_DELETED`, strings.ToUpper(cfg.Service)))
 			if err != nil {
 				return err
 			}
 
-			listenQueue(ctx, subscriptionDeleted)
+			listenQueue(ctx, logger, subscriptionDeleted)
 			return nil
 		}, func(err error) {
-			log.Print(err)
-			return
+			logger.Log("err", err.Error())
+			panic(err)
 		})
 
 	}
@@ -88,7 +87,14 @@ func main() {
 	g.Run()
 }
 
-func listenQueue(ctx context.Context, subscription *pubsub.Subscription) {
+func NewLogger() log.Logger {
+	loggerZap, _ := zap.NewProduction()
+	defer loggerZap.Sync()
+	level := zapcore.Level(8)
+	return logZap.NewZapSugarLogger(loggerZap, level)
+}
+
+func listenQueue(ctx context.Context, logger log.Logger, subscription *pubsub.Subscription) {
 	defer subscription.Shutdown(ctx)
 
 	// Loop on received messages. We can use a channel as a semaphore to limit how
@@ -101,7 +107,7 @@ recvLoop:
 		msg, err := subscription.Receive(ctx)
 		if err != nil {
 			// Errors from Receive indicate that Receive will no longer succeed.
-			log.Printf("Receiving message: %v", err)
+			logger.Log("msg", err.Error())
 			break
 		}
 
@@ -120,8 +126,8 @@ recvLoop:
 			defer msg.Ack()          // Messages must always be acknowledged with Ack.
 
 			// Do work based on the message, for example:
-			fmt.Printf("Got message: %q\n", msg.Body)
-			fmt.Printf("Message metadata: %q\n", msg.Metadata)
+			logger.Log("msg", string(msg.Body))
+			logger.Log("msg", fmt.Sprintf("%v", msg.Metadata))
 		}()
 	}
 

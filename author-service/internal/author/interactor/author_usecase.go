@@ -16,7 +16,7 @@ import (
 type AuthorUseCase struct {
 	log        log.Logger
 	repository domain.IAuthorRepository
-	eventBus domain.IAuthorEventBus
+	eventBus   domain.IAuthorEventBus
 }
 
 // NewAuthorUseCase Create a new author interact
@@ -51,13 +51,12 @@ func (u *AuthorUseCase) Create(firstName, LastName, displayName, birthDate strin
 	}
 
 	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
-	// TODO: Fire up "alexandria.author.created" domain event
 	go func() {
 		err = u.eventBus.AuthorCreated(author)
 		if err != nil {
-			u.log.Log("method", "author.create", "err", err.Error())
+			u.log.Log("method", "author.interactor.create", "err", err.Error())
 		} else {
-			u.log.Log("method", "author.create", "msg", "event alexandria.author.created published")
+			u.log.Log("method", "author.interactor.create", "msg", "ALEXANDRIA_AUTHOR_CREATED event published")
 		}
 	}()
 
@@ -146,13 +145,12 @@ func (u *AuthorUseCase) Delete(id string) error {
 
 	err = u.repository.Remove(id)
 	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
-	// TODO: Fire up "alexandria.author.deleted" domain event
 	go func() {
 		if err == nil {
 			if errBus := u.eventBus.AuthorDeleted(id); errBus != nil {
-				u.log.Log("method", "author.delete", "err", errBus.Error())
+				u.log.Log("method", "author.interactor.delete", "err", errBus.Error())
 			} else {
-				u.log.Log("method", "author.delete", "msg", "event alexandria.author.deleted published")
+				u.log.Log("method", "author.interactor.delete", "msg", "ALEXANDRIA_AUTHOR_DELETED event published")
 			}
 		}
 	}()

@@ -12,11 +12,11 @@ import (
 
 type AuthorAWSEventBus struct {
 	ctx context.Context
-	mtx sync.RWMutex
+	mtx *sync.Mutex
 }
 
 func NewAuthorAWSEventBus(ctx context.Context) *AuthorAWSEventBus {
-	return &AuthorAWSEventBus{ctx: ctx}
+	return &AuthorAWSEventBus{ctx, new(sync.Mutex)}
 }
 
 func (b *AuthorAWSEventBus) AuthorCreated(author *domain.AuthorEntity) error {
@@ -34,18 +34,18 @@ func (b *AuthorAWSEventBus) AuthorCreated(author *domain.AuthorEntity) error {
 	if err != nil {
 		return err
 	}
-	
+
 	return topic.Send(b.ctx, &pubsub.Message{
-		Body:       authorJSON,
+		Body: authorJSON,
 		Metadata: map[string]string{
-			"importance":"mid",
-			"type":"integration",
+			"importance": "low",
+			"type":       "integration_event",
 		},
 		BeforeSend: nil,
 	})
 }
 
-func (b *AuthorAWSEventBus) AuthorDeleted(ID string) error {
+func (b *AuthorAWSEventBus) AuthorDeleted(id string) error {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
@@ -58,10 +58,10 @@ func (b *AuthorAWSEventBus) AuthorDeleted(ID string) error {
 	defer topic.Shutdown(b.ctx)
 
 	return topic.Send(b.ctx, &pubsub.Message{
-		Body:       []byte(ID),
+		Body: []byte(id),
 		Metadata: map[string]string{
-			"importance":"mid",
-			"type":"integration",
+			"importance": "low",
+			"type":       "integration_event",
 		},
 		BeforeSend: nil,
 	})

@@ -1,22 +1,11 @@
 alexandria:
   info:
-    service: "author"
-    version: 1.0.0
+    service: "event-watcher"
+    version: 0.1.0
   persistence:
-    dbms:
-      url: "postgres://postgres:root@postgres:5432/alexandria_author?sslmode=disable"
-      driver: "postgres"
-      user: "postgres"
-      password: "root"
-      host: "postgres"
-      port: 5432
-      database: "alexandria_author"
-    mem:
-      network: ""
-      host: "redis"
-      port: 6379
-      password: ""
-      database: 0
+    doc:
+      collection: "ALEXANDRIA_EVENT_WATCHER"
+      partition_key: "watcher_id"
   service:
     transport:
       http:

@@ -22,7 +22,7 @@ type AuthorDBMSRepository struct {
 	ctx    context.Context
 	mem    *redis.Client
 	logger log.Logger
-	mtx    sync.RWMutex
+	mtx    *sync.Mutex
 }
 
 // NewAuthorDBMSRepository Create an author repository
@@ -32,6 +32,7 @@ func NewAuthorDBMSRepository(dbPool *sql.DB, mem *redis.Client, ctx context.Cont
 		ctx:    ctx,
 		mem:    mem,
 		logger: logger,
+		mtx:    new(sync.Mutex),
 	}
 }
 

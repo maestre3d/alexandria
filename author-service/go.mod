@@ -16,10 +16,12 @@ require (
 	github.com/openzipkin/zipkin-go v0.2.2
 	github.com/prometheus/client_golang v1.5.1
 	github.com/sony/gobreaker v0.4.1
+	github.com/sony/sonyflake v1.0.0
 	github.com/spf13/viper v1.6.3
 	go.uber.org/zap v1.14.1
 	gocloud.dev v0.19.0
+	gocloud.dev/pubsub/kafkapubsub v0.19.0
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
-	google.golang.org/grpc v1.27.0
+	google.golang.org/grpc v1.27.1
 	google.golang.org/protobuf v1.21.0
 )

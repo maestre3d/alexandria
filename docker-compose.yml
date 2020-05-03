@@ -1,10 +1,11 @@
-version: "3.3"
+version: "3.7"
 services:
   #
   # Microservices
   #
   media:
     build: ./media-service
+    hostname: media.alexandria.com
     image: alexandria-media
     restart: on-failure
     volumes:
@@ -15,10 +16,14 @@ services:
     depends_on:
       - postgres
       - redis
+      - kafka
+      - zipkin
     networks:
       - alexandrianet
+
   author:
     build: ./author-service
+    hostname: author.alexandria.com
     image: alexandria-author
     restart: on-failure
     volumes:
@@ -29,6 +34,24 @@ services:
     depends_on:
       - postgres
       - redis
+      - kafka
+      - zipkin
+    networks:
+      - alexandrianet
+
+  event-tracer:
+    build: ./event-tracer-service
+    hostname: pubsub.alexandria.com
+    image: alexandria-event
+    restart: always
+    volumes:
+      - api:/usr/src/event/
+    ports:
+      - "3000:8080"
+      - "4000:31337"
+    depends_on:
+      - kafka
+      - zipkin
     networks:
       - alexandrianet
 
@@ -64,6 +87,46 @@ services:
       - "9412:9411"
     networks:
       - alexandrianet
+
+  zookeeper:
+    image: "bitnami/zookeeper:latest"
+    restart: always
+    ports:
+      - "2181:2181"
+    environment:
+      - ZOO_ENABLE_AUTH=no
+      - ZOO_SERVER_USERS=kafka
+      - ZOO_SERVER_PASSWORDS=root
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    volumes:
+      - ./third-party/zookeeper/:/bitnami/zookeeper
+    networks:
+      - alexandrianet
+
+  kafka:
+    image: "bitnami/kafka:latest"
+    restart: always
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,PLAINTEXT_HOST://:29092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      - KAFKA_ZOOKEEPER_USER=kafka
+      - KAFKA_ZOOKEEPER_PASSWORD=root
+      - KAFKA_INTER_BROKER_USER=interuser
+      - KAFKA_INTER_BROKER_PASSWORD=interpassword
+      - KAFKA_BROKER_USER=user
+      - KAFKA_BROKER_PASSWORD=password
+    volumes:
+      - ./third-party/kafka/:/bitnami/kafka
+    networks:
+      - alexandrianet
+
 
 volumes:
   api:

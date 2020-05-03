@@ -13,7 +13,7 @@ LABEL maintainer="Alonso R <luis.alonso.16@hotmail.com>"
 RUN apk update && apk add --no-cache git
 
 # Set the Current Working Directory inside the container
-WORKDIR /go/src/github.com/maestre3d/alexandria/author-service/
+WORKDIR /go/src/github.com/maestre3d/alexandria/event-tracer-service/
 
 # Copy go mod files
 COPY go.mod .
@@ -26,7 +26,7 @@ RUN go mod download
 COPY . .
 
 # Build the Go app
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o author ./cmd/alexandria-server/main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o event ./cmd/event-tracer/main.go
 
 
 ######## Start a new stage from scratch #######
@@ -37,12 +37,12 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
 # Copy the Pre-built binary file from the previous stage
-COPY --from=builder /go/src/github.com/maestre3d/alexandria/author-service .
-COPY --from=builder /go/src/github.com/maestre3d/alexandria/author-service/config/alexandria-config.yaml .
+COPY --from=builder /go/src/github.com/maestre3d/alexandria/event-tracer-service .
+COPY --from=builder /go/src/github.com/maestre3d/alexandria/event-tracer-service/config/alexandria-config.yaml .
 
 # Expose port 8080 to the outside world
 EXPOSE 8080
 EXPOSE 31337
 
 # Command to run the executable
-CMD ["./author"]
+CMD ["./event"]
