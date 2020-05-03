@@ -3,9 +3,10 @@ package config
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/go-kit/kit/log"
 	"github.com/spf13/viper"
-	"os"
 )
 
 type KernelConfig struct {
@@ -105,7 +106,7 @@ func NewKernelConfig(ctx context.Context, logger log.Logger) *KernelConfig {
 	kernelConfig.Version = viper.GetString("alexandria.info.version")
 	kernelConfig.Service = viper.GetString("alexandria.info.service")
 
-	// Prefer AWS KMS/Key Parameter Store over local
+	// Prefer AWS KMS/Hashicorp Vault/Key Parameter Store over local, replace default or local config
 
 	// Start up env
 	os.Setenv("KAFKA_BROKERS", fmt.Sprintf("%s:%d", kernelConfig.EventBusConfig.KafkaHost, kernelConfig.EventBusConfig.KafkaPort))
