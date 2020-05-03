@@ -3,18 +3,19 @@ package main
 import (
 	"context"
 	"fmt"
-	logZap "github.com/go-kit/kit/log/zap"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+
 	"github.com/go-kit/kit/log"
-	"github.com/maestre3d/alexandria/event-tracer-service/internal/shared/infrastructure/config"
+	logZap "github.com/go-kit/kit/log/zap"
+	"github.com/maestre3d/alexandria/event-watcher-service/internal/shared/infrastructure/config"
 	"github.com/oklog/run"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gocloud.dev/pubsub"
 	_ "gocloud.dev/pubsub/kafkapubsub"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
 )
 
 func main() {

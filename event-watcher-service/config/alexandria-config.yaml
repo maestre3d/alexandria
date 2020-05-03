@@ -1,7 +1,11 @@
 alexandria:
   info:
-    service: "event-tracer"
-    version: 1.0.0
+    service: "event-watcher"
+    version: 0.1.0
+  persistence:
+    doc:
+      collection: "ALEXANDRIA_EVENT_WATCHER"
+      partition_key: "watcher_id"
   service:
     transport:
       http:

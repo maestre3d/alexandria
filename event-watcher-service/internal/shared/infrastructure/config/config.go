@@ -13,6 +13,7 @@ type KernelConfig struct {
 	TransportConfig transportCfg
 	MetricConfig    metricCfg
 	EventBusConfig  eventBusCfg
+	DocstoreConfig  docCfg
 	Version         string
 	Service         string
 }
@@ -33,6 +34,11 @@ type metricCfg struct {
 type eventBusCfg struct {
 	KafkaHost string
 	KafkaPort int
+}
+
+type docCfg struct {
+	Collection   string
+	PartitionKey string
 }
 
 func NewKernelConfig(ctx context.Context, logger log.Logger) *KernelConfig {
@@ -65,9 +71,14 @@ func NewKernelConfig(ctx context.Context, logger log.Logger) *KernelConfig {
 	viper.SetDefault("alexandria.event.kafka.cluster.leader.host", "0.0.0.0")
 	viper.SetDefault("alexandria.event.kafka.cluster.leader.port", 9092)
 
+	// Persistence
+	// Docstore
+	viper.SetDefault("alexandria.persistence.doc.collection", "ALEXANDRIA_EVENT_WATCHER")
+	viper.SetDefault("alexandria.persistence.doc.partition_key", "watcher_id")
+
 	// Service info
 	viper.SetDefault("alexandria.info.version", "1.0.0")
-	viper.SetDefault("alexandria.info.service", "event-tracer")
+	viper.SetDefault("alexandria.info.service", "event-watcher")
 
 	// Open config
 	if err := viper.ReadInConfig(); err != nil {
@@ -103,6 +114,9 @@ func NewKernelConfig(ctx context.Context, logger log.Logger) *KernelConfig {
 	kernelConfig.EventBusConfig.KafkaHost = viper.GetString("alexandria.event.kafka.cluster.leader.host")
 	kernelConfig.EventBusConfig.KafkaPort = viper.GetInt("alexandria.event.kafka.cluster.leader.port")
 
+	kernelConfig.DocstoreConfig.Collection = viper.GetString("alexandria.persistence.doc.collection")
+	kernelConfig.DocstoreConfig.PartitionKey = viper.GetString("alexandria.persistence.doc.partition_key")
+
 	kernelConfig.Version = viper.GetString("alexandria.info.version")
 	kernelConfig.Service = viper.GetString("alexandria.info.service")
 
@@ -114,6 +128,11 @@ func NewKernelConfig(ctx context.Context, logger log.Logger) *KernelConfig {
 	logger.Log(
 		"method", "core.kernel.infrastructure.config",
 		"msg", "kernel configuration created",
+	)
+
+	logger.Log(
+		"method", "core.kernel.infrastructure.config",
+		"msg", "running "+kernelConfig.Service+" service version "+kernelConfig.Version,
 	)
 	return kernelConfig
 }

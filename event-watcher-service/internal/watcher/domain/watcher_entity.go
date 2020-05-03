@@ -18,16 +18,17 @@ import (
 *	Dispatch Time = Event's dispatching timestamp
  */
 type WatcherEntity struct {
-	ID            string    `json:"id" validate:"required"`
-	ServiceName   string    `json:"service_name" validate:"required"`
-	TransactionID *string   `json:"transaction_id,omitempty"`
-	EventType     string    `json:"event_type" validate:"required"`
-	Content       string    `json:"content" validate:"required"`
-	Importance    string    `json:"importance" validate:"required"`
-	Provider      string    `json:"provider" validate:"required"`
-	DispatchTime  time.Time `json:"dispatch_time" validate:"required"`
+	ID            string    `json:"watcher_id" validate:"required" docstore:"watcher_id"`
+	ServiceName   string    `json:"service_name" validate:"required" docstore:"service_name"`
+	TransactionID *string   `json:"transaction_id,omitempty" docstore:"transaction_id,omitempty"`
+	EventType     string    `json:"event_type" validate:"required" docstore:"event_type"`
+	Content       string    `json:"content" validate:"required" docstore:"content"`
+	Importance    string    `json:"importance" validate:"required" docstore:"importance"`
+	Provider      string    `json:"provider" validate:"required" docstore:"provider"`
+	DispatchTime  time.Time `json:"dispatch_time" validate:"required" docstore:"dispatch_time"`
 }
 
+// NewWatcherEntity Create a new watcher entity using domain rules
 func NewWatcherEntity(serviceName, transactionID, eventType, content, importance, provider string) *WatcherEntity {
 	var transaction *string
 
