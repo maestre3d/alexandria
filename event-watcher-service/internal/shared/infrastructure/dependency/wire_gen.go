@@ -18,7 +18,7 @@ import (
 
 // Injectors from wire.go:
 
-func InjectWatcherUseCase() (*interactor.WatcherUseCase, func(), error) {
+func InjectEventUseCase() (*interactor.EventUseCase, func(), error) {
 	context := provideContext()
 	logLogger := logger.NewZapLogger()
 	kernelConfiguration, err := config.NewKernelConfiguration(context)
@@ -29,9 +29,9 @@ func InjectWatcherUseCase() (*interactor.WatcherUseCase, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	watcherDynamoRepository := infrastructure.NewWatcherDynamoRepository(context, logLogger, collection)
-	watcherUseCase := interactor.NewWatcherUseCase(context, logLogger, watcherDynamoRepository)
-	return watcherUseCase, func() {
+	eventDynamoRepository := infrastructure.NewEventDynamoRepository(context, logLogger, collection)
+	eventUseCase := interactor.NewEventUseCase(context, logLogger, eventDynamoRepository)
+	return eventUseCase, func() {
 		cleanup()
 	}, nil
 }
@@ -42,12 +42,12 @@ var configSet = wire.NewSet(
 	provideContext, logger.NewZapLogger, config.NewKernelConfiguration,
 )
 
-var watcherDynamoRepositorySet = wire.NewSet(
-	configSet, persistence.NewDynamoDBCollectionPool, wire.Bind(new(domain.WatcherRepository), new(*infrastructure.WatcherDynamoRepository)), infrastructure.NewWatcherDynamoRepository,
+var eventDynamoRepositorySet = wire.NewSet(
+	configSet, persistence.NewDynamoDBCollectionPool, wire.Bind(new(domain.EventRepository), new(*infrastructure.EventDynamoRepository)), infrastructure.NewEventDynamoRepository,
 )
 
-var watcherUseCaseSet = wire.NewSet(
-	watcherDynamoRepositorySet, interactor.NewWatcherUseCase,
+var eventUseCaseSet = wire.NewSet(
+	eventDynamoRepositorySet, interactor.NewEventUseCase,
 )
 
 func provideContext() context.Context {

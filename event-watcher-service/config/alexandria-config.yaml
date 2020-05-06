@@ -5,7 +5,9 @@ alexandria:
   persistence:
     doc:
       collection: "ALEXANDRIA_EVENT_WATCHER"
-      partition_key: "watcher_id"
+      partition_key: "event_id"
+      sort_key: "dispatch_time"
+      allow_scan: true
   service:
     transport:
       http:

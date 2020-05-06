@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// WatcherEntity Represents an event log record
+// EventEntity Represents an event log record
 /*
 *	Service Name = Service who dispatched the event
 *	Transaction ID = Distributed transaction ID *Only for SAGA pattern
@@ -17,19 +17,19 @@ import (
 *	Provider = Message Broker Provider (Kafka, RabbitMQ)
 *	Dispatch Time = Event's dispatching timestamp
  */
-type WatcherEntity struct {
-	ID            string    `json:"watcher_id" validate:"required" docstore:"watcher_id"`
+type EventEntity struct {
+	ID            string    `json:"event_id" validate:"required" docstore:"event_id"`
 	ServiceName   string    `json:"service_name" validate:"required" docstore:"service_name"`
 	TransactionID *string   `json:"transaction_id,omitempty" docstore:"transaction_id,omitempty"`
 	EventType     string    `json:"event_type" validate:"required" docstore:"event_type"`
 	Content       string    `json:"content" validate:"required" docstore:"content"`
 	Importance    string    `json:"importance" validate:"required" docstore:"importance"`
 	Provider      string    `json:"provider" validate:"required" docstore:"provider"`
-	DispatchTime  time.Time `json:"dispatch_time" validate:"required" docstore:"dispatch_time"`
+	DispatchTime  int64 `json:"dispatch_time" validate:"required" docstore:"dispatch_time"`
 }
 
-// NewWatcherEntity Create a new watcher entity using domain rules
-func NewWatcherEntity(serviceName, transactionID, eventType, content, importance, provider string) *WatcherEntity {
+// NewEventEntity Create a new watcher entity using domain rules
+func NewEventEntity(serviceName, transactionID, eventType, content, importance, provider string) *EventEntity {
 	var transaction *string
 
 	if transactionID != "" {
@@ -38,7 +38,7 @@ func NewWatcherEntity(serviceName, transactionID, eventType, content, importance
 		transaction = nil
 	}
 
-	return &WatcherEntity{
+	return &EventEntity{
 		ID:            uuid.New().String(),
 		ServiceName:   strings.ToUpper(serviceName),
 		TransactionID: transaction,
@@ -46,6 +46,6 @@ func NewWatcherEntity(serviceName, transactionID, eventType, content, importance
 		Content:       content,
 		Importance:    importance,
 		Provider:      strings.ToUpper(provider),
-		DispatchTime:  time.Now(),
+		DispatchTime:  time.Now().UnixNano() / 1000000,
 	}
 }

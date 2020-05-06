@@ -20,24 +20,24 @@ var configSet = wire.NewSet(
 	config.NewKernelConfiguration,
 )
 
-var watcherDynamoRepositorySet = wire.NewSet(
+var eventDynamoRepositorySet = wire.NewSet(
 	configSet,
 	persistence.NewDynamoDBCollectionPool,
-	wire.Bind(new(domain.WatcherRepository), new(*infrastructure.WatcherDynamoRepository)),
-	infrastructure.NewWatcherDynamoRepository,
+	wire.Bind(new(domain.EventRepository), new(*infrastructure.EventDynamoRepository)),
+	infrastructure.NewEventDynamoRepository,
 )
 
-var watcherUseCaseSet = wire.NewSet(
-	watcherDynamoRepositorySet,
-	interactor.NewWatcherUseCase,
+var eventUseCaseSet = wire.NewSet(
+	eventDynamoRepositorySet,
+	interactor.NewEventUseCase,
 )
 
 func provideContext() context.Context {
 	return context.Background()
 }
 
-func InjectWatcherUseCase() (*interactor.WatcherUseCase, func(), error) {
-	wire.Build(watcherUseCaseSet)
+func InjectEventUseCase() (*interactor.EventUseCase, func(), error) {
+	wire.Build(eventUseCaseSet)
 
-	return &interactor.WatcherUseCase{}, nil, nil
+	return &interactor.EventUseCase{}, nil, nil
 }
