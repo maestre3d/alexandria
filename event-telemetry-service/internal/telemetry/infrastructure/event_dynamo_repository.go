@@ -124,7 +124,7 @@ func (r *EventDynamoRepository) FetchByID(id string) (*eventbus.Event, error) {
 
 	// Separate partition and sort keys (NoSQL)
 	// Keys are separated by '#'
-	keys := strings.Split(id, "#")
+	keys := strings.Split(id, "_")
 	if len(keys) > 1 {
 		if err := core.ValidateUUID(keys[0]); err != nil {
 			return nil, exception.InvalidID
