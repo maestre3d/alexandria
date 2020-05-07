@@ -13,7 +13,6 @@ func main() {
 	defer cleanup()
 
 	// Create
-
 	/*
 		contentExample := struct {
 			Message string
@@ -26,7 +25,8 @@ func main() {
 			panic(err)
 		}
 
-		eventCreated, err := eventUseCase.Create("foo", "", "domain", string(exampleJSON), "low", "kafka")
+		eventCreated, err := eventUseCase.Create("auth", eventbus.EventIntegration, eventbus.PriorityHigh,
+			eventbus.ProviderKafka, exampleJSON, true)
 		if err != nil {
 			panic(err)
 		}
@@ -61,7 +61,7 @@ func main() {
 		log.Print("event deleted ")*/
 
 	// List
-	events, next, err := eventUseCase.List("", "1", nil)
+	events, next, err := eventUseCase.List("", "10", nil)
 	if err != nil {
 		panic(err)
 	}

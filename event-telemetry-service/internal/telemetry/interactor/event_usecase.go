@@ -2,10 +2,14 @@ package interactor
 
 import (
 	"context"
+	"fmt"
 	"github.com/alexandria-oss/core"
+	"github.com/alexandria-oss/core/eventbus"
+	"github.com/alexandria-oss/core/exception"
 	"github.com/go-kit/kit/log"
 	"github.com/go-playground/validator/v10"
 	"github.com/maestre3d/alexandria/event-telemetry-service/internal/telemetry/domain"
+	"strconv"
 	"strings"
 )
 
@@ -21,15 +25,16 @@ func NewEventUseCase(ctx context.Context, logger log.Logger, repository domain.E
 }
 
 // Create Generate and save a new event entity
-func (u *EventUseCase) Create(serviceName, transactionID, eventType, content, importance, provider string) (*domain.EventEntity, error) {
-	event := domain.NewEventEntity(serviceName, transactionID, eventType, content, importance, provider)
+func (u *EventUseCase) Create(serviceName, eventType, priority, provider string, content []byte, isTransaction bool) (*eventbus.Event, error) {
 
-	err := u.validate.Struct(event)
-	if err != nil {
-		return nil, err
-	}
+	event := eventbus.NewEvent(serviceName, eventType, priority, provider, content, isTransaction)
+	/*
+		err := u.validate.Struct(event)
+		if err != nil {
+			return nil, err
+		}*/
 
-	err = u.repository.Save(event)
+	err := u.repository.Save(event)
 	if err != nil {
 		return nil, err
 	}
@@ -37,8 +42,13 @@ func (u *EventUseCase) Create(serviceName, transactionID, eventType, content, im
 	return event, nil
 }
 
+// CreateRaw Store a simple event entity with raw params
+func (u *EventUseCase) CreateRaw(event *eventbus.Event) error {
+	return u.repository.Save(event)
+}
+
 // List Obtain a event's entities list
-func (u *EventUseCase) List(token, size string, filterParams core.FilterParams) ([]*domain.EventEntity, string, error) {
+func (u *EventUseCase) List(token, size string, filterParams core.FilterParams) ([]*eventbus.Event, string, error) {
 	params := core.NewPaginationParams(token, size)
 	params.Token = token
 
@@ -59,12 +69,12 @@ func (u *EventUseCase) List(token, size string, filterParams core.FilterParams) 
 }
 
 // Get Obtain an specific telemetry entity
-func (u *EventUseCase) Get(id string) (*domain.EventEntity, error) {
+func (u *EventUseCase) Get(id string) (*eventbus.Event, error) {
 	return u.repository.FetchByID(id)
 }
 
 // Update Modify an specific event entity
-func (u *EventUseCase) Update(id, serviceName, transactionID, eventType, content, importance, provider string) (*domain.EventEntity, error) {
+func (u *EventUseCase) Update(id, serviceName, transactionID, eventType, priority, provider string, content []byte) (*eventbus.Event, error) {
 	event, err := u.Get(id)
 	if err != nil {
 		return nil, err
@@ -77,23 +87,28 @@ func (u *EventUseCase) Update(id, serviceName, transactionID, eventType, content
 	if eventType != "" {
 		event.EventType = eventType
 	}
-	if content != "" {
+	if content != nil {
 		event.Content = content
 	}
-	if importance != "" {
-		event.Importance = importance
+	if priority != "" {
+		event.Priority = priority
 	}
 	if provider != "" {
 		event.Provider = strings.ToUpper(provider)
 	}
 	if transactionID != "" {
-		event.TransactionID = &transactionID
+		event.TransactionID, err = strconv.ParseUint(transactionID, 10, 64)
+		if err != nil {
+			return nil, exception.NewErrorDescription(exception.InvalidFieldFormat,
+				fmt.Sprintf(exception.InvalidFieldFormatString, "transaction_id", "uint64"))
+		}
 	}
 
-	err = u.validate.Struct(event)
-	if err != nil {
-		return nil, err
-	}
+	/*
+		err = u.validate.Struct(event)
+		if err != nil {
+			return nil, err
+		}*/
 
 	// Assign ID from params in case of NoSQL sort key
 	event.ID = id

@@ -3,9 +3,9 @@ package infrastructure
 import (
 	"context"
 	"github.com/alexandria-oss/core"
+	"github.com/alexandria-oss/core/eventbus"
 	"github.com/alexandria-oss/core/exception"
 	"github.com/go-kit/kit/log"
-	"github.com/maestre3d/alexandria/event-telemetry-service/internal/telemetry/domain"
 	"gocloud.dev/docstore"
 	_ "gocloud.dev/docstore/awsdynamodb"
 	"gocloud.dev/gcerrors"
@@ -27,10 +27,10 @@ type EventDynamoRepository struct {
 type eventDocEntity struct {
 	ID               string `json:"event_id" docstore:"event_id"`
 	ServiceName      string `json:"service_name" docstore:"service_name"`
-	TransactionID    string `json:"transaction_id,omitempty" docstore:"transaction_id,omitempty"`
+	TransactionID    uint64 `json:"transaction_id,omitempty" docstore:"transaction_id,omitempty"`
 	EventType        string `json:"event_type" docstore:"event_type"`
 	Content          string `json:"content" docstore:"content"`
-	Importance       string `json:"importance" docstore:"importance"`
+	Priority         string `json:"priority" docstore:"priority"`
 	Provider         string `json:"provider" docstore:"provider"`
 	DispatchTime     int64  `json:"dispatch_time" docstore:"dispatch_time"`
 	DocstoreRevision interface{}
@@ -40,12 +40,12 @@ func NewEventDynamoRepository(ctx context.Context, logger log.Logger, coll *docs
 	return &EventDynamoRepository{ctx, new(sync.Mutex), logger, coll}
 }
 
-func (r *EventDynamoRepository) Save(event *domain.EventEntity) error {
+func (r *EventDynamoRepository) Save(event *eventbus.Event) error {
 	// Lock struct's mutability
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
 
-	err := r.db.Create(r.ctx, event)
+	err := r.db.Create(r.ctx, toDocEntity(event))
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func (r *EventDynamoRepository) Save(event *domain.EventEntity) error {
 	return nil
 }
 
-func (r *EventDynamoRepository) Fetch(params *core.PaginationParams, filterParams core.FilterParams) ([]*domain.EventEntity, error) {
+func (r *EventDynamoRepository) Fetch(params *core.PaginationParams, filterParams core.FilterParams) ([]*eventbus.Event, error) {
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
 
@@ -77,17 +77,24 @@ func (r *EventDynamoRepository) Fetch(params *core.PaginationParams, filterParam
 	iter := query.Where("dispatch_time", "<=", dispatch).Limit(params.Size).Get(r.ctx)
 	defer iter.Stop()
 
-	events := make([]*domain.EventEntity, 0)
+	eventsDoc := make([]*eventDocEntity, 0)
 	for {
-		event := new(domain.EventEntity)
+		event := new(eventDocEntity)
 		err := iter.Next(r.ctx, event)
 		if err == io.EOF {
 			break
 		} else if err != nil {
 			return nil, err
 		} else {
-			events = append(events, event)
+			eventsDoc = append(eventsDoc, event)
 		}
+	}
+
+	// Parse data
+	events := make([]*eventbus.Event, 0)
+	for _, eventDoc := range eventsDoc {
+		event := toEntity(eventDoc)
+		events = append(events, event)
 	}
 
 	// Order by timestamp manually - ASC
@@ -111,7 +118,7 @@ func (r *EventDynamoRepository) Fetch(params *core.PaginationParams, filterParam
 	return events, nil
 }
 
-func (r *EventDynamoRepository) FetchByID(id string) (*domain.EventEntity, error) {
+func (r *EventDynamoRepository) FetchByID(id string) (*eventbus.Event, error) {
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
 
@@ -144,7 +151,7 @@ func (r *EventDynamoRepository) FetchByID(id string) (*domain.EventEntity, error
 	return toEntity(eventDoc), nil
 }
 
-func (r *EventDynamoRepository) Update(eventUpdated *domain.EventEntity) error {
+func (r *EventDynamoRepository) Update(eventUpdated *eventbus.Event) error {
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
 
@@ -160,7 +167,7 @@ func (r *EventDynamoRepository) Update(eventUpdated *domain.EventEntity) error {
 	eventUpdated.ID = event.ID
 	event.DispatchTime = time.Now().UnixNano() / 1000000
 
-	return r.db.Replace(r.ctx, eventUpdated)
+	return r.db.Replace(r.ctx, toDocEntity(eventUpdated))
 }
 
 func (r *EventDynamoRepository) Remove(id string) error {
@@ -181,38 +188,28 @@ func (r *EventDynamoRepository) Remove(id string) error {
 
 /* Model binding */
 
-/*
-func toDocEntity(entity *domain.EventEntity) *eventDocEntity {
-	transaction := ""
-	if entity.TransactionID != nil {
-		transaction = *entity.TransactionID
-	}
+func toDocEntity(event *eventbus.Event) *eventDocEntity {
 	return &eventDocEntity{
-		ID:               entity.ID,
-		ServiceName:      entity.ServiceName,
-		TransactionID:    transaction,
-		EventType:        entity.EventType,
-		Content:          entity.Content,
-		Importance:       entity.Importance,
-		Provider:         entity.Provider,
-		DispatchTime:     strconv.FormatInt(entity.DispatchTime, 10),
+		ID:               event.ID,
+		ServiceName:      event.ServiceName,
+		TransactionID:    event.TransactionID,
+		EventType:        event.EventType,
+		Content:          string(event.Content),
+		Priority:         event.Priority,
+		Provider:         event.Provider,
+		DispatchTime:     event.DispatchTime,
 		DocstoreRevision: nil,
 	}
-}*/
+}
 
-func toEntity(docEntity *eventDocEntity) *domain.EventEntity {
-	transaction := ""
-	if docEntity.TransactionID != "" {
-		transaction = docEntity.TransactionID
-	}
-
-	return &domain.EventEntity{
+func toEntity(docEntity *eventDocEntity) *eventbus.Event {
+	return &eventbus.Event{
 		ID:            docEntity.ID,
 		ServiceName:   docEntity.ServiceName,
-		TransactionID: &transaction,
+		TransactionID: docEntity.TransactionID,
 		EventType:     docEntity.EventType,
-		Content:       docEntity.Content,
-		Importance:    docEntity.Importance,
+		Content:       []byte(docEntity.Content),
+		Priority:      docEntity.Priority,
 		Provider:      docEntity.Provider,
 		DispatchTime:  docEntity.DispatchTime,
 	}
