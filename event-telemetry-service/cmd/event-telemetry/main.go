@@ -41,41 +41,17 @@ func main() {
 
 	var g run.Group
 
-	/*
-		{
-			// Listen to Author created
-			g.Add(func() error {
-				// Env must be like
-				// "awssqs://AWS_SQS_URL?region=us-east-1"
-				subscriptionCreated, err := pubsub.OpenSubscription(ctx, fmt.Sprintf(`kafka://%s?topic=ALEXANDRIA_AUTHOR_CREATED`, strings.ToUpper(cfg.Service)))
-				if err != nil {
-					return err
-				}
-				listenQueue(ctx, logger, subscriptionCreated)
-				return nil
-			}, func(err error) {
-				logger.Log("err", err.Error())
-				panic(err)
-			})
-		}
-		{
-			// Listen to Author Deleted
-			g.Add(func() error {
-				// Env must be like
-				// "awssqs://AWS_SQS_URL?region=us-east-1"
-				subscriptionDeleted, err := pubsub.OpenSubscription(ctx, fmt.Sprintf(`kafka://%s?topic=ALEXANDRIA_AUTHOR_DELETED`, strings.ToUpper(cfg.Service)))
-				if err != nil {
-					return err
-				}
-
-				listenQueue(ctx, logger, subscriptionDeleted)
-				return nil
-			}, func(err error) {
-				logger.Log("err", err.Error())
-				panic(err)
-			})
-
-		}*/
+	{
+		// Listen to Author created
+		g.Add(func() error {
+			// Env must be like
+			// "awssqs://AWS_SQS_URL?region=us-east-1"
+			return transport.StartConsumers(ctx, cfg)
+		}, func(err error) {
+			logger.Log("err", err.Error())
+			panic(err)
+		})
+	}
 	{
 
 		srv := transport.NewHTTPServer(eventUseCase, cfg)
