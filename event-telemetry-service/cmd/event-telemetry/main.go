@@ -8,9 +8,9 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/alexandria-oss/core/config"
 	"github.com/go-kit/kit/log"
 	logZap "github.com/go-kit/kit/log/zap"
-	"github.com/alexandria-oss/core/config"
 	"github.com/oklog/run"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
