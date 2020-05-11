@@ -39,13 +39,13 @@ services:
     networks:
       - alexandrianet
 
-  event-tracer:
-    build: ./event-tracer-service
-    hostname: pubsub.alexandria.com
-    image: alexandria-event
+  event-telemetry:
+    build: ./event-telemetry-service
+    hostname: telemetry.alexandria.com
+    image: alexandria-event-telemetry
     restart: always
     volumes:
-      - api:/usr/src/event/
+      - api:/usr/src/event-telemetry/
     ports:
       - "3000:8080"
       - "4000:31337"
