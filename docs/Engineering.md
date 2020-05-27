@@ -6,6 +6,7 @@ In the following section, we show our technology stack selection.
 ## Development
 - **Main programming language**: Go. Created and maintained by Google, Go is our first choice thanks to the easy implementation of complex topics such as concurrency and parallelism, very needed for a high-performance service.
 - **Secondary programming language**: Python. With a vast selection of data analysis and machine learning tools, Python makes data-analytic model generation and implementation easier than using any other programming language.
+- **Auxiliary programming language**: Javascript. The most popular nowadays, javascript brings simpleness and high productivity thanks to its functional paradigm. Highly used on web and mobile development environments.
 
 ## Infrastructure
 - **Architecture**: Microservices. Instead of following the typical application architecture (monolithic), we use the microservice architecture to keep our platform high-available, high-scalable and fault-tolerant.
@@ -26,13 +27,18 @@ In the following section, we show our technology stack selection.
 - **Identity provider**: AWS Cognito.
 - **Secret key management**: Hashicorp Vault or AWS KMS.
 - **Static file**: AWS S3/Glacier.
-- **Image analysis AI**: GCP Cloud Vision API.
+- **Image analysis**: GCP Cloud Vision API.
 - **Service discovery/mesh**: Istio, Hashicorp Consul or Netflix Hystrix.
 - **Serverless functions**: AWS Lambda.
 - **Distributed metrics**: AWS Cloudwatch or Prometheus/Grafana.
 - **Distributed tracing**: Jaeger, AWS CloudTrail or Zipkin.
 - **Distributed logging**: Datadog or Logstash.
 - **Querying engine**: Elasticsearch.
+- **Content delivery network CDN**: AWS CloudFront.
+- **DNS**: AWS Route53.
+- **API gateway**: Kubernetes, AWS API Gateway or AWS EC2 instance.
+- **Load balancer**: AWS ELB.
+- **Cloud computing**: AWS EC2.
 
 ## Deployment
 - **Container Orchestration**: Kubernetes -K8s- engine or AWS ECS/Fargate.
