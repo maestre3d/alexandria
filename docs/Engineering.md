@@ -9,21 +9,32 @@ In the following section, we show our technology stack selection.
 
 ## Infrastructure
 - **Architecture**: Microservices. Instead of following the typical application architecture (monolithic), we use the microservice architecture to keep our platform high-available, high-scalable and fault-tolerant.
-- **Containerization**: Docker and Docker Compose. Thanks to this modern architecture, we use tools like Docker to containerize our builds and keep our services isolated for testing and deployment. In addition, we use Docker Compose to start up our containerized services with just one command-line.
+- **Containerization**: Docker and Docker Compose. Thanks to this modern architecture, we use tools like Docker to containerize our builds and keep our services isolated for testing and deployment. In addition, we use Docker Compose to start up our containerized services with just one command.
 
 ## Data stores
 - **Main data store**: PostgreSQL. Postgres is a robust and high-performing RDBMS which contains useful features that helps to accomplish Alexandria’s daily operations.
-- **Main cache data store**: Redis.
+- **Main cache data store**: Redis or Memchached.
+- **Main graph store**: Neptune or Neo4j.
 
 ## 3rd-party services
-- **Microservice communication**: Google Cloud’s Pub/sub, Apache Kafka, RabbitMQ, NATS or AWS SQS/SNS.
+- **Message broker/Event bus**: Google Cloud’s Pub/sub, Apache Kafka, RabbitMQ or AWS SQS/SNS.
 - **Mailing**: AWS SES.
 - **Device push-notifications**: AWS SNS or GCP FCM.
 - **Streaming-data analysis**: AWS Kinesis.
 - **Batch-data analysis**: On-premise Apache Hadoop or AWS EMR.
+- **Identity provider**: AWS Cognito.
+- **Secret Key Management**: Hashicorp Vault or AWS KMS.
+- **Static file**: AWS S3/Glacier.
+- **Image analysis AI**: GCP Cloud Vision API.
+- **Service discovery/mesh**: Istio, Hashicorp Consul or Netflix Hystrix.
+- **Serverless functions**: AWS Lambda.
+- **Distributed metrics**: AWS Cloudwatch or Prometheus/Grafana.
+- **Distributed tracing**: Jaeger, AWS CloudTrail or Zipkin.
+- **Distributed logging**: Datadog or Logstash.
+- **Query engine**: Elasticsearch.
 
 ## Deployment
-- **Container Orchestration**: Kubernetes -K8s- engine.
+- **Container Orchestration**: Kubernetes -K8s- engine or AWS ECS/Fargate.
 - **Testing/Continuous Integration**: Travis CI and GitHub workflows.
 - **Continuous Deployment**: Jenkins.
 
