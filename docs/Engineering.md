@@ -14,7 +14,8 @@ In the following section, we show our technology stack selection.
 ## Data stores
 - **Main data store**: PostgreSQL. Postgres is a robust and high-performing RDBMS which contains useful features that helps to accomplish Alexandria’s daily operations.
 - **Main cache data store**: Redis or Memchached.
-- **Main graph store**: Neptune or Neo4j.
+- **Main graph store**: AWS Neptune or Neo4j.
+- **Main document store**: AWS DynamoDB.
 
 ## 3rd-party services
 - **Message broker/Event bus**: Google Cloud’s Pub/sub, Apache Kafka, RabbitMQ or AWS SQS/SNS.
