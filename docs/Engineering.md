@@ -28,7 +28,7 @@ In the following section, we show our technology stack selection.
 - **Secret key management**: Hashicorp Vault or AWS KMS.
 - **Static file**: AWS S3/Glacier.
 - **Image analysis**: GCP Cloud Vision API.
-- **Service discovery/mesh**: Istio, Hashicorp Consul or Netflix Hystrix.
+- **Service discovery/mesh**: Istio, Hashicorp Consul or Netflix Eureka.
 - **Serverless functions**: AWS Lambda.
 - **Distributed metrics**: AWS Cloudwatch or Prometheus/Grafana.
 - **Distributed tracing**: Jaeger, AWS CloudTrail or Zipkin.
@@ -37,7 +37,7 @@ In the following section, we show our technology stack selection.
 - **Content delivery network CDN**: AWS CloudFront.
 - **DNS**: AWS Route53.
 - **API gateway**: Kubernetes, AWS API Gateway or AWS EC2 instance.
-- **Load balancer**: AWS ELB.
+- **Load balancer**: AWS ELB and Netflix Hystrix.
 - **Cloud computing**: AWS EC2.
 
 ## Deployment
