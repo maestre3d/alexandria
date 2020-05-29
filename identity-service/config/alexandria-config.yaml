@@ -1,7 +1,7 @@
 alexandria:
   info:
     service: "identity"
-    version: 1.0.0
+    version: 0.1.0
   persistence:
     dbms:
       url: "postgres://postgres:root@localhost:5432/alexandria_identity?sslmode=disable"
@@ -41,3 +41,12 @@ alexandria:
         1:
           host: "kafka1"
           port: 9092
+  cloud:
+    aws:
+      cognito:
+        pool: "us-east-1_12iAEifyh"
+        client: "37njo8eviv33br7u2cmbbs1sbp"
+  security:
+    auth:
+      jwt:
+        secret: "example_secret_key"

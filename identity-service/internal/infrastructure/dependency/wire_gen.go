@@ -7,9 +7,11 @@ package dependency
 
 import (
 	"context"
+	"database/sql"
 	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/logger"
 	"github.com/alexandria-oss/core/persistence"
+	"github.com/go-kit/kit/log"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/identity-service/internal/domain"
 	"github.com/maestre3d/alexandria/identity-service/internal/infrastructure"
@@ -19,36 +21,54 @@ import (
 // Injectors from wire.go:
 
 func InjectUserUseCase() (*interactor.UserUseCase, func(), error) {
-	context := provideContext()
 	logLogger := logger.NewZapLogger()
-	kernelConfiguration, err := config.NewKernelConfiguration(context)
+	context := provideContext()
+	kernel, err := config.NewKernel(context)
 	if err != nil {
 		return nil, nil, err
 	}
-	db, cleanup, err := persistence.NewPostgresPool(context, kernelConfiguration)
+	db, cleanup, err := persistence.NewPostgresPool(context, kernel)
 	if err != nil {
 		return nil, nil, err
 	}
-	client, cleanup2, err := persistence.NewRedisPool(kernelConfiguration)
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-	userPostgresRepository := infrastructure.NewUserPostgresRepository(context, logLogger, db, client)
-	interactorUserUseCase := interactor.NewUserUseCase(context, logLogger, userPostgresRepository)
+	domainUserRepository, cleanup2 := provideUserPostgresRepository(context, logLogger, db, kernel)
+	interactorUserUseCase := interactor.NewUserUseCase(logLogger, domainUserRepository)
 	return interactorUserUseCase, func() {
 		cleanup2()
 		cleanup()
 	}, nil
 }
 
+func InjectIdentityUseCase() (*interactor.IdentityUseCase, func(), error) {
+	logLogger := logger.NewZapLogger()
+	context := provideContext()
+	kernel, err := config.NewKernel(context)
+	if err != nil {
+		return nil, nil, err
+	}
+	identityCognitoAdapter := infrastructure.NewProviderCognitoAdapter(logLogger, kernel)
+	identityUseCase := interactor.NewIdentityUseCase(logLogger, identityCognitoAdapter)
+	return identityUseCase, func() {
+	}, nil
+}
+
 // wire.go:
 
-var persistenceSet = wire.NewSet(
-	provideContext, config.NewKernelConfiguration, persistence.NewPostgresPool, persistence.NewRedisPool,
+var cfgSet = wire.NewSet(
+	provideContext, config.NewKernel,
 )
 
-var userRepository = wire.NewSet(logger.NewZapLogger, persistenceSet, wire.Bind(new(domain.UserRepository), new(*infrastructure.UserPostgresRepository)), infrastructure.NewUserPostgresRepository)
+var logSet = wire.NewSet(logger.NewZapLogger)
+
+var persistenceSet = wire.NewSet(
+	cfgSet, persistence.NewPostgresPool,
+)
+
+var userRepository = wire.NewSet(
+	persistenceSet,
+	logSet,
+	provideUserPostgresRepository,
+)
 
 var userUseCase = wire.NewSet(
 	userRepository, interactor.NewUserUseCase,
@@ -56,4 +76,13 @@ var userUseCase = wire.NewSet(
 
 func provideContext() context.Context {
 	return context.Background()
+}
+
+func provideUserPostgresRepository(ctx context.Context, logger2 log.Logger, db *sql.DB, cfg *config.Kernel) (domain.UserRepository, func()) {
+	repo := infrastructure.NewUserPostgresRepository(logger2, db)
+	mem, cleanup, _ := persistence.NewRedisPool(cfg)
+
+	repo.SetInMem(mem)
+
+	return repo, cleanup
 }
