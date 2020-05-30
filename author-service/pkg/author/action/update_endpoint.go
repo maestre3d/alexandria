@@ -2,22 +2,14 @@ package action
 
 import (
 	"context"
-	"github.com/go-kit/kit/circuitbreaker"
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
-	"github.com/go-kit/kit/ratelimit"
-	kitoc "github.com/go-kit/kit/tracing/opencensus"
-	"github.com/go-kit/kit/tracing/opentracing"
-	"github.com/go-kit/kit/tracing/zipkin"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
+	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
-	"github.com/maestre3d/alexandria/author-service/pkg/usecase"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
-	"github.com/sony/gobreaker"
-	"golang.org/x/time/rate"
-	"time"
 )
 
 type UpdateRequest struct {
@@ -26,17 +18,25 @@ type UpdateRequest struct {
 	LastName    string `json:"last_name"`
 	DisplayName string `json:"display_name"`
 	BirthDate   string `json:"birth_date"`
+	OwnerID     string `json:"owner_id"`
+	Status      string `json:"status"`
 }
 
 type UpdateResponse struct {
-	Author *domain.AuthorEntity `json:"author"`
-	Err    error                `json:"-"`
+	Author *domain.Author `json:"author"`
+	Err    error          `json:"-"`
 }
 
-func MakeUpdateAuthorEndpoint(svc usecase.IAuthorService, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
+func MakeUpdateAuthorEndpoint(svc usecase.AuthorInteractor, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
 	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(UpdateRequest)
-		author, err := svc.Update(req.ID, req.FirstName, req.LastName, req.DisplayName, req.BirthDate)
+		author, err := svc.Update(ctx, req.ID, req.Status, &domain.AuthorAggregate{
+			FirstName:   req.FirstName,
+			LastName:    req.LastName,
+			DisplayName: req.DisplayName,
+			OwnerID:     req.OwnerID,
+			BirthDate:   req.BirthDate,
+		})
 		if err != nil {
 			return UpdateResponse{
 				Author: nil,
@@ -50,33 +50,15 @@ func MakeUpdateAuthorEndpoint(svc usecase.IAuthorService, logger log.Logger, dur
 		}, nil
 	}
 
-	// Transport's fault-tolerant patterns
-	limiter := rate.NewLimiter(rate.Every(time.Second), 1)
-	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
-		Name:          "author.update",
-		MaxRequests:   100,
-		Interval:      0,
-		Timeout:       15 * time.Second,
-		ReadyToTrip:   nil,
-		OnStateChange: nil,
+	// Required resiliency and instrumentation
+	action := "update"
+	ep = shared.WrapResiliency(ep, "author", action)
+	return shared.WrapInstrumentation(ep, "author", action, &shared.WrapInstrumentParams{
+		logger,
+		duration,
+		tracer,
+		zipkinTracer,
 	})
-	ep = ratelimit.NewErroringLimiter(limiter)(ep)
-	ep = circuitbreaker.Gobreaker(cb)(ep)
-
-	// Distributed Tracing
-	// OpenCensus tracer
-	ep = kitoc.TraceEndpoint("gokit:endpoint update")(ep)
-	// OpenTracing server
-	ep = opentracing.TraceServer(tracer, "Update")(ep)
-	if zipkinTracer != nil {
-		ep = zipkin.TraceEndpoint(zipkinTracer, "Update")(ep)
-	}
-
-	// Transport metrics
-	ep = shared.LoggingMiddleware(log.With(logger, "method", "author.update"))(ep)
-	ep = shared.InstrumentingMiddleware(duration.With("method", "author.update"))(ep)
-
-	return ep
 }
 
 // compile time assertions for our response types implementing endpoint.Failer.

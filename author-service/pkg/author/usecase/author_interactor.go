@@ -6,7 +6,7 @@ import (
 	"github.com/go-kit/kit/log"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
-	"github.com/maestre3d/alexandria/author-service/pkg/middleware"
+	"github.com/maestre3d/alexandria/author-service/pkg/author/middleware"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 )
 

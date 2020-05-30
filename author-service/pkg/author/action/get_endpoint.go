@@ -2,22 +2,14 @@ package action
 
 import (
 	"context"
-	"github.com/go-kit/kit/circuitbreaker"
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
-	"github.com/go-kit/kit/ratelimit"
-	kitoc "github.com/go-kit/kit/tracing/opencensus"
-	"github.com/go-kit/kit/tracing/opentracing"
-	"github.com/go-kit/kit/tracing/zipkin"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
+	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
-	"github.com/maestre3d/alexandria/author-service/pkg/usecase"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
-	"github.com/sony/gobreaker"
-	"golang.org/x/time/rate"
-	"time"
 )
 
 type GetRequest struct {
@@ -25,14 +17,14 @@ type GetRequest struct {
 }
 
 type GetResponse struct {
-	Author *domain.AuthorEntity `json:"author"`
-	Err    error                `json:"-"`
+	Author *domain.Author `json:"author"`
+	Err    error          `json:"-"`
 }
 
-func MakeGetAuthorEndpoint(svc usecase.IAuthorService, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
+func MakeGetAuthorEndpoint(svc usecase.AuthorInteractor, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
 	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(GetRequest)
-		author, err := svc.Get(req.ID)
+		author, err := svc.Get(ctx, req.ID)
 		if err != nil {
 			return GetResponse{
 				Author: nil,
@@ -46,33 +38,15 @@ func MakeGetAuthorEndpoint(svc usecase.IAuthorService, logger log.Logger, durati
 		}, nil
 	}
 
-	// Transport's fault-tolerant patterns
-	limiter := rate.NewLimiter(rate.Every(time.Second), 1)
-	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
-		Name:          "author.get",
-		MaxRequests:   100,
-		Interval:      0,
-		Timeout:       15 * time.Second,
-		ReadyToTrip:   nil,
-		OnStateChange: nil,
+	// Required resiliency and instrumentation
+	action := "get"
+	ep = shared.WrapResiliency(ep, "author", action)
+	return shared.WrapInstrumentation(ep, "author", action, &shared.WrapInstrumentParams{
+		logger,
+		duration,
+		tracer,
+		zipkinTracer,
 	})
-	ep = ratelimit.NewErroringLimiter(limiter)(ep)
-	ep = circuitbreaker.Gobreaker(cb)(ep)
-
-	// Distributed Tracing
-	// OpenCensus tracer
-	ep = kitoc.TraceEndpoint("gokit:endpoint get")(ep)
-	// OpenTracing server
-	ep = opentracing.TraceServer(tracer, "Get")(ep)
-	if zipkinTracer != nil {
-		ep = zipkin.TraceEndpoint(zipkinTracer, "Get")(ep)
-	}
-
-	// Transport metrics
-	ep = shared.LoggingMiddleware(log.With(logger, "method", "author.get"))(ep)
-	ep = shared.InstrumentingMiddleware(duration.With("method", "author.get"))(ep)
-
-	return ep
 }
 
 // compile time assertions for our response types implementing endpoint.Failer.

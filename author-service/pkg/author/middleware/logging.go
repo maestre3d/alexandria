@@ -6,7 +6,7 @@ import (
 	"github.com/alexandria-oss/core"
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
-	"github.com/maestre3d/alexandria/author-service/pkg/usecase"
+	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"time"
 )
 
