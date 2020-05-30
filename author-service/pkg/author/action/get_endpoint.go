@@ -10,9 +10,9 @@ import (
 	kitoc "github.com/go-kit/kit/tracing/opencensus"
 	"github.com/go-kit/kit/tracing/opentracing"
 	"github.com/go-kit/kit/tracing/zipkin"
-	"github.com/maestre3d/alexandria/author-service/internal/author/domain"
-	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
+	"github.com/maestre3d/alexandria/author-service/internal/domain"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
+	"github.com/maestre3d/alexandria/author-service/pkg/usecase"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
 	"github.com/sony/gobreaker"
@@ -29,7 +29,7 @@ type GetResponse struct {
 	Err    error                `json:"-"`
 }
 
-func MakeGetAuthorEndpoint(svc service.IAuthorService, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
+func MakeGetAuthorEndpoint(svc usecase.IAuthorService, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
 	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(GetRequest)
 		author, err := svc.Get(req.ID)

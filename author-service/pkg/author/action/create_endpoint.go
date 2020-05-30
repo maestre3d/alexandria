@@ -12,9 +12,9 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/ratelimit"
 	kitoc "github.com/go-kit/kit/tracing/opencensus"
-	"github.com/maestre3d/alexandria/author-service/internal/author/domain"
-	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
+	"github.com/maestre3d/alexandria/author-service/internal/domain"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
+	"github.com/maestre3d/alexandria/author-service/pkg/usecase"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
 	"github.com/sony/gobreaker"
@@ -26,17 +26,27 @@ type CreateRequest struct {
 	LastName    string `json:"last_name"`
 	DisplayName string `json:"display_name"`
 	BirthDate   string `json:"birth_date"`
+	OwnerID     string `json:"owner_id"`
 }
 
 type CreateResponse struct {
-	Author *domain.AuthorEntity `json:"author"`
-	Err    error                `json:"-"`
+	Author *domain.Author `json:"author"`
+	Err    error          `json:"-"`
 }
 
-func MakeCreateAuthorEndpoint(svc service.IAuthorService, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
+func MakeCreateAuthorEndpoint(svc usecase.AuthorInteractor, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
 	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(CreateRequest)
-		createdAuthor, err := svc.Create(req.FirstName, req.LastName, req.DisplayName, req.BirthDate)
+
+		aggr := &domain.AuthorAggregate{
+			FirstName:   req.FirstName,
+			LastName:    req.LastName,
+			DisplayName: req.DisplayName,
+			OwnerID:     req.OwnerID,
+			BirthDate:   req.BirthDate,
+		}
+
+		createdAuthor, err := svc.Create(ctx, aggr)
 		if err != nil {
 			return CreateResponse{
 				Author: nil,

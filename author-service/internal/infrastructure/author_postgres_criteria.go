@@ -16,6 +16,14 @@ func DisplayNameCriteriaSQL(displayName string) string {
 	return `LOWER(DISPLAY_NAME) = LOWER('` + displayName + `')`
 }
 
+func OwnerIDCriteriaSQL(ownerID string) string {
+	if ownerID == "" {
+		return ""
+	}
+
+	return `OWNER_ID == '` + ownerID + `'`
+}
+
 func AndCriteriaSQL(statement string) string {
 	return statement + " AND "
 }

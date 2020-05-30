@@ -10,10 +10,10 @@ import (
 	kitoc "github.com/go-kit/kit/tracing/opencensus"
 	"github.com/go-kit/kit/tracing/opentracing"
 	"github.com/go-kit/kit/tracing/zipkin"
-	"github.com/maestre3d/alexandria/author-service/internal/author/domain"
+	"github.com/maestre3d/alexandria/author-service/internal/domain"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
+	"github.com/maestre3d/alexandria/author-service/pkg/usecase"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
 	"github.com/sony/gobreaker"
@@ -33,7 +33,7 @@ type ListResponse struct {
 	Err           error                  `json:"-"`
 }
 
-func MakeListAuthorEndpoint(svc service.IAuthorService, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
+func MakeListAuthorEndpoint(svc usecase.IAuthorService, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
 	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(ListRequest)
 		authors, nextToken, err := svc.List(req.PageToken, req.PageSize, req.FilterParams)
