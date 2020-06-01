@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/go-kit/kit/log"
 	kitgrpc "github.com/go-kit/kit/transport/grpc"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
+	"github.com/maestre3d/alexandria/author-service/internal/infrastructure/config"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
 	"google.golang.org/grpc"
 )

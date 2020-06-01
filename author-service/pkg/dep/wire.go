@@ -1,6 +1,6 @@
 // +build wireinject
 
-package di
+package dep
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"github.com/maestre3d/alexandria/author-service/internal/dependency"
 	"github.com/maestre3d/alexandria/author-service/internal/infrastructure/config"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
-	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
+	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/handler"
@@ -64,7 +64,7 @@ func provideLogger() log.Logger {
 	return logzap.NewZapSugarLogger(zapLogger, level)
 }
 
-func provideAuthorService(logger log.Logger) (service.IAuthorService, func(), error) {
+func provideAuthorService(logger log.Logger) (usecase.IAuthorService, func(), error) {
 	authorUseCase, cleanup, err := dependency.InjectAuthorUseCase()
 
 	authorService := author.NewAuthorService(authorUseCase, logger)

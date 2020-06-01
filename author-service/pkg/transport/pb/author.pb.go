@@ -780,7 +780,7 @@ var _ grpc.ClientConnInterface
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion6
 
-// AuthorClient is the client API for Author service.
+// AuthorClient is the client API for Author usecase.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type AuthorClient interface {
@@ -844,7 +844,7 @@ func (c *authorClient) Delete(ctx context.Context, in *DeleteRequest, opts ...gr
 	return out, nil
 }
 
-// AuthorServer is the server API for Author service.
+// AuthorServer is the server API for Author usecase.
 type AuthorServer interface {
 	Create(context.Context, *CreateRequest) (*AuthorMessage, error)
 	List(context.Context, *ListRequest) (*ListResponse, error)

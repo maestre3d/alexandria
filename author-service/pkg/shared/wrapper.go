@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-// WrapResiliency inject into an endpoint fault-tolerant/resiliency patterns
+// WrapResiliency inject fault-tolerant/resiliency patterns into the given endpoint
 func WrapResiliency(e endpoint.Endpoint, service, action string) endpoint.Endpoint {
 	limiter := rate.NewLimiter(rate.Every(time.Second), 1)
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
@@ -39,7 +39,7 @@ type WrapInstrumentParams struct {
 	ZipkinTracer *stdzipkin.Tracer
 }
 
-// WrapInstrumentation inject required and basic instrumentation into an endpoint
+// WrapInstrumentation inject basic instrumentation into the given endpoint
 func WrapInstrumentation(e endpoint.Endpoint, service, action string, params *WrapInstrumentParams) endpoint.Endpoint {
 	// Transport instrumentation
 	// Distributed Tracing

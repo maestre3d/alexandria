@@ -11,7 +11,7 @@ import (
 	"github.com/go-kit/kit/transport"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/exception"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
+	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/helper"
 	stdopentracing "github.com/opentracing/opentracing-go"
@@ -27,7 +27,7 @@ import (
 )
 
 type AuthorHandler struct {
-	service      service.IAuthorService
+	service      usecase.IAuthorService
 	logger       log.Logger
 	duration     *kitprometheus.Summary
 	tracer       stdopentracing.Tracer
@@ -35,7 +35,7 @@ type AuthorHandler struct {
 	options      []httptransport.ServerOption
 }
 
-func NewAuthorHandler(svc service.IAuthorService, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) *AuthorHandler {
+func NewAuthorHandler(svc usecase.IAuthorService, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) *AuthorHandler {
 	duration := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
 		Namespace:   "alexandria",
 		Subsystem:   "author_service",
@@ -56,10 +56,10 @@ func NewAuthorHandler(svc service.IAuthorService, logger log.Logger, tracer stdo
 
 	if zipkinTracer != nil {
 		// Zipkin HTTP Server Trace can either be instantiated per endpoint with a
-		// provided operation name or a global tracing service can be instantiated
+		// provided operation name or a global tracing usecase can be instantiated
 		// without an operation name and fed to each Go kit endpoint as ServerOption.
 		// In the latter case, the operation name will be the endpoint's http method.
-		// We demonstrate a global tracing service here.
+		// We demonstrate a global tracing usecase here.
 		options = append(options, zipkin.HTTPServerTrace(zipkinTracer))
 	}
 

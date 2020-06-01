@@ -7,8 +7,8 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
+	"github.com/maestre3d/alexandria/author-service/internal/infrastructure/config"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/global"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/handler"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )

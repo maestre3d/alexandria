@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/maestre3d/alexandria/author-service/pkg/shared/di"
+	"github.com/maestre3d/alexandria/author-service/pkg/dep"
 	"github.com/oklog/run"
 	"log"
 	"net"
@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	transportService, cleanup, err := di.InjectTransportService()
+	transportService, cleanup, err := dep.InjectTransportService()
 	if err != nil {
 		panic(err)
 	}
@@ -40,7 +40,7 @@ func main() {
 			log.Fatalf("failed to start http server\nerror: %v", err)
 		}
 		g.Add(func() error {
-			// we add the Go Kit gRPC Interceptor to our gRPC service as it is used by
+			// we add the Go Kit gRPC Interceptor to our gRPC usecase as it is used by
 			// the here demonstrated zipkin tracing middleware.
 			return transportService.RPCProxy.Serve(grpcListener)
 		}, func(error) {

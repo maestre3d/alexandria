@@ -11,7 +11,7 @@ import (
 	grpctransport "github.com/go-kit/kit/transport/grpc"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/exception"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/action"
-	"github.com/maestre3d/alexandria/author-service/pkg/author/service"
+	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
@@ -29,7 +29,7 @@ type AuthorRPCServer struct {
 	delete grpctransport.Handler
 }
 
-func NewAuthorRPCServer(svc service.IAuthorService, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) pb.AuthorServer {
+func NewAuthorRPCServer(svc usecase.IAuthorService, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) pb.AuthorServer {
 	duration := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
 		Namespace:   "alexandria",
 		Subsystem:   "rpc_author_service",
@@ -48,10 +48,10 @@ func NewAuthorRPCServer(svc service.IAuthorService, logger log.Logger, tracer st
 
 	if zipkinTracer != nil {
 		// Zipkin HTTP Server Trace can either be instantiated per endpoint with a
-		// provided operation name or a global tracing service can be instantiated
+		// provided operation name or a global tracing usecase can be instantiated
 		// without an operation name and fed to each Go kit endpoint as ServerOption.
 		// In the latter case, the operation name will be the endpoint's http method.
-		// We demonstrate a global tracing service here.
+		// We demonstrate a global tracing usecase here.
 		options = append(options, zipkin.GRPCServerTrace(zipkinTracer))
 	}
 
