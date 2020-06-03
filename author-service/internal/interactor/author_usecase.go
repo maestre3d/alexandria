@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"github.com/alexandria-oss/core"
 	"github.com/alexandria-oss/core/exception"
-	"time"
-
 	"github.com/go-kit/kit/log"
 	"github.com/google/uuid"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
+	"strconv"
 )
 
 // AuthorUseCase Author interact actions
@@ -26,15 +25,9 @@ func NewAuthorUseCase(logger log.Logger, repository domain.IAuthorRepository, bu
 
 // Create Store a new entity
 func (u *AuthorUseCase) Create(ctx context.Context, aggregate *domain.AuthorAggregate) (*domain.Author, error) {
-	// Validate non-string values
-	birth, err := time.Parse(core.RFC3339Micro, aggregate.BirthDate)
-	if err != nil {
-		return nil, exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
-			"birth_date", core.RFC3339Micro))
-	}
-
-	author := domain.NewAuthor(aggregate.FirstName, aggregate.LastName, aggregate.DisplayName, aggregate.OwnerID, birth)
-	err = author.IsValid()
+	author := domain.NewAuthor(aggregate.FirstName, aggregate.LastName, aggregate.DisplayName, aggregate.OwnershipType,
+		domain.NewOwner(aggregate.OwnerID, string(domain.OwnerRole)))
+	err := author.IsValid()
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +42,13 @@ func (u *AuthorUseCase) Create(ctx context.Context, aggregate *domain.AuthorAggr
 		err = u.eventBus.Created(ctx, author)
 		if err != nil {
 			_ = u.log.Log("method", "author.interactor.create", "err", err.Error())
+
+			err = u.repository.HardRemove(ctx, author.ExternalID)
+			if err != nil {
+				_ = u.log.Log("method", "author.interactor.create", "err", err.Error())
+			}
+
+			_ = u.log.Log("method", "author.interactor.create", "msg", "could not send message, rolled back")
 		} else {
 			_ = u.log.Log("method", "author.interactor.create", "msg", "ALEXANDRIA_AUTHOR_CREATED event published")
 		}
@@ -82,10 +82,10 @@ func (u *AuthorUseCase) Get(ctx context.Context, id string) (*domain.Author, err
 }
 
 // Update Update an author dynamically
-func (u *AuthorUseCase) Update(ctx context.Context, id string, status string, aggregate *domain.AuthorAggregate) (*domain.Author, error) {
+func (u *AuthorUseCase) Update(ctx context.Context, id string, aggregate *domain.AuthorUpdateAggregate) (*domain.Author, error) {
 	// Check if body has values, if not return to avoid any transaction
-	if aggregate.FirstName == "" && aggregate.LastName == "" && aggregate.DisplayName == "" && aggregate.BirthDate == "" &&
-		aggregate.OwnerID == "" && status == "" {
+	if aggregate.RootAggregate.FirstName == "" && aggregate.RootAggregate.LastName == "" && aggregate.RootAggregate.DisplayName == "" &&
+		aggregate.RootAggregate.OwnershipType == "" && aggregate.RootAggregate.OwnerID == "" {
 		return nil, exception.EmptyBody
 	}
 
@@ -96,25 +96,46 @@ func (u *AuthorUseCase) Update(ctx context.Context, id string, status string, ag
 	}
 
 	// Update entity dynamically
-	if aggregate.BirthDate != "" {
-		birth, err := time.Parse(core.RFC3339Micro, aggregate.BirthDate)
+	if aggregate.RootAggregate.FirstName != "" {
+		author.FirstName = aggregate.RootAggregate.FirstName
+	}
+	if aggregate.RootAggregate.LastName != "" {
+		author.LastName = aggregate.RootAggregate.LastName
+	}
+	if aggregate.RootAggregate.DisplayName != "" {
+		author.DisplayName = aggregate.RootAggregate.DisplayName
+	}
+	if aggregate.RootAggregate.OwnershipType != "" {
+		author.OwnershipType = aggregate.RootAggregate.OwnershipType
+	}
+	if aggregate.Verified != "" {
+		verified, err := strconv.ParseBool(aggregate.Verified)
 		if err != nil {
-			return nil, exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
-				"birth_date", core.RFC3339Micro))
+			return nil, exception.NewErrorDescription(exception.InvalidFieldFormat,
+				fmt.Sprintf(exception.InvalidFieldFormatString, "verified", "boolean"))
 		}
-		author.BirthDate = birth
+
+		author.Verified = verified
 	}
-	if aggregate.FirstName != "" {
-		author.FirstName = aggregate.FirstName
+	if aggregate.Picture != "" {
+		author.Picture = &aggregate.Picture
 	}
-	if aggregate.LastName != "" {
-		author.LastName = aggregate.LastName
+	// Update owner id
+	if aggregate.RootAggregate.OwnerID != "" {
+		for _, owner := range author.Owners {
+			if owner.Role == string(domain.OwnerRole) {
+				owner.ID = aggregate.RootAggregate.OwnerID
+				break
+			}
+		}
 	}
-	if aggregate.DisplayName != "" {
-		author.DisplayName = aggregate.DisplayName
-	}
-	if status != "" {
-		author.Status = status
+
+	// Add new owners
+	for id, role := range aggregate.Owners {
+		author.Owners = append(author.Owners, &domain.Owner{
+			ID:   id,
+			Role: role,
+		})
 	}
 
 	err = author.IsValid()
@@ -128,7 +149,7 @@ func (u *AuthorUseCase) Update(ctx context.Context, id string, status string, ag
 	}
 
 	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
-	// TODO: Fire up "alexandria.author.updated" domain event
+	// TODO: Fire up "alexandria.author.updated" domain event if required
 
 	return author, nil
 }

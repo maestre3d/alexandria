@@ -41,7 +41,7 @@ func (b *AuthorAWSEventBus) Created(ctx context.Context, author *domain.Author) 
 
 	var e *eventbus.Event
 	var m *pubsub.Message
-	if author.OwnerID != nil {
+	if len(author.Owners) > 0 {
 		// Send integration event, verify owner_id from identity usecase
 		e = eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, authorJSON, true)
 		m = &pubsub.Message{
