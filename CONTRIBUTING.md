@@ -29,9 +29,9 @@ _From Netflix Engineering, [click here](https://netflixtechblog.com/ready-for-ch
 
 Therefore, we use our own API architecture implementing a Proxy pattern to hide our transport services implementation (like HTTP).
 
-The following HTTP Proxy Service architecture **should** be used whenever a new HTTP Service is required.
+The following application architecture **should** be used whenever a new service is created.
 
-![Alexandria HTTP Proxy Service architecture](https://raw.githubusercontent.com/maestre3d/alexandria/master/docs/Alexandria_http_service.png "Alexandria HTTP Proxy Service architecture")
+![Alexandria HTTP Proxy Service architecture](https://raw.githubusercontent.com/maestre3d/alexandria/master/docs/Alexandria%20Service.png "Alexandria HTTP Proxy Service architecture")
 
 ## Error handling
 We expect to keep consistency in error handling.
