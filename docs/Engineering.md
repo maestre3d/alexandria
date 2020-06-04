@@ -1,6 +1,10 @@
 # Alexandria Engineering
 We make use of the latest technology to bring a resilient and high-available platform.
 
+Before any specific information, is very important to take a look at our service network to fully understand our needs.
+
+![Alexandria Service Network](https://raw.githubusercontent.com/maestre3d/alexandria/master/docs/Alexandria%20Engineering.png)
+
 In the following section, we show our technology stack selection.
 
 ## Development
