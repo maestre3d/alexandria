@@ -1,16 +1,16 @@
 alexandria:
   info:
     service: "author"
-    version: 1.0.0
+    version: 0.1.0
   persistence:
     dbms:
-      url: "postgres://postgres:root@postgres:5432/alexandria_author?sslmode=disable"
+      url: "postgres://postgres:root@postgres:5432/author?sslmode=disable"
       driver: "postgres"
       user: "postgres"
       password: "root"
       host: "postgres"
       port: 5432
-      database: "alexandria_author"
+      database: "author"
     mem:
       network: ""
       host: "redis"

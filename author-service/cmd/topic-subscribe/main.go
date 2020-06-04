@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	logZap "github.com/go-kit/kit/log/zap"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/config"
+	"github.com/maestre3d/alexandria/author-service/internal/infrastructure/config"
 	"github.com/oklog/run"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -65,7 +65,7 @@ func main() {
 
 	}
 	{
-		// Set up signal handler
+		// Set up signal bind
 		var (
 			cancelInterrupt = make(chan struct{})
 			c               = make(chan os.Signal, 2)

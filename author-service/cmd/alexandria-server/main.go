@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/maestre3d/alexandria/author-service/pkg/shared/di"
+	"github.com/maestre3d/alexandria/author-service/pkg/dep"
 	"github.com/oklog/run"
 	"log"
 	"net"
@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	transportService, cleanup, err := di.InjectTransportService()
+	transport, cleanup, err := dep.InjectTransportService()
 	if err != nil {
 		panic(err)
 	}
@@ -22,33 +22,35 @@ func main() {
 	// Manage goroutines
 	var g run.Group
 	{
-		l, err := net.Listen("tcp", transportService.HTTPProxy.Server.Addr)
+		l, err := net.Listen("tcp", transport.HTTPProxy.Server.Addr)
 		if err != nil {
 			log.Fatalf("failed to start http server\nerror: %v", err)
 		}
 		g.Add(func() error {
-			return http.Serve(l, transportService.HTTPProxy.Server.Handler)
+			log.Print("starting http service")
+			return http.Serve(l, transport.HTTPProxy.Server.Handler)
 		}, func(err error) {
-			l.Close()
+			_ = l.Close()
 		})
 	}
 	{
 		// The gRPC listener mounts the Go kit gRPC server we created.
-		grpcListener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", transportService.HTTPProxy.Config.TransportConfig.RPCHost,
-			transportService.HTTPProxy.Config.TransportConfig.RPCPort))
+		grpcListener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", transport.Config.Transport.RPCHost,
+			transport.Config.Transport.RPCPort))
 		if err != nil {
 			log.Fatalf("failed to start http server\nerror: %v", err)
 		}
 		g.Add(func() error {
-			// we add the Go Kit gRPC Interceptor to our gRPC service as it is used by
+			// we add the Go Kit gRPC Interceptor to our gRPC usecase as it is used by
 			// the here demonstrated zipkin tracing middleware.
-			return transportService.RPCProxy.Serve(grpcListener)
+			log.Print("starting grpc service")
+			return transport.RPCProxy.Serve(grpcListener)
 		}, func(error) {
-			grpcListener.Close()
+			_ = grpcListener.Close()
 		})
 	}
 	{
-		// Set up signal handler
+		// Set up signal bind
 		var (
 			cancelInterrupt = make(chan struct{})
 			c               = make(chan os.Signal, 2)
@@ -68,5 +70,5 @@ func main() {
 		})
 	}
 
-	g.Run()
+	_ = g.Run()
 }

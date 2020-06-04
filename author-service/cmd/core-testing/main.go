@@ -2,14 +2,14 @@ package main
 
 import (
 	"errors"
+	"github.com/maestre3d/alexandria/author-service/internal/dependency"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/exception"
 	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/infrastructure/dependency"
 	"log"
 )
 
 func main() {
-	log.Print("Hello from author service")
+	log.Print("Hello from author usecase")
 	authorService, cleanup, err := dependency.InjectAuthorUseCase()
 	if err != nil {
 		panic(err)
