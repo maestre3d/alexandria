@@ -64,7 +64,7 @@ message UpdateRequest {
   string ownerID = 6;
   string verified = 7;
   string picture = 8;
-  map<string, string> owners = 9;
+  repeated OwnerMessage owners = 9;
 }
 
 message DeleteRequest {

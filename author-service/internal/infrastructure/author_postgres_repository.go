@@ -79,24 +79,18 @@ func (r *AuthorPostgresRepository) FetchByID(ctx context.Context, id string) (*d
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
 
-	conn, err := r.db.Conn(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = conn.Close()
-	}()
-	// Use Go CDK OpenCensus database metrics
-	_ = r.logger.Log("method", "author.infrastructure.postgres.fetchbyid", "db_connection", r.db.Stats().OpenConnections)
-
-	// Add cache-aside pattern
+	// Cache-aside pattern
 	if r.mem != nil {
 		authorChan := make(chan *domain.Author)
+		defer close(authorChan)
 
 		go func() {
 			if author, ok := Get(ctx, r.mem, id, tableName).(*domain.Author); ok {
 				authorChan <- author
+			} else {
+				authorChan <- nil
 			}
+			return
 		}()
 
 		select {
@@ -106,6 +100,16 @@ func (r *AuthorPostgresRepository) FetchByID(ctx context.Context, id string) (*d
 			}
 		}
 	}
+
+	conn, err := r.db.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = conn.Close()
+	}()
+	// Use Go CDK OpenCensus database metrics
+	_ = r.logger.Log("method", "author.infrastructure.postgres.fetchbyid", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `SELECT * FROM alexa1.author WHERE external_id = $1 AND active = TRUE`
 
@@ -122,8 +126,8 @@ func (r *AuthorPostgresRepository) FetchByID(ctx context.Context, id string) (*d
 	}
 
 	// Populate owners pool
-	statement = `SELECT "user", role_type FROM alexa1.author_user WHERE fk_author = $1`
-	rows, err := conn.QueryContext(ctx, statement)
+	statement = `SELECT "user", role_type FROM alexa1.author_user WHERE fk_author = $1 ORDER BY create_time ASC FETCH FIRST 10 ROWS ONLY`
+	rows, err := conn.QueryContext(ctx, statement, id)
 	if err != nil {
 		return nil, err
 	} else if rows.Err() != nil {
@@ -172,11 +176,15 @@ func (r *AuthorPostgresRepository) Fetch(ctx context.Context, params *core.Pagin
 
 	// Criteria map filter -> Query Builder
 	for filterType, value := range filterParams {
+		// Avoid nil values and comparison computation
+		if value == "" {
+			continue
+		}
 		switch {
-		case filterType == "query" && value != "":
+		case filterType == "query":
 			statement += AndCriteriaSQL(QueryCriteriaSQL(value))
 			continue
-		case filterType == "display_name" && value != "":
+		case filterType == "display_name":
 			statement += AndCriteriaSQL(DisplayNameCriteriaSQL(value))
 			continue
 		case filterType == "ownership_type":
@@ -188,25 +196,31 @@ func (r *AuthorPostgresRepository) Fetch(ctx context.Context, params *core.Pagin
 		}
 	}
 
+	// Show disabled rows
+	isActive := "TRUE"
+	if filterParams["show_disabled"] == "true" {
+		isActive = "FALSE"
+	}
+
 	// Keyset pagination
 	if params.Token != "" {
 		// If params contains any external_id token
 		if filterParams["timestamp"] == "false" {
-			statement += AndCriteriaSQL(fmt.Sprintf(`id >= (SELECT id FROM alexa1.author WHERE external_id = '%s' AND active = TRUE)`,
-				params.Token))
-			statement += fmt.Sprintf(`active = TRUE ORDER BY id ASC FETCH FIRST %d ROWS ONLY`, params.Size)
+			statement += AndCriteriaSQL(fmt.Sprintf(`id >= (SELECT id FROM alexa1.author WHERE external_id = '%s' AND active = %s)`,
+				params.Token, isActive))
+			statement += fmt.Sprintf(`active = %s ORDER BY id ASC FETCH FIRST %d ROWS ONLY`, isActive, params.Size)
 		} else {
 			// Timestamp/Most recent by default
-			statement += AndCriteriaSQL(fmt.Sprintf(`update_time <= (SELECT update_time FROM alexa1.author WHERE external_id = '%s' AND active = TRUE)`,
-				params.Token))
-			statement += fmt.Sprintf(`active = TRUE ORDER BY update_time DESC FETCH FIRST %d ROWS ONLY`, params.Size)
+			statement += AndCriteriaSQL(fmt.Sprintf(`update_time <= (SELECT update_time FROM alexa1.author WHERE external_id = '%s' AND active = %s)`,
+				params.Token, isActive))
+			statement += fmt.Sprintf(`active = %s ORDER BY update_time DESC FETCH FIRST %d ROWS ONLY`, isActive, params.Size)
 		}
 	} else {
 		if filterParams["timestamp"] == "false" {
-			statement += fmt.Sprintf(`active = TRUE ORDER BY id ASC FETCH FIRST %d ROWS ONLY`, params.Size)
+			statement += fmt.Sprintf(`active = %s ORDER BY id ASC FETCH FIRST %d ROWS ONLY`, isActive, params.Size)
 		} else {
 			// Timestamp/Most recent by default
-			statement += fmt.Sprintf(`active = TRUE ORDER BY update_time DESC FETCH FIRST %d ROWS ONLY`, params.Size)
+			statement += fmt.Sprintf(`active = %s ORDER BY update_time DESC FETCH FIRST %d ROWS ONLY`, isActive, params.Size)
 		}
 	}
 
@@ -274,7 +288,7 @@ func (r *AuthorPostgresRepository) Replace(ctx context.Context, author *domain.A
 	}
 
 	// Replace author's owners
-	statement = `DELETE FROM alexa1.author_user WHERE external_id = $1`
+	statement = `DELETE FROM alexa1.author_user WHERE fk_author = $1`
 	_, err = tx.ExecContext(ctx, statement, author.ExternalID)
 	if err != nil {
 		tx.Rollback()

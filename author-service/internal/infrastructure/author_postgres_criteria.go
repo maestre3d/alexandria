@@ -23,7 +23,7 @@ func OwnershipCriteriaSQL(ownershipType string) string {
 		return ""
 	}
 
-	return `ownership_type = LOWER('` + ownershipType + `)'`
+	return `ownership_type = '` + ownershipType + `'`
 }
 
 func OwnerCriteriaSQL(ownerID string) string {

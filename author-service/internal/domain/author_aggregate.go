@@ -8,7 +8,7 @@ type AuthorAggregate struct {
 	OwnerID       string `json:"owner_id"`
 }
 
-type ownersAggregate map[string]string
+type ownersAggregate []*Owner
 
 type AuthorUpdateAggregate struct {
 	ID            string

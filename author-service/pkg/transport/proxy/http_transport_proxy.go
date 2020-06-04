@@ -5,6 +5,7 @@ import (
 	"github.com/alexandria-oss/core"
 	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/httputil"
+	"github.com/rs/cors"
 	"io"
 	"net/http"
 
@@ -37,10 +38,11 @@ func NewHTTP(cfg *config.Kernel, handlers ...Handler) (*HTTP, func()) {
 	}
 
 	proxy.setHealthCheck()
-	// TODO: Change public policies to admin
 	proxy.setMetrics()
 
 	proxy.mapRoutes()
+
+	proxy.Server.Handler = cors.Default().Handler(r)
 
 	cleanup := func() {
 		server.Shutdown(context.Background())
@@ -58,7 +60,7 @@ func (p *HTTP) setHealthCheck() {
 }
 
 func (p *HTTP) setMetrics() {
-	p.publicRouter.PathPrefix("/metrics").Methods(http.MethodGet).Handler(promhttp.Handler())
+	p.adminRouter.PathPrefix("/metrics").Methods(http.MethodGet).Handler(promhttp.Handler())
 }
 
 func (p *HTTP) mapRoutes() {

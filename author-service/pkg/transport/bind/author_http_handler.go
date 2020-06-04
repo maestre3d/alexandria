@@ -16,6 +16,7 @@ import (
 	stdzipkin "github.com/openzipkin/zipkin-go"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"net/http"
+	"strings"
 
 	"github.com/go-kit/kit/log"
 	httptransport "github.com/go-kit/kit/transport/http"
@@ -67,12 +68,13 @@ func NewAuthorHTTP(svc usecase.AuthorInteractor, logger log.Logger, tracer stdop
 func (h *AuthorHandler) SetRoutes(public, private, admin *mux.Router) {
 	// Admin routing
 	arouter := admin.PathPrefix("/author").Subrouter()
-	arouter.Path("/{id}").Methods(http.MethodDelete).Handler(h.HardDelete())
+	arouter.Path("/{id}").Methods(http.MethodDelete, http.MethodOptions).Handler(h.HardDelete())
 	arouter.Path("/{id}").Methods(http.MethodPatch).Handler(h.Restore())
+	arouter.Use(mux.CORSMethodMiddleware(arouter))
 
 	// Public routing
 	r := public.PathPrefix("/author").Subrouter()
-	r.Path("").Methods(http.MethodPost).Handler(h.Create())
+	r.Path("").Methods(http.MethodPost, http.MethodOptions).Handler(h.Create())
 	r.Path("").Methods(http.MethodGet).Handler(h.List())
 	r.Path("/").Methods(http.MethodPost).Handler(h.Create())
 	r.Path("/").Methods(http.MethodGet).Handler(h.List())
@@ -80,6 +82,7 @@ func (h *AuthorHandler) SetRoutes(public, private, admin *mux.Router) {
 	r.Path("/{id}").Methods(http.MethodGet).Handler(h.Get())
 	r.Path("/{id}").Methods(http.MethodPatch, http.MethodPut).Handler(h.Update())
 	r.Path("/{id}").Methods(http.MethodDelete).Handler(h.Delete())
+	r.Use(mux.CORSMethodMiddleware(r))
 }
 
 func (h *AuthorHandler) Create() *httptransport.Server {
@@ -162,8 +165,12 @@ func decodeListRequest(_ context.Context, r *http.Request) (interface{}, error) 
 		PageToken: r.URL.Query().Get("page_token"),
 		PageSize:  r.URL.Query().Get("page_size"),
 		FilterParams: core.FilterParams{
-			"query":     r.URL.Query().Get("query"),
-			"timestamp": r.URL.Query().Get("timestamp"),
+			"query":          r.URL.Query().Get("query"),
+			"timestamp":      r.URL.Query().Get("timestamp"),
+			"display_name":   r.URL.Query().Get("display_name"),
+			"ownership_type": r.URL.Query().Get("ownership_type"),
+			"owner_id":       r.URL.Query().Get("owner_id"),
+			"show_disabled":  r.URL.Query().Get("show_disabled"),
 		},
 	}, nil
 }
@@ -173,23 +180,25 @@ func decodeGetRequest(_ context.Context, r *http.Request) (interface{}, error) {
 }
 
 func decodeUpdateRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	var bodyJSON action.UpdateRequest
-	err := json.NewDecoder(r.Body).Decode(&bodyJSON)
-	if err != nil {
-		return action.UpdateRequest{
-			ID:            mux.Vars(r)["id"],
-			FirstName:     r.PostFormValue("first_name"),
-			LastName:      r.PostFormValue("last_name"),
-			DisplayName:   r.PostFormValue("display_name"),
-			OwnershipType: r.PostFormValue("ownership_type"),
-			OwnerID:       r.PostFormValue("owner_id"),
-			Verified:      r.PostFormValue("verified"),
-			Picture:       r.PostFormValue("picture"),
-			Owners:        nil,
-		}, nil
+	if strings.Contains(r.Header.Get("Content-Type"), "json") {
+		var bodyJSON action.UpdateRequest
+		err := json.NewDecoder(r.Body).Decode(&bodyJSON)
+		if err == nil {
+			return bodyJSON, nil
+		}
 	}
 
-	return bodyJSON, nil
+	return action.UpdateRequest{
+		ID:            mux.Vars(r)["id"],
+		FirstName:     r.PostFormValue("first_name"),
+		LastName:      r.PostFormValue("last_name"),
+		DisplayName:   r.PostFormValue("display_name"),
+		OwnershipType: r.PostFormValue("ownership_type"),
+		OwnerID:       r.PostFormValue("owner_id"),
+		Verified:      r.PostFormValue("verified"),
+		Picture:       r.PostFormValue("picture"),
+		Owners:        nil,
+	}, nil
 }
 
 func decodeDeleteRequest(_ context.Context, r *http.Request) (interface{}, error) {

@@ -13,15 +13,15 @@ import (
 )
 
 type UpdateRequest struct {
-	ID            string            `json:"id"`
-	FirstName     string            `json:"first_name"`
-	LastName      string            `json:"last_name"`
-	DisplayName   string            `json:"display_name"`
-	OwnershipType string            `json:"ownership_type"`
-	OwnerID       string            `json:"owner_id"`
-	Verified      string            `json:"verified"`
-	Picture       string            `json:"picture"`
-	Owners        map[string]string `json:"owners"`
+	ID            string          `json:"id"`
+	FirstName     string          `json:"first_name"`
+	LastName      string          `json:"last_name"`
+	DisplayName   string          `json:"display_name"`
+	OwnershipType string          `json:"ownership_type"`
+	OwnerID       string          `json:"owner_id"`
+	Verified      string          `json:"verified"`
+	Picture       string          `json:"picture"`
+	Owners        []*domain.Owner `json:"owners"`
 }
 
 type UpdateResponse struct {
@@ -33,20 +33,19 @@ func MakeUpdateAuthorEndpoint(svc usecase.AuthorInteractor, logger log.Logger, d
 	tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
 	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(UpdateRequest)
-		rootAggr := &domain.AuthorAggregate{
-			FirstName:     req.FirstName,
-			LastName:      req.LastName,
-			DisplayName:   req.DisplayName,
-			OwnershipType: req.OwnershipType,
-			OwnerID:       req.OwnerID,
-		}
 
 		aggr := &domain.AuthorUpdateAggregate{
-			ID:            req.ID,
-			RootAggregate: rootAggr,
-			Owners:        req.Owners,
-			Verified:      req.Verified,
-			Picture:       req.Picture,
+			ID: req.ID,
+			RootAggregate: &domain.AuthorAggregate{
+				FirstName:     req.FirstName,
+				LastName:      req.LastName,
+				DisplayName:   req.DisplayName,
+				OwnershipType: req.OwnershipType,
+				OwnerID:       req.OwnerID,
+			},
+			Owners:   req.Owners,
+			Verified: req.Verified,
+			Picture:  req.Picture,
 		}
 
 		author, err := svc.Update(ctx, aggr)

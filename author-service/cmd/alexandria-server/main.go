@@ -70,5 +70,5 @@ func main() {
 		})
 	}
 
-	panic(g.Run())
+	_ = g.Run()
 }

@@ -6,9 +6,9 @@ import (
 	"github.com/alexandria-oss/core"
 	"github.com/alexandria-oss/core/exception"
 	"github.com/go-kit/kit/log"
-	"github.com/google/uuid"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
 	"strconv"
+	"time"
 )
 
 // AuthorUseCase Author interact actions
@@ -73,11 +73,6 @@ func (u *AuthorUseCase) List(ctx context.Context, pageToken, pageSize string, fi
 
 // Get Obtain one author
 func (u *AuthorUseCase) Get(ctx context.Context, id string) (*domain.Author, error) {
-	_, err := uuid.Parse(id)
-	if err != nil {
-		return nil, exception.InvalidID
-	}
-
 	return u.repository.FetchByID(ctx, id)
 }
 
@@ -85,7 +80,8 @@ func (u *AuthorUseCase) Get(ctx context.Context, id string) (*domain.Author, err
 func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpdateAggregate) (*domain.Author, error) {
 	// Check if body has values, if not return to avoid any transaction
 	if aggregate.RootAggregate.FirstName == "" && aggregate.RootAggregate.LastName == "" && aggregate.RootAggregate.DisplayName == "" &&
-		aggregate.RootAggregate.OwnershipType == "" && aggregate.RootAggregate.OwnerID == "" {
+		aggregate.RootAggregate.OwnershipType == "" && aggregate.RootAggregate.OwnerID == "" &&
+		len(aggregate.Owners) == 0 {
 		return nil, exception.EmptyBody
 	}
 
@@ -130,13 +126,33 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 		}
 	}
 
+	newOwners := make([]*domain.Owner, 0)
+	ownerCount := 0
 	// Add new owners
-	for id, role := range aggregate.Owners {
-		author.Owners = append(author.Owners, &domain.Owner{
-			ID:   id,
-			Role: role,
+	for _, owner := range aggregate.Owners {
+		if owner.Role == string(domain.OwnerRole) {
+			ownerCount++
+		}
+
+		// Avoid multiple owners
+		if ownerCount > 1 {
+			return nil, exception.NewErrorDescription(exception.InvalidFieldFormat,
+				fmt.Sprintf(exception.InvalidFieldFormatString, "owner_role", "just one user type owner"))
+		}
+
+		newOwners = append(newOwners, &domain.Owner{
+			ID:   owner.ID,
+			Role: owner.Role,
 		})
 	}
+	// Avoid non-owner user
+	if ownerCount == 0 {
+		return nil, exception.NewErrorDescription(exception.InvalidFieldFormat,
+			fmt.Sprintf(exception.InvalidFieldFormatString, "owner_role", "one user type owner"))
+	}
+
+	author.Owners = newOwners
+	author.UpdateTime = time.Now()
 
 	err = author.IsValid()
 	if err != nil {
@@ -156,12 +172,7 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 
 // Delete Remove an author from the store
 func (u *AuthorUseCase) Delete(ctx context.Context, id string) error {
-	_, err := uuid.Parse(id)
-	if err != nil {
-		return exception.InvalidID
-	}
-
-	err = u.repository.Remove(ctx, id)
+	err := u.repository.Remove(ctx, id)
 	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
 	go func() {
 		if err == nil {
@@ -178,12 +189,7 @@ func (u *AuthorUseCase) Delete(ctx context.Context, id string) error {
 
 // Restore recover an author from the store
 func (u *AuthorUseCase) Restore(ctx context.Context, id string) error {
-	_, err := uuid.Parse(id)
-	if err != nil {
-		return exception.InvalidID
-	}
-
-	err = u.repository.Restore(ctx, id)
+	err := u.repository.Restore(ctx, id)
 	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
 	go func() {
 		if err == nil {
@@ -200,12 +206,7 @@ func (u *AuthorUseCase) Restore(ctx context.Context, id string) error {
 
 // HardDelete Remove an author from the store permanently
 func (u *AuthorUseCase) HardDelete(ctx context.Context, id string) error {
-	_, err := uuid.Parse(id)
-	if err != nil {
-		return exception.InvalidID
-	}
-
-	err = u.repository.HardRemove(ctx, id)
+	err := u.repository.HardRemove(ctx, id)
 	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
 	go func() {
 		if err == nil {

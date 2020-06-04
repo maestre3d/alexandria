@@ -198,7 +198,7 @@ func decodeRPCUpdateRequest(_ context.Context, rpcReq interface{}) (interface{},
 		OwnerID:       req.OwnerID,
 		Verified:      req.Verified,
 		Picture:       req.Picture,
-		Owners:        req.Owners,
+		Owners:        parseOwnerMessages(req.Owners),
 	}, nil
 }
 
@@ -363,4 +363,20 @@ func parseOwners(owners []*domain.Owner) []*pb.OwnerMessage {
 	}
 
 	return ownersRPC
+}
+
+// Parse rpc owners to domain message
+func parseOwnerMessages(owners []*pb.OwnerMessage) []*domain.Owner {
+	// Parse rpc to domain
+	ownersDomain := make([]*domain.Owner, 0)
+	for _, owner := range owners {
+		ownerMsg := &domain.Owner{
+			ID:   owner.Id,
+			Role: owner.Role,
+		}
+
+		ownersDomain = append(ownersDomain, ownerMsg)
+	}
+
+	return ownersDomain
 }
