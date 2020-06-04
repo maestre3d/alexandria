@@ -2,8 +2,8 @@ package bind
 
 import (
 	"context"
-	"errors"
 	"github.com/alexandria-oss/core/exception"
+	"github.com/alexandria-oss/core/grpcutil"
 	"github.com/go-kit/kit/log"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/go-kit/kit/tracing/opentracing"
@@ -103,18 +103,12 @@ func NewAuthorRPC(svc usecase.AuthorInteractor, logger log.Logger, tracer stdope
 	}
 }
 
-/* RPC Binding/Implementations */
+/* RPC Action Binding/Implementations */
 
 func (a AuthorRPCServer) Create(ctx context.Context, req *pb.CreateRequest) (*pb.AuthorMessage, error) {
 	_, rep, err := a.create.ServeGRPC(ctx, req)
 	if err != nil {
-		if errors.Is(err, exception.InvalidFieldFormat) || errors.Is(err, exception.InvalidFieldRange) || errors.Is(err, exception.RequiredField) {
-			return nil, status.Error(codes.InvalidArgument, exception.GetErrorDescription(err))
-		} else if errors.Is(err, exception.EntityExists) {
-			return nil, status.Error(codes.AlreadyExists, err.Error())
-		}
-
-		return nil, err
+		return nil, grpcutil.ResponseErr(err)
 	}
 	return rep.(*pb.AuthorMessage), nil
 }
@@ -122,7 +116,7 @@ func (a AuthorRPCServer) Create(ctx context.Context, req *pb.CreateRequest) (*pb
 func (a AuthorRPCServer) List(ctx context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
 	_, rep, err := a.list.ServeGRPC(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, grpcutil.ResponseErr(err)
 	}
 	return rep.(*pb.ListResponse), nil
 }
@@ -130,7 +124,7 @@ func (a AuthorRPCServer) List(ctx context.Context, req *pb.ListRequest) (*pb.Lis
 func (a AuthorRPCServer) Get(ctx context.Context, req *pb.GetRequest) (*pb.AuthorMessage, error) {
 	_, rep, err := a.get.ServeGRPC(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, grpcutil.ResponseErr(err)
 	}
 	return rep.(*pb.AuthorMessage), nil
 }
@@ -138,13 +132,7 @@ func (a AuthorRPCServer) Get(ctx context.Context, req *pb.GetRequest) (*pb.Autho
 func (a AuthorRPCServer) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.AuthorMessage, error) {
 	_, rep, err := a.update.ServeGRPC(ctx, req)
 	if err != nil {
-		if errors.Is(err, exception.InvalidFieldFormat) || errors.Is(err, exception.InvalidFieldRange) || errors.Is(err, exception.RequiredField) {
-			return nil, status.Error(codes.InvalidArgument, exception.GetErrorDescription(err))
-		} else if errors.Is(err, exception.EntityExists) {
-			return nil, status.Error(codes.AlreadyExists, err.Error())
-		}
-
-		return nil, err
+		return nil, grpcutil.ResponseErr(err)
 	}
 	return rep.(*pb.AuthorMessage), nil
 }
@@ -152,7 +140,7 @@ func (a AuthorRPCServer) Update(ctx context.Context, req *pb.UpdateRequest) (*pb
 func (a AuthorRPCServer) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.Empty, error) {
 	_, rep, err := a.delete.ServeGRPC(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, grpcutil.ResponseErr(err)
 	}
 	return rep.(*pb.Empty), nil
 }
@@ -160,7 +148,7 @@ func (a AuthorRPCServer) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb
 func (a AuthorRPCServer) Restore(ctx context.Context, req *pb.RestoreRequest) (*pb.Empty, error) {
 	_, rep, err := a.restore.ServeGRPC(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, grpcutil.ResponseErr(err)
 	}
 	return rep.(*pb.Empty), nil
 }
@@ -168,7 +156,7 @@ func (a AuthorRPCServer) Restore(ctx context.Context, req *pb.RestoreRequest) (*
 func (a AuthorRPCServer) HardDelete(ctx context.Context, req *pb.HardDeleteRequest) (*pb.Empty, error) {
 	_, rep, err := a.hardDelete.ServeGRPC(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, grpcutil.ResponseErr(err)
 	}
 	return rep.(*pb.Empty), nil
 }

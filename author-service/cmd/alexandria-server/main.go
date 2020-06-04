@@ -27,6 +27,7 @@ func main() {
 			log.Fatalf("failed to start http server\nerror: %v", err)
 		}
 		g.Add(func() error {
+			log.Print("starting http service")
 			return http.Serve(l, transport.HTTPProxy.Server.Handler)
 		}, func(err error) {
 			_ = l.Close()
@@ -42,6 +43,7 @@ func main() {
 		g.Add(func() error {
 			// we add the Go Kit gRPC Interceptor to our gRPC usecase as it is used by
 			// the here demonstrated zipkin tracing middleware.
+			log.Print("starting grpc service")
 			return transport.RPCProxy.Serve(grpcListener)
 		}, func(error) {
 			_ = grpcListener.Close()

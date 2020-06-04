@@ -3,6 +3,8 @@ package proxy
 import (
 	"context"
 	"github.com/alexandria-oss/core"
+	"github.com/alexandria-oss/core/config"
+	"github.com/alexandria-oss/core/httputil"
 	"io"
 	"net/http"
 
@@ -22,18 +24,15 @@ type HTTP struct {
 	handlers      []Handler
 }
 
-func NewHTTP(server *http.Server, handlers ...Handler) (*HTTP, func()) {
-	router, ok := server.Handler.(*mux.Router)
-	if !ok {
-		server.Handler = mux.NewRouter()
-		router = server.Handler.(*mux.Router)
-	}
+func NewHTTP(cfg *config.Kernel, handlers ...Handler) (*HTTP, func()) {
+	r := mux.NewRouter()
+	server := httputil.DefaultServer(cfg, r)
 
 	proxy := &HTTP{
 		Server:        server,
-		publicRouter:  newHTTPPublicRouter(router),
-		privateRouter: newHTTPPrivateRouter(router),
-		adminRouter:   newHTTPAdminRouter(router),
+		publicRouter:  newHTTPPublicRouter(r),
+		privateRouter: newHTTPPrivateRouter(r),
+		adminRouter:   newHTTPAdminRouter(r),
 		handlers:      handlers,
 	}
 

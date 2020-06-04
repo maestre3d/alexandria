@@ -46,7 +46,7 @@ func NewAuthorHTTP(svc usecase.AuthorInteractor, logger log.Logger, tracer stdop
 	}, []string{"method", "success"})
 
 	options := []httptransport.ServerOption{
-		httptransport.ServerErrorEncoder(errorEncoder),
+		httptransport.ServerErrorEncoder(httputil.ResponseErrJSON),
 		kitoc.HTTPServerTrace(),
 		httptransport.ServerErrorHandler(transport.NewLogErrorHandler(logger)),
 	}
@@ -206,23 +206,23 @@ func decodeHardDeleteRequest(_ context.Context, r *http.Request) (interface{}, e
 
 /* Encode HTTP Response */
 
-func encodeCreateResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+func encodeCreateResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	r := response.(action.CreateResponse)
 	if r.Err != nil {
-		httputil.ResponseErrJSON(w, r.Err)
+		httputil.ResponseErrJSON(ctx, r.Err, w)
 		return nil
 	}
 
 	return json.NewEncoder(w).Encode(r)
 }
 
-func encodeListResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+func encodeListResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	r, ok := response.(action.ListResponse)
 	if ok {
 		if r.Err != nil {
-			httputil.ResponseErrJSON(w, r.Err)
+			httputil.ResponseErrJSON(ctx, r.Err, w)
 			return nil
 		} else if r.Err == nil && len(r.Authors) == 0 {
 			w.WriteHeader(http.StatusNotFound)
@@ -236,12 +236,12 @@ func encodeListResponse(_ context.Context, w http.ResponseWriter, response inter
 	return json.NewEncoder(w).Encode(r)
 }
 
-func encodeGetResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+func encodeGetResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	r, ok := response.(action.GetResponse)
 	if ok {
 		if r.Err != nil {
-			httputil.ResponseErrJSON(w, r.Err)
+			httputil.ResponseErrJSON(ctx, r.Err, w)
 			return nil
 		} else if r.Err == nil && r.Author == nil {
 			w.WriteHeader(http.StatusNotFound)
@@ -255,12 +255,12 @@ func encodeGetResponse(_ context.Context, w http.ResponseWriter, response interf
 	return json.NewEncoder(w).Encode(r)
 }
 
-func encodeUpdateResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+func encodeUpdateResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	r, ok := response.(action.UpdateResponse)
 	if ok {
 		if r.Err != nil {
-			httputil.ResponseErrJSON(w, r.Err)
+			httputil.ResponseErrJSON(ctx, r.Err, w)
 			return nil
 		}
 	}
@@ -268,12 +268,12 @@ func encodeUpdateResponse(_ context.Context, w http.ResponseWriter, response int
 	return json.NewEncoder(w).Encode(r)
 }
 
-func encodeDeleteResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+func encodeDeleteResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	r, ok := response.(action.DeleteResponse)
 	if ok {
 		if r.Err != nil {
-			httputil.ResponseErrJSON(w, r.Err)
+			httputil.ResponseErrJSON(ctx, r.Err, w)
 			return nil
 		}
 	}
@@ -281,12 +281,12 @@ func encodeDeleteResponse(_ context.Context, w http.ResponseWriter, response int
 	return json.NewEncoder(w).Encode(r)
 }
 
-func encodeRestoreResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+func encodeRestoreResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	r, ok := response.(action.RestoreResponse)
 	if ok {
 		if r.Err != nil {
-			httputil.ResponseErrJSON(w, r.Err)
+			httputil.ResponseErrJSON(ctx, r.Err, w)
 			return nil
 		}
 	}
@@ -294,22 +294,15 @@ func encodeRestoreResponse(_ context.Context, w http.ResponseWriter, response in
 	return json.NewEncoder(w).Encode(r)
 }
 
-func encodeHardDeleteResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+func encodeHardDeleteResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	r, ok := response.(action.HardDeleteResponse)
 	if ok {
 		if r.Err != nil {
-			httputil.ResponseErrJSON(w, r.Err)
+			httputil.ResponseErrJSON(ctx, r.Err, w)
 			return nil
 		}
 	}
 
 	return json.NewEncoder(w).Encode(r)
-}
-
-func errorEncoder(_ context.Context, err error, w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	code := httputil.ErrorToCode(err)
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(httputil.GenericResponse{Message: err.Error(), Code: code})
 }

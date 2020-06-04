@@ -2,12 +2,12 @@ package action
 
 import (
 	"context"
+	"github.com/alexandria-oss/core/middleware"
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
-	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
 )
@@ -52,8 +52,8 @@ func MakeCreateAuthorEndpoint(svc usecase.AuthorInteractor, logger log.Logger, d
 
 	// Required resiliency and instrumentation
 	action := "create"
-	ep = shared.WrapResiliency(ep, "author", action)
-	return shared.WrapInstrumentation(ep, "author", action, &shared.WrapInstrumentParams{
+	ep = middleware.WrapResiliency(ep, "author", action)
+	return middleware.WrapInstrumentation(ep, "author", action, &middleware.WrapInstrumentParams{
 		logger,
 		duration,
 		tracer,

@@ -9,17 +9,16 @@ import (
 	"context"
 	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/logger"
+	"github.com/alexandria-oss/core/tracer"
 	"github.com/go-kit/kit/log"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/author-service/internal/dependency"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"github.com/maestre3d/alexandria/author-service/pkg/service"
-	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/bind"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/proxy"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/tracer"
 )
 
 // Injectors from wire.go:
@@ -37,14 +36,13 @@ func InjectTransportService() (*service.Transport, func(), error) {
 		return nil, nil, err
 	}
 	zipkinTracer, cleanup2 := tracer.NewZipkin(kernel)
-	opentracingTracer := tracer.WrapOpenTracing(kernel, zipkinTracer)
+	opentracingTracer := tracer.WrapZipkinOpenTracing(kernel, zipkinTracer)
 	authorServer := bind.NewAuthorRPC(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
 	servers := provideRPCServers(authorServer)
 	server, cleanup3 := proxy.NewRPC(servers)
-	httpServer := shared.NewHTTPServer(kernel)
 	authorHandler := bind.NewAuthorHTTP(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
 	v := provideHTTPHandlers(authorHandler)
-	http, cleanup4 := proxy.NewHTTP(httpServer, v...)
+	http, cleanup4 := proxy.NewHTTP(kernel, v...)
 	transport := service.NewTransport(server, http, kernel)
 	return transport, func() {
 		cleanup4()
@@ -60,7 +58,7 @@ var authorInteractorSet = wire.NewSet(logger.NewZapLogger, provideAuthorInteract
 
 var httpProxySet = wire.NewSet(
 	authorInteractorSet,
-	provideContext, config.NewKernel, tracer.NewZipkin, tracer.WrapOpenTracing, bind.NewAuthorHTTP, provideHTTPHandlers, shared.NewHTTPServer, proxy.NewHTTP,
+	provideContext, config.NewKernel, tracer.NewZipkin, tracer.WrapZipkinOpenTracing, bind.NewAuthorHTTP, provideHTTPHandlers, proxy.NewHTTP,
 )
 
 var rpcProxySet = wire.NewSet(bind.NewAuthorRPC, provideRPCServers, proxy.NewRPC)

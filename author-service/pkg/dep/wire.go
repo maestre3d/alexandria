@@ -6,17 +6,16 @@ import (
 	"context"
 	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/logger"
+	"github.com/alexandria-oss/core/tracer"
 	"github.com/go-kit/kit/log"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/author-service/internal/dependency"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"github.com/maestre3d/alexandria/author-service/pkg/service"
-	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/bind"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/proxy"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/tracer"
 )
 
 var authorInteractorSet = wire.NewSet(
@@ -29,10 +28,9 @@ var httpProxySet = wire.NewSet(
 	provideContext,
 	config.NewKernel,
 	tracer.NewZipkin,
-	tracer.WrapOpenTracing,
+	tracer.WrapZipkinOpenTracing,
 	bind.NewAuthorHTTP,
 	provideHTTPHandlers,
-	shared.NewHTTPServer,
 	proxy.NewHTTP,
 )
 
