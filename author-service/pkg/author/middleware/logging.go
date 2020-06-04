@@ -20,7 +20,7 @@ func (mw LoggingAuthorMiddleware) Create(ctx context.Context, aggregate *domain.
 		mw.Logger.Log(
 			"method", "author.create",
 			"input", fmt.Sprintf("%s, %s, %s, %s, %s", aggregate.FirstName, aggregate.LastName, aggregate.DisplayName,
-				aggregate.BirthDate, aggregate.OwnerID),
+				aggregate.OwnershipType, aggregate.OwnerID),
 			"output", fmt.Sprintf("%+v", output),
 			"err", err,
 			"took", time.Since(begin),
@@ -62,19 +62,20 @@ func (mw LoggingAuthorMiddleware) Get(ctx context.Context, id string) (output *d
 	return
 }
 
-func (mw LoggingAuthorMiddleware) Update(ctx context.Context, id, status string, aggregate *domain.AuthorAggregate) (output *domain.Author, err error) {
+func (mw LoggingAuthorMiddleware) Update(ctx context.Context, aggregate *domain.AuthorUpdateAggregate) (output *domain.Author, err error) {
 	defer func(begin time.Time) {
 		mw.Logger.Log(
 			"method", "author.update",
-			"input", fmt.Sprintf("%s, %s, %s, %s, %s, %s", id, aggregate.FirstName, aggregate.LastName,
-				aggregate.DisplayName, aggregate.BirthDate, aggregate.OwnerID),
+			"input", fmt.Sprintf("%s, %s, %s, %s, %s, %s, %v, %s, %s", aggregate.ID, aggregate.RootAggregate.FirstName, aggregate.RootAggregate.LastName,
+				aggregate.RootAggregate.DisplayName, aggregate.RootAggregate.OwnershipType, aggregate.RootAggregate.OwnerID,
+				aggregate.Owners, aggregate.Verified, aggregate.Picture),
 			"output", fmt.Sprintf("%+v", output),
 			"err", err,
 			"took", time.Since(begin),
 		)
 	}(time.Now())
 
-	output, err = mw.Next.Update(ctx, id, status, aggregate)
+	output, err = mw.Next.Update(ctx, aggregate)
 	return
 }
 

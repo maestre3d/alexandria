@@ -13,11 +13,11 @@ import (
 )
 
 type CreateRequest struct {
-	FirstName   string `json:"first_name"`
-	LastName    string `json:"last_name"`
-	DisplayName string `json:"display_name"`
-	BirthDate   string `json:"birth_date"`
-	OwnerID     string `json:"owner_id"`
+	FirstName     string `json:"first_name"`
+	LastName      string `json:"last_name"`
+	DisplayName   string `json:"display_name"`
+	OwnershipType string `json:"ownership_type"`
+	OwnerID       string `json:"owner_id"`
 }
 
 type CreateResponse struct {
@@ -25,16 +25,17 @@ type CreateResponse struct {
 	Err    error          `json:"-"`
 }
 
-func MakeCreateAuthorEndpoint(svc usecase.AuthorInteractor, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
+func MakeCreateAuthorEndpoint(svc usecase.AuthorInteractor, logger log.Logger, duration metrics.Histogram,
+	tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
 	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(CreateRequest)
 
 		createdAuthor, err := svc.Create(ctx, &domain.AuthorAggregate{
-			FirstName:   req.FirstName,
-			LastName:    req.LastName,
-			DisplayName: req.DisplayName,
-			OwnerID:     req.OwnerID,
-			BirthDate:   req.BirthDate,
+			FirstName:     req.FirstName,
+			LastName:      req.LastName,
+			DisplayName:   req.DisplayName,
+			OwnershipType: req.OwnershipType,
+			OwnerID:       req.OwnerID,
 		})
 		if err != nil {
 			return CreateResponse{

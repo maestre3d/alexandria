@@ -11,6 +11,7 @@ type AuthorAggregate struct {
 type ownersAggregate map[string]string
 
 type AuthorUpdateAggregate struct {
+	ID            string
 	RootAggregate *AuthorAggregate
 	Owners        ownersAggregate
 	Verified      string

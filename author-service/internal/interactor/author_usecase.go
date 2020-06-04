@@ -82,7 +82,7 @@ func (u *AuthorUseCase) Get(ctx context.Context, id string) (*domain.Author, err
 }
 
 // Update Update an author dynamically
-func (u *AuthorUseCase) Update(ctx context.Context, id string, aggregate *domain.AuthorUpdateAggregate) (*domain.Author, error) {
+func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpdateAggregate) (*domain.Author, error) {
 	// Check if body has values, if not return to avoid any transaction
 	if aggregate.RootAggregate.FirstName == "" && aggregate.RootAggregate.LastName == "" && aggregate.RootAggregate.DisplayName == "" &&
 		aggregate.RootAggregate.OwnershipType == "" && aggregate.RootAggregate.OwnerID == "" {
@@ -90,7 +90,7 @@ func (u *AuthorUseCase) Update(ctx context.Context, id string, aggregate *domain
 	}
 
 	// Get previous version
-	author, err := u.Get(ctx, id)
+	author, err := u.Get(ctx, aggregate.ID)
 	if err != nil {
 		return nil, err
 	}

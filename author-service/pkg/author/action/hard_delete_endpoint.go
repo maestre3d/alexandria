@@ -19,7 +19,8 @@ type HardDeleteResponse struct {
 	Err error `json:"-"`
 }
 
-func MakeHardDeleteAuthorEndpoint(svc usecase.AuthorInteractor, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
+func MakeHardDeleteAuthorEndpoint(svc usecase.AuthorInteractor, logger log.Logger, duration metrics.Histogram,
+	tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
 	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(HardDeleteRequest)
 		err = svc.HardDelete(ctx, req.ID)

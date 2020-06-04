@@ -25,7 +25,8 @@ type ListResponse struct {
 	Err           error            `json:"-"`
 }
 
-func MakeListAuthorEndpoint(svc usecase.AuthorInteractor, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
+func MakeListAuthorEndpoint(svc usecase.AuthorInteractor, logger log.Logger, duration metrics.Histogram,
+	tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
 	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(ListRequest)
 		authors, nextToken, err := svc.List(ctx, req.PageToken, req.PageSize, req.FilterParams)

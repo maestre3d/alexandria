@@ -49,14 +49,14 @@ func (mw MetricAuthorMiddleware) Get(ctx context.Context, id string) (output *do
 	return
 }
 
-func (mw MetricAuthorMiddleware) Update(ctx context.Context, id, status string, aggregate *domain.AuthorAggregate) (output *domain.Author, err error) {
+func (mw MetricAuthorMiddleware) Update(ctx context.Context, aggregate *domain.AuthorUpdateAggregate) (output *domain.Author, err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "author.update", "error", fmt.Sprint(err != nil)}
 		mw.RequestCount.With(lvs...).Add(1)
 		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	output, err = mw.Next.Update(ctx, id, status, aggregate)
+	output, err = mw.Next.Update(ctx, aggregate)
 	return
 }
 
