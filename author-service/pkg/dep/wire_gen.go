@@ -16,7 +16,7 @@ import (
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/handler"
+	"github.com/maestre3d/alexandria/author-service/pkg/transport/bind"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/proxy"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/tracer"
@@ -36,11 +36,11 @@ func InjectTransportService() (*transport.TransportService, func(), error) {
 	kernelConfig := config.NewKernelConfig(context, logger)
 	zipkinTracer, cleanup2 := tracer.NewZipkinTracer(logger, kernelConfig)
 	opentracingTracer := tracer.NewOpenTracer(logger, kernelConfig, zipkinTracer)
-	authorServer := handler.NewAuthorRPCServer(iAuthorService, logger, opentracingTracer, zipkinTracer)
+	authorServer := bind.NewAuthorRPCServer(iAuthorService, logger, opentracingTracer, zipkinTracer)
 	rpcProxyHandlers := provideRPCProxyHandlers(authorServer)
 	server, cleanup3 := proxy.NewRPCTransportProxy(rpcProxyHandlers, logger, kernelConfig)
 	httpServer := shared.NewHTTPServer(logger, kernelConfig)
-	authorHandler := handler.NewAuthorHandler(iAuthorService, logger, opentracingTracer, zipkinTracer)
+	authorHandler := bind.NewAuthorHandler(iAuthorService, logger, opentracingTracer, zipkinTracer)
 	proxyHandlers := provideProxyHandlers(authorHandler)
 	httpTransportProxy, cleanup4 := proxy.NewHTTPTransportProxy(logger, httpServer, kernelConfig, proxyHandlers)
 	transportService := transport.NewTransportService(server, httpTransportProxy)
@@ -60,7 +60,7 @@ var authorServiceSet = wire.NewSet(
 )
 
 var proxyHandlersSet = wire.NewSet(
-	authorServiceSet, config.NewKernelConfig, tracer.NewOpenTracer, tracer.NewZipkinTracer, handler.NewAuthorHandler, provideProxyHandlers,
+	authorServiceSet, config.NewKernelConfig, tracer.NewOpenTracer, tracer.NewZipkinTracer, bind.NewAuthorHandler, provideProxyHandlers,
 )
 
 var httpProxySet = wire.NewSet(
@@ -68,7 +68,7 @@ var httpProxySet = wire.NewSet(
 	provideContext, shared.NewHTTPServer, proxy.NewHTTPTransportProxy,
 )
 
-var rpcProxyHandlersSet = wire.NewSet(handler.NewAuthorRPCServer, provideRPCProxyHandlers)
+var rpcProxyHandlersSet = wire.NewSet(bind.NewAuthorRPCServer, provideRPCProxyHandlers)
 
 var rpcProxySet = wire.NewSet(
 	rpcProxyHandlersSet, proxy.NewRPCTransportProxy,
@@ -94,7 +94,7 @@ func provideAuthorService(logger log.Logger) (usecase.IAuthorService, func(), er
 	return authorService, cleanup, err
 }
 
-func provideProxyHandlers(authorHandler *handler.AuthorHandler) *proxy.ProxyHandlers {
+func provideProxyHandlers(authorHandler *bind.AuthorHandler) *proxy.ProxyHandlers {
 	return &proxy.ProxyHandlers{authorHandler}
 }
 

@@ -65,7 +65,7 @@ func main() {
 
 	}
 	{
-		// Set up signal handler
+		// Set up signal bind
 		var (
 			cancelInterrupt = make(chan struct{})
 			c               = make(chan os.Signal, 2)

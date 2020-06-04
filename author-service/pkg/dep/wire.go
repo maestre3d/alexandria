@@ -13,7 +13,7 @@ import (
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/handler"
+	"github.com/maestre3d/alexandria/author-service/pkg/transport/bind"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/proxy"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/tracer"
@@ -31,7 +31,7 @@ var proxyHandlersSet = wire.NewSet(
 	config.NewKernelConfig,
 	tracer.NewOpenTracer,
 	tracer.NewZipkinTracer,
-	handler.NewAuthorHandler,
+	bind.NewAuthorHandler,
 	provideProxyHandlers,
 )
 
@@ -43,7 +43,7 @@ var httpProxySet = wire.NewSet(
 )
 
 var rpcProxyHandlersSet = wire.NewSet(
-	handler.NewAuthorRPCServer,
+	bind.NewAuthorRPCServer,
 	provideRPCProxyHandlers,
 )
 
@@ -72,7 +72,7 @@ func provideAuthorService(logger log.Logger) (usecase.IAuthorService, func(), er
 	return authorService, cleanup, err
 }
 
-func provideProxyHandlers(authorHandler *handler.AuthorHandler) *proxy.ProxyHandlers {
+func provideProxyHandlers(authorHandler *bind.AuthorHandler) *proxy.ProxyHandlers {
 	return &proxy.ProxyHandlers{authorHandler}
 }
 

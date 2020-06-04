@@ -1,24 +1,21 @@
-package handler
+package bind
 
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"github.com/alexandria-oss/core"
+	"github.com/alexandria-oss/core/exception"
+	"github.com/alexandria-oss/core/httputil"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	kitoc "github.com/go-kit/kit/tracing/opencensus"
 	"github.com/go-kit/kit/tracing/opentracing"
 	"github.com/go-kit/kit/tracing/zipkin"
 	"github.com/go-kit/kit/transport"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/exception"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/util"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
-	"github.com/maestre3d/alexandria/author-service/pkg/shared"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/helper"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"net/http"
-	"strings"
 
 	"github.com/go-kit/kit/log"
 	httptransport "github.com/go-kit/kit/transport/http"
@@ -27,7 +24,7 @@ import (
 )
 
 type AuthorHandler struct {
-	service      usecase.IAuthorService
+	service      usecase.AuthorInteractor
 	logger       log.Logger
 	duration     *kitprometheus.Summary
 	tracer       stdopentracing.Tracer
@@ -35,7 +32,7 @@ type AuthorHandler struct {
 	options      []httptransport.ServerOption
 }
 
-func NewAuthorHandler(svc usecase.IAuthorService, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) *AuthorHandler {
+func NewAuthorHandler(svc usecase.AuthorInteractor, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) *AuthorHandler {
 	duration := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
 		Namespace:   "alexandria",
 		Subsystem:   "author_service",
@@ -49,7 +46,7 @@ func NewAuthorHandler(svc usecase.IAuthorService, logger log.Logger, tracer stdo
 	}, []string{"method", "success"})
 
 	options := []httptransport.ServerOption{
-		httptransport.ServerErrorEncoder(helper.ErrorEncoder),
+		// httptransport.ServerErrorEncoder(helper.ErrorEncoder),
 		kitoc.HTTPServerTrace(),
 		httptransport.ServerErrorHandler(transport.NewLogErrorHandler(logger)),
 	}
@@ -64,6 +61,25 @@ func NewAuthorHandler(svc usecase.IAuthorService, logger log.Logger, tracer stdo
 	}
 
 	return &AuthorHandler{svc, logger, duration, tracer, zipkinTracer, options}
+}
+
+// SetRoutes implement Handler interface for HTTP Proxy
+func (h *AuthorHandler) SetRoutes(public, private, admin *mux.Router) {
+	// Admin routing
+	arouter := admin.PathPrefix("/author").Subrouter()
+	arouter.Path("/{id}").Methods(http.MethodDelete).Handler(h.HardDelete())
+	arouter.Path("/{id}").Methods(http.MethodPatch).Handler(h.Restore())
+
+	// Public routing
+	r := public.PathPrefix("/author").Subrouter()
+	r.Path("").Methods(http.MethodPost).Handler(h.Create())
+	r.Path("").Methods(http.MethodGet).Handler(h.List())
+	r.Path("/").Methods(http.MethodPost).Handler(h.Create())
+	r.Path("/").Methods(http.MethodGet).Handler(h.List())
+
+	r.Path("/{id}").Methods(http.MethodGet).Handler(h.Get())
+	r.Path("/{id}").Methods(http.MethodPatch, http.MethodPut).Handler(h.Update())
+	r.Path("/{id}").Methods(http.MethodDelete).Handler(h.Delete())
 }
 
 func (h *AuthorHandler) Create() *httptransport.Server {
@@ -111,14 +127,33 @@ func (h *AuthorHandler) Delete() *httptransport.Server {
 	)
 }
 
-/* Decoders/Encoders */
+func (h *AuthorHandler) Restore() *httptransport.Server {
+	return httptransport.NewServer(
+		action.MakeRestoreAuthorEndpoint(h.service, h.logger, h.duration, h.tracer, h.zipkinTracer),
+		decodeRestoreRequest,
+		encodeRestoreResponse,
+		append(h.options, httptransport.ServerBefore(opentracing.HTTPToContext(h.tracer, "Restore", h.logger)))...,
+	)
+}
+
+func (h *AuthorHandler) HardDelete() *httptransport.Server {
+	return httptransport.NewServer(
+		action.MakeHardDeleteAuthorEndpoint(h.service, h.logger, h.duration, h.tracer, h.zipkinTracer),
+		decodeHardDeleteRequest,
+		encodeHardDeleteResponse,
+		append(h.options, httptransport.ServerBefore(opentracing.HTTPToContext(h.tracer, "HardDelete", h.logger)))...,
+	)
+}
+
+/* Decode HTTP Request */
 
 func decodeCreateRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	return action.CreateRequest{
-		FirstName:   r.PostFormValue("first_name"),
-		LastName:    r.PostFormValue("last_name"),
-		DisplayName: r.PostFormValue("display_name"),
-		BirthDate:   r.PostFormValue("birth_date"),
+		FirstName:     r.PostFormValue("first_name"),
+		LastName:      r.PostFormValue("last_name"),
+		DisplayName:   r.PostFormValue("display_name"),
+		OwnershipType: r.PostFormValue("ownership_type"),
+		OwnerID:       r.PostFormValue("owner_id"),
 	}, nil
 }
 
@@ -126,7 +161,7 @@ func decodeListRequest(_ context.Context, r *http.Request) (interface{}, error) 
 	return action.ListRequest{
 		PageToken: r.URL.Query().Get("page_token"),
 		PageSize:  r.URL.Query().Get("page_size"),
-		FilterParams: util.FilterParams{
+		FilterParams: core.FilterParams{
 			"query":     r.URL.Query().Get("query"),
 			"timestamp": r.URL.Query().Get("timestamp"),
 		},
@@ -134,62 +169,69 @@ func decodeListRequest(_ context.Context, r *http.Request) (interface{}, error) 
 }
 
 func decodeGetRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	params := mux.Vars(r)
-	return action.GetRequest{params["id"]}, nil
+	return action.GetRequest{mux.Vars(r)["id"]}, nil
 }
 
 func decodeUpdateRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	return action.UpdateRequest{
-		ID:          mux.Vars(r)["id"],
-		FirstName:   r.PostFormValue("first_name"),
-		LastName:    r.PostFormValue("last_name"),
-		DisplayName: r.PostFormValue("display_name"),
-		BirthDate:   r.PostFormValue("birth_date"),
-	}, nil
+	var bodyJSON action.UpdateRequest
+	err := json.NewDecoder(r.Body).Decode(&bodyJSON)
+	if err != nil {
+		return action.UpdateRequest{
+			ID:            mux.Vars(r)["id"],
+			FirstName:     r.PostFormValue("first_name"),
+			LastName:      r.PostFormValue("last_name"),
+			DisplayName:   r.PostFormValue("display_name"),
+			OwnershipType: r.PostFormValue("ownership_type"),
+			OwnerID:       r.PostFormValue("owner_id"),
+			Verified:      r.PostFormValue("verified"),
+			Picture:       r.PostFormValue("picture"),
+			Owners:        nil,
+		}, nil
+	}
+
+	return bodyJSON, nil
 }
 
 func decodeDeleteRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	params := mux.Vars(r)
-	return action.DeleteRequest{params["id"]}, nil
+	return action.DeleteRequest{mux.Vars(r)["id"]}, nil
 }
+
+func decodeRestoreRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	return action.RestoreRequest{mux.Vars(r)["id"]}, nil
+}
+
+func decodeHardDeleteRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	return action.HardDeleteRequest{mux.Vars(r)["id"]}, nil
+}
+
+/* Encode HTTP Response */
 
 func encodeCreateResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	r, ok := response.(action.CreateResponse)
 	if ok {
 		if r.Err != nil {
-			if errors.Is(r.Err, exception.InvalidFieldFormat) || errors.Is(r.Err, exception.InvalidFieldRange) || errors.Is(r.Err, exception.RequiredField) {
-				errDesc := strings.Split(r.Err.Error(), ":")
-				w.WriteHeader(http.StatusBadRequest)
-				return json.NewEncoder(w).Encode(shared.Error{errDesc[len(errDesc)-1]})
-			} else if errors.Is(r.Err, exception.EntityExists) {
-				w.WriteHeader(http.StatusConflict)
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-
-			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
+			httputil.ResponseErrJSON(w, r.Err)
+			return nil
 		}
 	}
 
 	return json.NewEncoder(w).Encode(r)
 }
 
-func encodeListResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
+func encodeListResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	r, ok := response.(action.ListResponse)
 	if ok {
 		if r.Err != nil {
-			if errors.Is(r.Err, exception.InvalidID) {
-				w.WriteHeader(http.StatusBadRequest)
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-
-			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
+			httputil.ResponseErrJSON(w, r.Err)
+			return nil
 		} else if r.Err == nil && len(r.Authors) == 0 {
 			w.WriteHeader(http.StatusNotFound)
-			return json.NewEncoder(w).Encode(shared.Error{exception.EntitiesNotFound.Error()})
+			return json.NewEncoder(w).Encode(httputil.GenericResponse{
+				Message: exception.EntitiesNotFound.Error(),
+				Code:    http.StatusNotFound,
+			})
 		}
 	}
 
@@ -201,16 +243,14 @@ func encodeGetResponse(_ context.Context, w http.ResponseWriter, response interf
 	r, ok := response.(action.GetResponse)
 	if ok {
 		if r.Err != nil {
-			if errors.Is(r.Err, exception.InvalidID) {
-				w.WriteHeader(http.StatusBadRequest)
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-
-			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
+			httputil.ResponseErrJSON(w, r.Err)
+			return nil
 		} else if r.Err == nil && r.Author == nil {
 			w.WriteHeader(http.StatusNotFound)
-			return json.NewEncoder(w).Encode(shared.Error{exception.EntityNotFound.Error()})
+			return json.NewEncoder(w).Encode(httputil.GenericResponse{
+				Message: exception.EntityNotFound.Error(),
+				Code:    http.StatusNotFound,
+			})
 		}
 	}
 
@@ -222,19 +262,8 @@ func encodeUpdateResponse(_ context.Context, w http.ResponseWriter, response int
 	r, ok := response.(action.UpdateResponse)
 	if ok {
 		if r.Err != nil {
-			if errors.Is(r.Err, exception.InvalidFieldFormat) || errors.Is(r.Err, exception.InvalidFieldRange) {
-				errDesc := strings.Split(r.Err.Error(), ":")
-				w.WriteHeader(http.StatusBadRequest)
-				return json.NewEncoder(w).Encode(shared.Error{errDesc[len(errDesc)-1]})
-			} else if errors.Is(r.Err, exception.InvalidID) || errors.Is(r.Err, exception.EmptyBody) {
-				w.WriteHeader(http.StatusBadRequest)
-			} else if errors.Is(r.Err, exception.EntityExists) {
-				w.WriteHeader(http.StatusConflict)
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-
-			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
+			httputil.ResponseErrJSON(w, r.Err)
+			return nil
 		}
 	}
 
@@ -246,13 +275,34 @@ func encodeDeleteResponse(_ context.Context, w http.ResponseWriter, response int
 	r, ok := response.(action.DeleteResponse)
 	if ok {
 		if r.Err != nil {
-			if errors.Is(r.Err, exception.InvalidID) {
-				w.WriteHeader(http.StatusBadRequest)
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-			}
+			httputil.ResponseErrJSON(w, r.Err)
+			return nil
+		}
+	}
 
-			return json.NewEncoder(w).Encode(shared.Error{r.Err.Error()})
+	return json.NewEncoder(w).Encode(r)
+}
+
+func encodeRestoreResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	r, ok := response.(action.RestoreResponse)
+	if ok {
+		if r.Err != nil {
+			httputil.ResponseErrJSON(w, r.Err)
+			return nil
+		}
+	}
+
+	return json.NewEncoder(w).Encode(r)
+}
+
+func encodeHardDeleteResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	r, ok := response.(action.HardDeleteResponse)
+	if ok {
+		if r.Err != nil {
+			httputil.ResponseErrJSON(w, r.Err)
+			return nil
 		}
 	}
 

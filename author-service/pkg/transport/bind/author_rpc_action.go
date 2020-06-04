@@ -1,4 +1,4 @@
-package handler
+package bind
 
 import (
 	"context"
@@ -22,14 +22,16 @@ import (
 )
 
 type AuthorRPCServer struct {
-	create grpctransport.Handler
-	list   grpctransport.Handler
-	get    grpctransport.Handler
-	update grpctransport.Handler
-	delete grpctransport.Handler
+	create     grpctransport.Handler
+	list       grpctransport.Handler
+	get        grpctransport.Handler
+	update     grpctransport.Handler
+	delete     grpctransport.Handler
+	restore    grpctransport.Handler
+	hardDelete grpctransport.Handler
 }
 
-func NewAuthorRPCServer(svc usecase.IAuthorService, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) pb.AuthorServer {
+func NewAuthorRPCServer(svc usecase.AuthorInteractor, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) pb.AuthorServer {
 	duration := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
 		Namespace:   "alexandria",
 		Subsystem:   "rpc_author_service",

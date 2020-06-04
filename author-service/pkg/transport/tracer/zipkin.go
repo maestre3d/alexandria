@@ -8,7 +8,8 @@ import (
 	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
 )
 
-func NewZipkinTracer(cfg *config.Kernel) (*zipkin.Tracer, func()) {
+// NewZipkin returns a zipkin tracing consumer
+func NewZipkin(cfg *config.Kernel) (*zipkin.Tracer, func()) {
 	if cfg.Tracing.ZipkinHost != "" && cfg.Tracing.ZipkinEndpoint != "" {
 		zipkinReporter := zipkinhttp.NewReporter(cfg.Tracing.ZipkinHost)
 		cleanup := func() {
@@ -31,7 +32,8 @@ func NewZipkinTracer(cfg *config.Kernel) (*zipkin.Tracer, func()) {
 	return nil, nil
 }
 
-func WrapOpenTracer(cfg *config.Kernel, zipTracer *zipkin.Tracer) stdopentracing.Tracer {
+// WrapOpenTracing wraps the given zipkin consumer with OpenTracing
+func WrapOpenTracing(cfg *config.Kernel, zipTracer *zipkin.Tracer) stdopentracing.Tracer {
 	// Using zipkin with OpenTracing middleware
 	if cfg.Tracing.ZipkinBridge && zipTracer != nil {
 		return zipkinot.Wrap(zipTracer)

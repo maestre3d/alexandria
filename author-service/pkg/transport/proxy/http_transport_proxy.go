@@ -2,39 +2,38 @@ package proxy
 
 import (
 	"context"
+	"github.com/alexandria-oss/core"
+	"github.com/alexandria-oss/core/config"
 	"io"
 	"net/http"
 
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
-	"github.com/maestre3d/alexandria/author-service/internal/infrastructure/config"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/global"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/handler"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-type HTTPTransportProxy struct {
+type Handler interface {
+	SetRoutes(public, private, admin *mux.Router)
+}
+
+type HTTP struct {
 	Server        *http.Server
-	Config        *config.KernelConfig
+	Config        *config.Kernel
 	publicRouter  *mux.Router
 	privateRouter *mux.Router
 	adminRouter   *mux.Router
 	logger        log.Logger
-	handlers      *ProxyHandlers
+	handlers      []Handler
 }
 
-type ProxyHandlers struct {
-	AuthorHandler *handler.AuthorHandler
-}
-
-func NewHTTPTransportProxy(logger log.Logger, server *http.Server, cfg *config.KernelConfig, handlers *ProxyHandlers) (*HTTPTransportProxy, func()) {
+func NewHTTPTransportProxy(logger log.Logger, server *http.Server, cfg *config.Kernel, handlers ...Handler) (*HTTP, func()) {
 	router, ok := server.Handler.(*mux.Router)
 	if !ok {
 		server.Handler = mux.NewRouter()
 		router = server.Handler.(*mux.Router)
 	}
 
-	proxy := &HTTPTransportProxy{
+	proxy := &HTTP{
 		Server:        server,
 		Config:        cfg,
 		publicRouter:  newHTTPPublicRouter(router),
@@ -44,8 +43,8 @@ func NewHTTPTransportProxy(logger log.Logger, server *http.Server, cfg *config.K
 		handlers:      handlers,
 	}
 
-	// TODO: Change public policies to admin
 	proxy.setHealthCheck()
+	// TODO: Change public policies to admin
 	proxy.setMetrics()
 
 	proxy.mapRoutes()
@@ -57,7 +56,7 @@ func NewHTTPTransportProxy(logger log.Logger, server *http.Server, cfg *config.K
 	return proxy, cleanup
 }
 
-func (p *HTTPTransportProxy) setHealthCheck() {
+func (p *HTTP) setHealthCheck() {
 	p.publicRouter.PathPrefix("/health").Methods(http.MethodGet).HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Add("Content-Type", "application/json; charset=utf-8")
 		writer.WriteHeader(http.StatusOK)
@@ -65,30 +64,24 @@ func (p *HTTPTransportProxy) setHealthCheck() {
 	})
 }
 
-func (p *HTTPTransportProxy) setMetrics() {
+func (p *HTTP) setMetrics() {
 	p.publicRouter.PathPrefix("/metrics").Methods(http.MethodGet).Handler(promhttp.Handler())
 }
 
-func (p *HTTPTransportProxy) mapRoutes() {
-	authorRouter := p.publicRouter.PathPrefix("/author").Subrouter()
-	authorRouter.Path("").Methods(http.MethodPost).Handler(p.handlers.AuthorHandler.Create())
-	authorRouter.Path("").Methods(http.MethodGet).Handler(p.handlers.AuthorHandler.List())
-	authorRouter.Path("/").Methods(http.MethodPost).Handler(p.handlers.AuthorHandler.Create())
-	authorRouter.Path("/").Methods(http.MethodGet).Handler(p.handlers.AuthorHandler.List())
-
-	authorRouter.Path("/{id}").Methods(http.MethodGet).Handler(p.handlers.AuthorHandler.Get())
-	authorRouter.Path("/{id}").Methods(http.MethodPatch, http.MethodPut).Handler(p.handlers.AuthorHandler.Update())
-	authorRouter.Path("/{id}").Methods(http.MethodDelete).Handler(p.handlers.AuthorHandler.Delete())
+func (p *HTTP) mapRoutes() {
+	for _, handler := range p.handlers {
+		handler.SetRoutes(p.publicRouter, p.privateRouter, p.adminRouter)
+	}
 }
 
 func newHTTPPublicRouter(r *mux.Router) *mux.Router {
-	return r.PathPrefix(global.PublicAPI).Subrouter()
+	return r.PathPrefix(core.PublicAPI).Subrouter()
 }
 
 func newHTTPPrivateRouter(r *mux.Router) *mux.Router {
-	return r.PathPrefix(global.PrivateAPI).Subrouter()
+	return r.PathPrefix(core.PrivateAPI).Subrouter()
 }
 
 func newHTTPAdminRouter(r *mux.Router) *mux.Router {
-	return r.PathPrefix(global.AdminAPI).Subrouter()
+	return r.PathPrefix(core.AdminAPI).Subrouter()
 }
