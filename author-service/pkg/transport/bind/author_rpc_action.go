@@ -3,13 +3,14 @@ package bind
 import (
 	"context"
 	"errors"
+	"github.com/alexandria-oss/core/exception"
 	"github.com/go-kit/kit/log"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/go-kit/kit/tracing/opentracing"
 	"github.com/go-kit/kit/tracing/zipkin"
 	"github.com/go-kit/kit/transport"
 	grpctransport "github.com/go-kit/kit/transport/grpc"
-	"github.com/maestre3d/alexandria/author-service/internal/shared/domain/exception"
+	"github.com/maestre3d/alexandria/author-service/internal/domain"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/action"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
@@ -18,7 +19,6 @@ import (
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"strings"
 )
 
 type AuthorRPCServer struct {
@@ -31,7 +31,7 @@ type AuthorRPCServer struct {
 	hardDelete grpctransport.Handler
 }
 
-func NewAuthorRPCServer(svc usecase.AuthorInteractor, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) pb.AuthorServer {
+func NewAuthorRPC(svc usecase.AuthorInteractor, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) pb.AuthorServer {
 	duration := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
 		Namespace:   "alexandria",
 		Subsystem:   "rpc_author_service",
@@ -88,6 +88,18 @@ func NewAuthorRPCServer(svc usecase.AuthorInteractor, logger log.Logger, tracer 
 			encodeRPCDeleteResponse,
 			append(options, grpctransport.ServerBefore(opentracing.GRPCToContext(tracer, "Delete", logger)))...,
 		),
+		restore: grpctransport.NewServer(
+			action.MakeRestoreAuthorEndpoint(svc, logger, duration, tracer, zipkinTracer),
+			decodeRPCRestoreRequest,
+			encodeRPCRestoreResponse,
+			append(options, grpctransport.ServerBefore(opentracing.GRPCToContext(tracer, "Restore", logger)))...,
+		),
+		hardDelete: grpctransport.NewServer(
+			action.MakeHardDeleteAuthorEndpoint(svc, logger, duration, tracer, zipkinTracer),
+			decodeRPCHardDeleteRequest,
+			encodeRPCHardDeleteResponse,
+			append(options, grpctransport.ServerBefore(opentracing.GRPCToContext(tracer, "HardDelete", logger)))...,
+		),
 	}
 }
 
@@ -97,8 +109,7 @@ func (a AuthorRPCServer) Create(ctx context.Context, req *pb.CreateRequest) (*pb
 	_, rep, err := a.create.ServeGRPC(ctx, req)
 	if err != nil {
 		if errors.Is(err, exception.InvalidFieldFormat) || errors.Is(err, exception.InvalidFieldRange) || errors.Is(err, exception.RequiredField) {
-			errDesc := strings.Split(err.Error(), ":")
-			return nil, status.Error(codes.InvalidArgument, errDesc[len(errDesc)-1])
+			return nil, status.Error(codes.InvalidArgument, exception.GetErrorDescription(err))
 		} else if errors.Is(err, exception.EntityExists) {
 			return nil, status.Error(codes.AlreadyExists, err.Error())
 		}
@@ -128,8 +139,7 @@ func (a AuthorRPCServer) Update(ctx context.Context, req *pb.UpdateRequest) (*pb
 	_, rep, err := a.update.ServeGRPC(ctx, req)
 	if err != nil {
 		if errors.Is(err, exception.InvalidFieldFormat) || errors.Is(err, exception.InvalidFieldRange) || errors.Is(err, exception.RequiredField) {
-			errDesc := strings.Split(err.Error(), ":")
-			return nil, status.Error(codes.InvalidArgument, errDesc[len(errDesc)-1])
+			return nil, status.Error(codes.InvalidArgument, exception.GetErrorDescription(err))
 		} else if errors.Is(err, exception.EntityExists) {
 			return nil, status.Error(codes.AlreadyExists, err.Error())
 		}
@@ -147,14 +157,31 @@ func (a AuthorRPCServer) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb
 	return rep.(*pb.Empty), nil
 }
 
-/* Encoders/Decoders */
+func (a AuthorRPCServer) Restore(ctx context.Context, req *pb.RestoreRequest) (*pb.Empty, error) {
+	_, rep, err := a.restore.ServeGRPC(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return rep.(*pb.Empty), nil
+}
+
+func (a AuthorRPCServer) HardDelete(ctx context.Context, req *pb.HardDeleteRequest) (*pb.Empty, error) {
+	_, rep, err := a.hardDelete.ServeGRPC(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return rep.(*pb.Empty), nil
+}
+
+/* Decoders */
 func decodeRPCCreateRequest(_ context.Context, rpcReq interface{}) (interface{}, error) {
 	req := rpcReq.(*pb.CreateRequest)
 	return action.CreateRequest{
-		FirstName:   req.FirstName,
-		LastName:    req.LastName,
-		DisplayName: req.DisplayName,
-		BirthDate:   req.BirthDate,
+		FirstName:     req.FirstName,
+		LastName:      req.LastName,
+		DisplayName:   req.DisplayName,
+		OwnershipType: req.OwnershipType,
+		OwnerID:       req.OwnerID,
 	}, nil
 }
 
@@ -175,11 +202,15 @@ func decodeRPCGetRequest(_ context.Context, rpcReq interface{}) (interface{}, er
 func decodeRPCUpdateRequest(_ context.Context, rpcReq interface{}) (interface{}, error) {
 	req := rpcReq.(*pb.UpdateRequest)
 	return action.UpdateRequest{
-		ID:          req.Id,
-		FirstName:   req.FirstName,
-		LastName:    req.LastName,
-		DisplayName: req.DisplayName,
-		BirthDate:   req.BirthDate,
+		ID:            req.Id,
+		FirstName:     req.FirstName,
+		LastName:      req.LastName,
+		DisplayName:   req.DisplayName,
+		OwnershipType: req.OwnershipType,
+		OwnerID:       req.OwnerID,
+		Verified:      req.Verified,
+		Picture:       req.Picture,
+		Owners:        req.Owners,
 	}, nil
 }
 
@@ -187,6 +218,18 @@ func decodeRPCDeleteRequest(_ context.Context, rpcReq interface{}) (interface{},
 	req := rpcReq.(*action.DeleteRequest)
 	return action.DeleteRequest{ID: req.ID}, nil
 }
+
+func decodeRPCRestoreRequest(_ context.Context, rpcReq interface{}) (interface{}, error) {
+	req := rpcReq.(*action.RestoreRequest)
+	return action.RestoreRequest{req.ID}, nil
+}
+
+func decodeRPCHardDeleteRequest(_ context.Context, rpcReq interface{}) (interface{}, error) {
+	req := rpcReq.(*action.HardDeleteRequest)
+	return action.HardDeleteRequest{req.ID}, nil
+}
+
+/* Encoders */
 
 func encodeRPCCreateResponse(_ context.Context, response interface{}) (interface{}, error) {
 	res := response.(action.CreateResponse)
@@ -199,13 +242,16 @@ func encodeRPCCreateResponse(_ context.Context, response interface{}) (interface
 	}
 
 	return &pb.AuthorMessage{
-		Id:          res.Author.ExternalID,
-		FirstName:   res.Author.FirstName,
-		LastName:    res.Author.LastName,
-		DisplayName: res.Author.DisplayName,
-		BirthDate:   res.Author.BirthDate.String(),
-		CreateTime:  res.Author.CreateTime.String(),
-		UpdateTime:  res.Author.UpdateTime.String(),
+		Id:            res.Author.ExternalID,
+		FirstName:     res.Author.FirstName,
+		LastName:      res.Author.LastName,
+		DisplayName:   res.Author.DisplayName,
+		OwnershipType: res.Author.OwnershipType,
+		CreateTime:    res.Author.CreateTime.String(),
+		UpdateTime:    res.Author.UpdateTime.String(),
+		Verified:      res.Author.Verified,
+		Picture:       *res.Author.Picture,
+		Owners:        parseOwners(res.Author.Owners),
 	}, nil
 }
 
@@ -222,13 +268,16 @@ func encodeRPCListResponse(_ context.Context, response interface{}) (interface{}
 	authorsRPC := make([]*pb.AuthorMessage, 0)
 	for _, author := range res.Authors {
 		authorRPC := &pb.AuthorMessage{
-			Id:          author.ExternalID,
-			FirstName:   author.FirstName,
-			LastName:    author.LastName,
-			DisplayName: author.DisplayName,
-			BirthDate:   author.BirthDate.String(),
-			CreateTime:  author.CreateTime.String(),
-			UpdateTime:  author.UpdateTime.String(),
+			Id:            author.ExternalID,
+			FirstName:     author.FirstName,
+			LastName:      author.LastName,
+			DisplayName:   author.DisplayName,
+			OwnershipType: author.OwnershipType,
+			CreateTime:    author.CreateTime.String(),
+			UpdateTime:    author.UpdateTime.String(),
+			Verified:      author.Verified,
+			Picture:       *author.Picture,
+			Owners:        parseOwners(author.Owners),
 		}
 		authorsRPC = append(authorsRPC, authorRPC)
 	}
@@ -250,13 +299,16 @@ func encodeRPCGetResponse(_ context.Context, response interface{}) (interface{},
 	}
 
 	return &pb.AuthorMessage{
-		Id:          res.Author.ExternalID,
-		FirstName:   res.Author.FirstName,
-		LastName:    res.Author.LastName,
-		DisplayName: res.Author.DisplayName,
-		BirthDate:   res.Author.BirthDate.String(),
-		CreateTime:  res.Author.CreateTime.String(),
-		UpdateTime:  res.Author.UpdateTime.String(),
+		Id:            res.Author.ExternalID,
+		FirstName:     res.Author.FirstName,
+		LastName:      res.Author.LastName,
+		DisplayName:   res.Author.DisplayName,
+		OwnershipType: res.Author.OwnershipType,
+		CreateTime:    res.Author.CreateTime.String(),
+		UpdateTime:    res.Author.UpdateTime.String(),
+		Verified:      res.Author.Verified,
+		Picture:       *res.Author.Picture,
+		Owners:        parseOwners(res.Author.Owners),
 	}, nil
 }
 
@@ -271,13 +323,16 @@ func encodeRPCUpdateResponse(_ context.Context, response interface{}) (interface
 	}
 
 	return &pb.AuthorMessage{
-		Id:          res.Author.ExternalID,
-		FirstName:   res.Author.FirstName,
-		LastName:    res.Author.LastName,
-		DisplayName: res.Author.DisplayName,
-		BirthDate:   res.Author.BirthDate.String(),
-		CreateTime:  res.Author.CreateTime.String(),
-		UpdateTime:  res.Author.UpdateTime.String(),
+		Id:            res.Author.ExternalID,
+		FirstName:     res.Author.FirstName,
+		LastName:      res.Author.LastName,
+		DisplayName:   res.Author.DisplayName,
+		OwnershipType: res.Author.OwnershipType,
+		CreateTime:    res.Author.CreateTime.String(),
+		UpdateTime:    res.Author.UpdateTime.String(),
+		Verified:      res.Author.Verified,
+		Picture:       *res.Author.Picture,
+		Owners:        parseOwners(res.Author.Owners),
 	}, nil
 }
 
@@ -288,4 +343,36 @@ func encodeRPCDeleteResponse(_ context.Context, response interface{}) (interface
 	}
 
 	return nil, nil
+}
+
+func encodeRPCRestoreResponse(_ context.Context, response interface{}) (interface{}, error) {
+	res := response.(action.RestoreResponse)
+	if res.Err != nil {
+		return nil, res.Err
+	}
+	return nil, nil
+}
+
+func encodeRPCHardDeleteResponse(_ context.Context, response interface{}) (interface{}, error) {
+	res := response.(action.HardDeleteResponse)
+	if res.Err != nil {
+		return nil, res.Err
+	}
+	return nil, nil
+}
+
+// Parse domain owners to rpc message
+func parseOwners(owners []*domain.Owner) []*pb.OwnerMessage {
+	// Parse domain to rpc
+	ownersRPC := make([]*pb.OwnerMessage, 0)
+	for _, owner := range owners {
+		ownerMsg := &pb.OwnerMessage{
+			Id:   owner.ID,
+			Role: owner.Role,
+		}
+
+		ownersRPC = append(ownersRPC, ownerMsg)
+	}
+
+	return ownersRPC
 }

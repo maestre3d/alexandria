@@ -9,6 +9,13 @@ service Author {
   rpc Get(GetRequest) returns (AuthorMessage) {}
   rpc Update(UpdateRequest) returns (AuthorMessage) {}
   rpc Delete(DeleteRequest) returns (Empty) {}
+  rpc Restore(RestoreRequest) returns (Empty) {}
+  rpc HardDelete(HardDeleteRequest) returns (Empty) {}
+}
+
+message OwnerMessage {
+  string id = 1;
+  string role = 2;
 }
 
 message AuthorMessage {
@@ -16,9 +23,12 @@ message AuthorMessage {
   string firstName = 2;
   string lastName = 3;
   string displayName = 4;
-  string birthDate = 5;
+  string ownershipType = 5;
   string createTime = 6;
   string updateTime = 7;
+  bool verified = 8;
+  string picture = 9;
+  repeated OwnerMessage owners = 10;
 }
 
 /* Body */
@@ -26,7 +36,8 @@ message CreateRequest {
   string firstName = 1;
   string lastName = 2;
   string displayName = 3;
-  string birthDate = 4;
+  string ownershipType = 4;
+  string ownerID = 5;
 }
 
 message ListRequest {
@@ -49,10 +60,22 @@ message UpdateRequest {
   string firstName = 2;
   string lastName = 3;
   string displayName = 4;
-  string birthDate = 5;
+  string ownershipType = 5;
+  string ownerID = 6;
+  string verified = 7;
+  string picture = 8;
+  map<string, string> owners = 9;
 }
 
 message DeleteRequest {
+  string id = 1;
+}
+
+message RestoreRequest {
+  string id = 1;
+}
+
+message HardDeleteRequest {
   string id = 1;
 }
 

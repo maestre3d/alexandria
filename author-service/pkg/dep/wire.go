@@ -4,84 +4,70 @@ package dep
 
 import (
 	"context"
+	"github.com/alexandria-oss/core/config"
+	"github.com/alexandria-oss/core/logger"
 	"github.com/go-kit/kit/log"
-	logzap "github.com/go-kit/kit/log/zap"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/author-service/internal/dependency"
-	"github.com/maestre3d/alexandria/author-service/internal/infrastructure/config"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
+	"github.com/maestre3d/alexandria/author-service/pkg/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/shared"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/bind"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/proxy"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/tracer"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
-var authorServiceSet = wire.NewSet(
-	provideLogger,
-	provideAuthorService,
-)
-
-var proxyHandlersSet = wire.NewSet(
-	authorServiceSet,
-	config.NewKernelConfig,
-	tracer.NewOpenTracer,
-	tracer.NewZipkinTracer,
-	bind.NewAuthorHandler,
-	provideProxyHandlers,
+var authorInteractorSet = wire.NewSet(
+	logger.NewZapLogger,
+	provideAuthorInteractor,
 )
 
 var httpProxySet = wire.NewSet(
-	proxyHandlersSet,
+	authorInteractorSet,
 	provideContext,
+	config.NewKernel,
+	tracer.NewZipkin,
+	tracer.WrapOpenTracing,
+	bind.NewAuthorHTTP,
+	provideHTTPHandlers,
 	shared.NewHTTPServer,
-	proxy.NewHTTPTransportProxy,
-)
-
-var rpcProxyHandlersSet = wire.NewSet(
-	bind.NewAuthorRPCServer,
-	provideRPCProxyHandlers,
+	proxy.NewHTTP,
 )
 
 var rpcProxySet = wire.NewSet(
-	rpcProxyHandlersSet,
-	proxy.NewRPCTransportProxy,
+	bind.NewAuthorRPC,
+	provideRPCServers,
+	proxy.NewRPC,
 )
 
 func provideContext() context.Context {
 	return context.Background()
 }
 
-func provideLogger() log.Logger {
-	zapLogger, _ := zap.NewProduction()
-	defer zapLogger.Sync()
-	level := zapcore.Level(8)
-
-	return logzap.NewZapSugarLogger(zapLogger, level)
-}
-
-func provideAuthorService(logger log.Logger) (usecase.IAuthorService, func(), error) {
+func provideAuthorInteractor(logger log.Logger) (usecase.AuthorInteractor, func(), error) {
 	authorUseCase, cleanup, err := dependency.InjectAuthorUseCase()
 
-	authorService := author.NewAuthorService(authorUseCase, logger)
+	authorService := author.WrapAuthorInstrumentation(authorUseCase, logger)
 
 	return authorService, cleanup, err
 }
 
-func provideProxyHandlers(authorHandler *bind.AuthorHandler) *proxy.ProxyHandlers {
-	return &proxy.ProxyHandlers{authorHandler}
+// Bind/Map used http handlers
+func provideHTTPHandlers(authorHandler *bind.AuthorHandler) []proxy.Handler {
+	handlers := make([]proxy.Handler, 0)
+	handlers = append(handlers, authorHandler)
+	return handlers
 }
 
-func provideRPCProxyHandlers(authorHandler pb.AuthorServer) *proxy.RPCProxyHandlers {
-	return &proxy.RPCProxyHandlers{authorHandler}
+// Bind/Map used rpc actions
+func provideRPCServers(authorHandler pb.AuthorServer) *proxy.Servers {
+	return &proxy.Servers{authorHandler}
 }
 
-func InjectTransportService() (*transport.TransportService, func(), error) {
-	wire.Build(httpProxySet, rpcProxySet, transport.NewTransportService)
+func InjectTransportService() (*service.Transport, func(), error) {
+	wire.Build(httpProxySet, rpcProxySet, service.NewTransport)
 
-	return &transport.TransportService{}, nil, nil
+	return &service.Transport{}, nil, nil
 }

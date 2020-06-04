@@ -32,7 +32,7 @@ type AuthorHandler struct {
 	options      []httptransport.ServerOption
 }
 
-func NewAuthorHandler(svc usecase.AuthorInteractor, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) *AuthorHandler {
+func NewAuthorHTTP(svc usecase.AuthorInteractor, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) *AuthorHandler {
 	duration := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
 		Namespace:   "alexandria",
 		Subsystem:   "author_service",
@@ -46,7 +46,7 @@ func NewAuthorHandler(svc usecase.AuthorInteractor, logger log.Logger, tracer st
 	}, []string{"method", "success"})
 
 	options := []httptransport.ServerOption{
-		// httptransport.ServerErrorEncoder(helper.ErrorEncoder),
+		httptransport.ServerErrorEncoder(errorEncoder),
 		kitoc.HTTPServerTrace(),
 		httptransport.ServerErrorHandler(transport.NewLogErrorHandler(logger)),
 	}
@@ -208,12 +208,10 @@ func decodeHardDeleteRequest(_ context.Context, r *http.Request) (interface{}, e
 
 func encodeCreateResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	r, ok := response.(action.CreateResponse)
-	if ok {
-		if r.Err != nil {
-			httputil.ResponseErrJSON(w, r.Err)
-			return nil
-		}
+	r := response.(action.CreateResponse)
+	if r.Err != nil {
+		httputil.ResponseErrJSON(w, r.Err)
+		return nil
 	}
 
 	return json.NewEncoder(w).Encode(r)
@@ -307,4 +305,11 @@ func encodeHardDeleteResponse(_ context.Context, w http.ResponseWriter, response
 	}
 
 	return json.NewEncoder(w).Encode(r)
+}
+
+func errorEncoder(_ context.Context, err error, w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	code := httputil.ErrorToCode(err)
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(httputil.GenericResponse{Message: err.Error(), Code: code})
 }

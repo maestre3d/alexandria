@@ -3,11 +3,9 @@ package proxy
 import (
 	"context"
 	"github.com/alexandria-oss/core"
-	"github.com/alexandria-oss/core/config"
 	"io"
 	"net/http"
 
-	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -18,15 +16,13 @@ type Handler interface {
 
 type HTTP struct {
 	Server        *http.Server
-	Config        *config.Kernel
 	publicRouter  *mux.Router
 	privateRouter *mux.Router
 	adminRouter   *mux.Router
-	logger        log.Logger
 	handlers      []Handler
 }
 
-func NewHTTPTransportProxy(logger log.Logger, server *http.Server, cfg *config.Kernel, handlers ...Handler) (*HTTP, func()) {
+func NewHTTP(server *http.Server, handlers ...Handler) (*HTTP, func()) {
 	router, ok := server.Handler.(*mux.Router)
 	if !ok {
 		server.Handler = mux.NewRouter()
@@ -35,11 +31,9 @@ func NewHTTPTransportProxy(logger log.Logger, server *http.Server, cfg *config.K
 
 	proxy := &HTTP{
 		Server:        server,
-		Config:        cfg,
 		publicRouter:  newHTTPPublicRouter(router),
 		privateRouter: newHTTPPrivateRouter(router),
 		adminRouter:   newHTTPAdminRouter(router),
-		logger:        logger,
 		handlers:      handlers,
 	}
 

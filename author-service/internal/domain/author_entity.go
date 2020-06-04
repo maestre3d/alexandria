@@ -25,7 +25,7 @@ const (
 
 // Owner represents user with permissions from the author
 type Owner struct {
-	ID   string `json:"owner_id"`
+	ID   string `json:"owner_id" validate:"required"`
 	Role string `json:"role" validate:"required,alphaunicode,oneof=owner admin contrib"`
 }
 
@@ -55,7 +55,7 @@ type Author struct {
 	Active        bool       `json:"-"`
 	Verified      bool       `json:"verified"`
 	Picture       *string    `json:"picture"`
-	Owners        []*Owner   `json:"owners" validate:"required,min=1,dive"`
+	Owners        []*Owner   `json:"owners,omitempty" validate:"required,min=1,dive"`
 }
 
 // NewAuthor Create a new author

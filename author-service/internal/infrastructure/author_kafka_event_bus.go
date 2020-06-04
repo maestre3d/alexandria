@@ -95,7 +95,7 @@ func (b *AuthorKafkaEventBus) Deleted(ctx context.Context, id string, isHard boo
 	})
 }
 
-func (b *AuthorKafkaEventBus) Restore(ctx context.Context, id string) error {
+func (b *AuthorKafkaEventBus) Restored(ctx context.Context, id string) error {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
