@@ -31,9 +31,9 @@ _From Netflix Engineering, [click here](https://netflixtechblog.com/ready-for-ch
 
 Therefore, we use our own API architecture implementing a Proxy pattern to hide our transport services implementation (like HTTP).
 
-The following HTTP Proxy Service architecture **should** be used whenever a new HTTP Service is required.
+The following application architecture **should** be used whenever a new service is created.
 
-![Alexandria HTTP Proxy Service architecture](https://raw.githubusercontent.com/maestre3d/alexandria/master/docs/Alexandria_http_service.png "Alexandria HTTP Proxy Service architecture")
+![Alexandria HTTP Proxy Service architecture](https://raw.githubusercontent.com/maestre3d/alexandria/master/docs/Alexandria%20Service.png "Alexandria HTTP Proxy Service architecture")
 
 
 ## Concurrency
@@ -140,6 +140,7 @@ For every single release, all software deployed **must** use [Semantic Versionin
 
 ## 3rd-Party Packages
 The following specified packages **must** be used for every new service written.
+- Alexandria-OSS Core - Main core for our services
 - Gorilla Mux - HTTP Mux/Router
 - Go Redis - Redis client
 - Google UUID - UUID lib
