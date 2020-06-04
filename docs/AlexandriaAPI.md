@@ -3,14 +3,14 @@ To build a simple and comprehensible API, Alexandria crafted its API with help o
 
 In the following section, we define our API’s key concepts.
 
-| **Type**                |  **Name**                            |
-|-------------------------|:------------------------------------:|
-| **Product**             |  **Alexandria** API                  |
-| **Service**             |  alexandria.maestreapis.com          |
-| **Package**             |  maestre.alexandria.v1               |
-| **Interface**           |  maestre.alexandria.v1.ServiceName   |
-| **Source Directory**    |  //maestre/alexandria/v1             |
-| **API**                 |  alexandria                          |
+| **Type**                |  **Name**                                 |
+|-------------------------|:-----------------------------------------:|
+| **Product**             |  **Alexandria** API                       |
+| **Service**             |  alexandria-api.damascus-engineering.com  |
+| **Package**             |  maestre.alexandria.v1                    |
+| **Interface**           |  maestre.alexandria.v1.ServiceName        |
+| **Source Directory**    |  //maestre/alexandria/v1                  |
+| **API**                 |  alexandria                               |
 
 
 ## Resources (Endpoints)
@@ -34,26 +34,32 @@ In the following list, we define our API’s resources and collection IDs.
 
 _*Refresh uses HttpOnly-Cookies, Set-Cookie:refresh_token_
 
+_*Could be overriden by any Identity provider like AWS Cognito_
+
 _For more information, please [click here](https://hasura.io/blog/best-practices-of-using-jwt-with-graphql/)._
 
 ### Author API
-| Method     |     HTTP Mapping                    |  HTTP Request body |  HTTP Response body    |
-|------------|:-----------------------------------:|:------------------:|:----------------------:|
-| **List**   |  GET /author                        |   N/A              |   Author* list         |
-| **Create** |  POST /author                       |   Author           |   Author*              |
-| **Get**    |  GET /author/{author-id}            |   N/A              |   Author*              |
-| **Update** |  PUT or PATCH /author/{author-id}   |   Author           |   Author*              |
-| **Delete** |  DELETE /author/{author-id}         |   N/A              |   protobuf.empty/{}    |
+| Method              |     HTTP Mapping                    |  HTTP Request body |  HTTP Response body    |
+|---------------------|:-----------------------------------:|:------------------:|:----------------------:|
+| **List**            |  GET /author                        |   N/A              |   Author* list         |
+| **Create**          |  POST /author                       |   Author           |   Author*              |
+| **Get**             |  GET /author/{author-id}            |   N/A              |   Author*              |
+| **Update**          |  PUT or PATCH /author/{author-id}   |   Author           |   Author*              |
+| **Delete**          |  DELETE /author/{author-id}         |   N/A              |   protobuf.empty/{}    |
+| **Restore/Active**  |  PATCH /admin/author/{author-id}    |   N/A              |   protobuf.empty/{}    |
+| **HardDelete**      |  DELETE /admin/author/{author-id}   |   N/A              |   protobuf.empty/{}    |
 
 
 ### Media API
-| Method     |     HTTP Mapping                  |  HTTP Request body |  HTTP Response body   |
-|------------|:---------------------------------:|:------------------:|:---------------------:|
-| **List**   |  GET /media                       |   N/A              |   Media* list         |
-| **Create** |  POST /media                      |   Media            |   Media*              |
-| **Get**    |  GET /media/{media-id}            |   N/A              |   Media*              |
-| **Update** |  PUT or PATCH /media/{media-id}   |   Media            |   Media*              |
-| **Delete** |  DELETE /media/{media-id}         |   N/A              |   protobuf.empty/{}   |
+| Method              |     HTTP Mapping                  |  HTTP Request body |  HTTP Response body   |
+|---------------------|:---------------------------------:|:------------------:|:---------------------:|
+| **List**            |  GET /media                       |   N/A              |   Media* list         |
+| **Create**          |  POST /media                      |   Media            |   Media*              |
+| **Get**             |  GET /media/{media-id}            |   N/A              |   Media*              |
+| **Update**          |  PUT or PATCH /media/{media-id}   |   Media            |   Media*              |
+| **Delete**          |  DELETE /media/{media-id}         |   N/A              |   protobuf.empty/{}   |
+| **Restore/Active**  |  PATCH /admin/media/{media-id}    |   N/A              |   protobuf.empty/{}   |
+| **HardDelete**      |  DELETE /admin/media/{media-id}   |   N/A              |   protobuf.empty/{}   |
 
 
 ### Category API
