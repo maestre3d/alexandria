@@ -15,9 +15,11 @@ import (
 	"github.com/maestre3d/alexandria/author-service/internal/dependency"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
+	"github.com/maestre3d/alexandria/author-service/pkg/instrument"
 	"github.com/maestre3d/alexandria/author-service/pkg/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/bind"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
+	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb/healthpb"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/proxy"
 )
 
@@ -38,7 +40,8 @@ func InjectTransportService() (*service.Transport, func(), error) {
 	zipkinTracer, cleanup2 := tracer.NewZipkin(kernel)
 	opentracingTracer := tracer.WrapZipkinOpenTracing(kernel, zipkinTracer)
 	authorServer := bind.NewAuthorRPC(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
-	servers := provideRPCServers(authorServer)
+	healthServer := instrument.NewHealthRPC()
+	servers := provideRPCServers(authorServer, healthServer)
 	server, cleanup3 := proxy.NewRPC(servers)
 	authorHandler := bind.NewAuthorHTTP(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
 	v := provideHTTPHandlers(authorHandler)
@@ -61,7 +64,7 @@ var httpProxySet = wire.NewSet(
 	provideContext, config.NewKernel, tracer.NewZipkin, tracer.WrapZipkinOpenTracing, bind.NewAuthorHTTP, provideHTTPHandlers, proxy.NewHTTP,
 )
 
-var rpcProxySet = wire.NewSet(bind.NewAuthorRPC, provideRPCServers, proxy.NewRPC)
+var rpcProxySet = wire.NewSet(bind.NewAuthorRPC, instrument.NewHealthRPC, provideRPCServers, proxy.NewRPC)
 
 func provideContext() context.Context {
 	return context.Background()
@@ -82,7 +85,7 @@ func provideHTTPHandlers(authorHandler *bind.AuthorHandler) []proxy.Handler {
 	return handlers
 }
 
-// Bind/Map used rpc actions
-func provideRPCServers(authorHandler pb.AuthorServer) *proxy.Servers {
-	return &proxy.Servers{authorHandler}
+// Bind/Map used rpc servers
+func provideRPCServers(authorServer pb.AuthorServer, healthServer healthpb.HealthServer) *proxy.Servers {
+	return &proxy.Servers{authorServer, healthServer}
 }

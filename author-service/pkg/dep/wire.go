@@ -12,9 +12,11 @@ import (
 	"github.com/maestre3d/alexandria/author-service/internal/dependency"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
+	"github.com/maestre3d/alexandria/author-service/pkg/instrument"
 	"github.com/maestre3d/alexandria/author-service/pkg/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/bind"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
+	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb/healthpb"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/proxy"
 )
 
@@ -36,6 +38,7 @@ var httpProxySet = wire.NewSet(
 
 var rpcProxySet = wire.NewSet(
 	bind.NewAuthorRPC,
+	instrument.NewHealthRPC,
 	provideRPCServers,
 	proxy.NewRPC,
 )
@@ -59,9 +62,9 @@ func provideHTTPHandlers(authorHandler *bind.AuthorHandler) []proxy.Handler {
 	return handlers
 }
 
-// Bind/Map used rpc actions
-func provideRPCServers(authorHandler pb.AuthorServer) *proxy.Servers {
-	return &proxy.Servers{authorHandler}
+// Bind/Map used rpc servers
+func provideRPCServers(authorServer pb.AuthorServer, healthServer healthpb.HealthServer) *proxy.Servers {
+	return &proxy.Servers{authorServer, healthServer}
 }
 
 func InjectTransportService() (*service.Transport, func(), error) {
