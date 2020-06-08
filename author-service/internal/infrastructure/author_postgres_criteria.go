@@ -1,43 +1,114 @@
 package infrastructure
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
-func QueryCriteriaSQL(query string) string {
+type AuthorBuilder struct {
+	Statement string
+}
+
+// Query returns a query from most important fields
+func (b *AuthorBuilder) Query(query string) *AuthorBuilder {
 	if query == "" {
-		return ""
+		return b
 	}
-	return `(LOWER(first_name) LIKE LOWER('%` + query + `%') OR LOWER(last_name) LIKE LOWER('%` + query + `%') 
+
+	b.Statement += `(LOWER(first_name) LIKE LOWER('%` + query + `%') OR LOWER(last_name) LIKE LOWER('%` + query + `%') 
 	OR LOWER(display_name) LIKE LOWER('%` + query + `%'))`
+
+	return b
 }
 
-func DisplayNameCriteriaSQL(displayName string) string {
+// DisplayName returns a query to search by display_name field
+func (b *AuthorBuilder) DisplayName(displayName string) *AuthorBuilder {
 	if displayName == "" {
-		return ""
+		return b
 	}
 
-	return `LOWER(DISPLAY_NAME) = LOWER('` + displayName + `')`
+	b.Statement += `LOWER(DISPLAY_NAME) = LOWER('` + displayName + `')`
+	return b
 }
 
-func OwnershipCriteriaSQL(ownershipType string) string {
+// Ownership returns a query to search by ownership_type field
+func (b *AuthorBuilder) Ownership(ownershipType string) *AuthorBuilder {
 	if ownershipType == "" {
-		return ""
+		return b
 	}
 
-	return `ownership_type = '` + ownershipType + `'`
+	b.Statement += `ownership_type = '` + ownershipType + `'`
+	return b
 }
 
-func OwnerCriteriaSQL(ownerID string) string {
+// Owner returns a query to search by owner from owner_pool
+func (b *AuthorBuilder) Owner(ownerID string) *AuthorBuilder {
 	if ownerID == "" {
-		return ""
+		return b
 	}
 
-	return fmt.Sprintf(`external_id IN (SELECT fk_author FROM alexa1.author_user WHERE "user" = '%s')`, ownerID)
+	b.Statement += fmt.Sprintf(`external_id IN (SELECT fk_author FROM alexa1.author_user WHERE "user" = '%s')`, ownerID)
+	return b
 }
 
-func AndCriteriaSQL(statement string) string {
-	return statement + " AND "
+// Filter returns a query to filter useful fields like timestamp, id, or total_views
+/*
+key = field,
+op = operator,
+id = entity external_id,
+state = is entity active
+*/
+func (b *AuthorBuilder) Filter(key, op, id, state string) *AuthorBuilder {
+	state = strings.ToUpper(state)
+	b.Statement += fmt.Sprintf(`%s %s (SELECT %s FROM alexa1.author WHERE external_id = '%s' AND active = %s)`,
+		key, op, key, id, state)
+	return b
 }
 
-func OtherCriteriaSQL(statement string) string {
-	return statement + " OR "
+/* Generic SQL */
+
+// Active return a query to search by entity's state
+func (b *AuthorBuilder) Active(state string) *AuthorBuilder {
+	b.Statement += "active = " + state
+	return b
+}
+
+// Raw returns a query with the raw SQL query
+func (b *AuthorBuilder) Raw(statement string) *AuthorBuilder {
+	b.Statement += statement
+	return b
+}
+
+// OrderBy returns a query for ordering
+/*
+key = field,
+def = default order,
+param = order from params, will replace default value
+*/
+func (b *AuthorBuilder) OrderBy(key, def, param string) *AuthorBuilder {
+	if param != "" {
+		b.Statement += fmt.Sprintf(` ORDER BY %s %s`, key, param)
+		return b
+	}
+
+	b.Statement += fmt.Sprintf(` ORDER BY %s %s`, key, strings.ToUpper(def))
+	return b
+}
+
+// Limit returns a query with a limiter, useful for pagination
+func (b *AuthorBuilder) Limit(limit int) *AuthorBuilder {
+	b.Statement += fmt.Sprintf(` FETCH FIRST %d ROWS ONLY`, limit)
+	return b
+}
+
+// And returns a query with the AND statement
+func (b *AuthorBuilder) And() *AuthorBuilder {
+	b.Statement += " AND "
+	return b
+}
+
+// Or returns a query with the OR statement
+func (b *AuthorBuilder) Or() *AuthorBuilder {
+	b.Statement += " OR "
+	return b
 }

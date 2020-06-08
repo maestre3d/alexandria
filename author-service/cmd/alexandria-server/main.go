@@ -17,7 +17,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer cleanup()
+	defer func() {
+		log.Print("stopping services")
+		cleanup()
+	}()
 
 	// Manage goroutines
 	var g run.Group

@@ -40,9 +40,12 @@ message AuthorMessage {
   string ownershipType = 5;
   string createTime = 6;
   string updateTime = 7;
-  bool verified = 8;
-  string picture = 9;
-  repeated OwnerMessage owners = 10;
+  string deleteTime = 8;
+  bool active = 9;
+  bool verified = 10;
+  string picture = 11;
+  int64 totalViews = 12;
+  repeated OwnerMessage owners = 13;
 }
 
 /* Body */

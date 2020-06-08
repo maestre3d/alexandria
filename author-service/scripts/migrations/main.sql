@@ -29,11 +29,12 @@ CREATE TABLE IF NOT EXISTS alexa1.author(
 	active   		bool DEFAULT FALSE,
 	verified        bool DEFAULT FALSE,
 	picture         text DEFAULT NULL,
+	total_views     bigint DEFAULT 0,
 	PRIMARY KEY(id, external_id)
 );
 
 CREATE TYPE alexa1.role_enum AS ENUM (
-	'owner',
+	'root',
 	'admin',
 	'contrib'
 );
@@ -55,11 +56,11 @@ AS $$
 $$;
 
 CREATE PROCEDURE alexa1.update_author(_external_id varchar(128), _first_name varchar(255), _last_name varchar(255), _display_name varchar(255),
-	_ownership_type alexa1.ownership_enum)
+	_ownership_type alexa1.ownership_enum, _total_views bigint)
 LANGUAGE SQL
 AS $$
     UPDATE alexa1.author SET first_name = _first_name, last_name = _last_name, display_name = _display_name, ownership_type = _ownership_type,
-    update_time = CURRENT_TIMESTAMP WHERE external_id = _external_id AND active = true;
+    update_time = CURRENT_TIMESTAMP, total_views = _total_views WHERE external_id = _external_id AND active = true;
 $$;
 
 CREATE PROCEDURE alexa1.add_user_author(_external_id varchar(128), _user varchar(128), _role alexa1.role_enum)
@@ -68,13 +69,22 @@ AS $$
     INSERT INTO alexa1.author_user(fk_author, "user", role_type) VALUES (_external_id, _user, _role)
 $$;
 
-CALL alexa1.create_author('WS34YXqskjGZIdyq', 'Elon', 'Musk', 'Elon Musk', 'public', 'd1d4469b-8502-4792-a1e7-13391aa67f2c', 'owner');
-CALL alexa1.create_author('DmdienU5Ll-uYj4O', 'Moris', 'Dieck', 'Moris Dieck', 'private', 'd1d4469b-8502-4792-a1e7-13391aa67f2c', 'owner');
+CALL alexa1.create_author('WS34YXqskjGZIdyq', 'Elon', 'Musk', 'Elon Musk', 'public', 'd1d4469b-8502-4792-a1e7-13391aa67f2c', 'root');
+CALL alexa1.create_author('DmdienU5Ll-uYj4O', 'Moris', 'Dieck', 'Moris Dieck', 'private', 'd1d4469b-8502-4792-a1e7-13391aa67f2c', 'root');
 
 -- Get users from author user pool
-SELECT "user", role_type FROM alexa1.author_user WHERE fk_author = 'a0838eef-42dd-40b2-87bd-9dde180a3cae';
+SELECT "user", role_type FROM alexa1.author_user WHERE fk_author = 'WS34YXqskjGZIdyq';
 
 -- Get all authors from an owner, not necessarily root
 SELECT * FROM alexa1.author WHERE external_id IN (SELECT fk_author FROM alexa1.author_user WHERE "user" = 'd1d4469b-8502-4792-a1e7-13391aa67f2c') AND 
-active = FALSE ORDER BY update_time DESC FETCH FIRST 10 ROWS ONLY;
+active = FALSE ORDER BY update_time DESC FETCH FIRST 15 ROWS ONLY;
+
+UPDATE alexa1.author SET total_views = 1998540 WHERE external_id = 'WS34YXqskjGZIdyq';
+UPDATE alexa1.author SET total_views = 1545 WHERE external_id = 'DmdienU5Ll-uYj4O';
+
+-- Get all authors from the most popular to the worst, using token_id (external_id)
+SELECT * FROM alexa1.author WHERE 
+total_views <= (SELECT total_views FROM alexa1.author WHERE external_id = 'WS34YXqskjGZIdyq' AND active = FALSE) AND 
+active = FALSE ORDER BY total_views DESC FETCH FIRST 10 ROWS ONLY;
+
 

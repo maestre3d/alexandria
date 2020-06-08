@@ -16,7 +16,7 @@ type roleType string
 type ownershipType string
 
 const (
-	OwnerRole      roleType      = "owner"
+	RootRole       roleType      = "root"
 	AdminRole      roleType      = "admin"
 	ContribRole    roleType      = "contrib"
 	CommunityOwner ownershipType = "public"
@@ -26,13 +26,13 @@ const (
 // Owner represents user with permissions from the author
 type Owner struct {
 	ID   string `json:"owner_id" validate:"required"`
-	Role string `json:"role" validate:"required,alphaunicode,oneof=owner admin contrib"`
+	Role string `json:"role" validate:"required,alphaunicode,oneof=root admin contrib"`
 }
 
 func NewOwner(id, role string) *Owner {
 	// Set root owner by default
 	if role == "" {
-		role = string(OwnerRole)
+		role = string(RootRole)
 	}
 
 	return &Owner{
@@ -51,10 +51,11 @@ type Author struct {
 	OwnershipType string     `json:"ownership_type" validate:"required,oneof=public private"`
 	CreateTime    time.Time  `json:"create_time"`
 	UpdateTime    time.Time  `json:"update_time"`
-	DeleteTime    *time.Time `json:"-"`
-	Active        bool       `json:"-"`
+	DeleteTime    *time.Time `json:"delete_time"`
+	Active        bool       `json:"active"`
 	Verified      bool       `json:"verified"`
 	Picture       *string    `json:"picture"`
+	TotalViews    int64      `json:"total_views"`
 	Owners        []*Owner   `json:"owners,omitempty" validate:"required,min=1,dive"`
 }
 
@@ -80,7 +81,7 @@ func NewAuthor(firstName, lastName, displayName, ownershipType string, owner *Ow
 
 	// Add root owner
 	if owner != nil {
-		owner.Role = string(OwnerRole)
+		owner.Role = string(RootRole)
 		owners = append(owners, owner)
 	}
 
@@ -104,6 +105,7 @@ func NewAuthor(firstName, lastName, displayName, ownershipType string, owner *Ow
 		Active:        false,
 		Verified:      false,
 		Picture:       &picture,
+		TotalViews:    0,
 		Owners:        owners,
 	}
 }
@@ -144,7 +146,7 @@ func (e *Author) IsValid() error {
 	// Compile-time owner's role enum assertion
 	hasOwnerType := false
 	for _, owner := range e.Owners {
-		if owner.Role == string(OwnerRole) {
+		if owner.Role == string(RootRole) {
 			hasOwnerType = true
 			break
 		}

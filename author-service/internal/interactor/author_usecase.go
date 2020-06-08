@@ -26,7 +26,7 @@ func NewAuthorUseCase(logger log.Logger, repository domain.IAuthorRepository, bu
 // Create Store a new entity
 func (u *AuthorUseCase) Create(ctx context.Context, aggregate *domain.AuthorAggregate) (*domain.Author, error) {
 	author := domain.NewAuthor(aggregate.FirstName, aggregate.LastName, aggregate.DisplayName, aggregate.OwnershipType,
-		domain.NewOwner(aggregate.OwnerID, string(domain.OwnerRole)))
+		domain.NewOwner(aggregate.OwnerID, string(domain.RootRole)))
 	err := author.IsValid()
 	if err != nil {
 		return nil, err
@@ -73,7 +73,22 @@ func (u *AuthorUseCase) List(ctx context.Context, pageToken, pageSize string, fi
 
 // Get Obtain one author
 func (u *AuthorUseCase) Get(ctx context.Context, id string) (*domain.Author, error) {
-	return u.repository.FetchByID(ctx, id)
+	// TODO: Update total_views field++, update sql script and repo, update grpc message model and binding
+	author, err := u.repository.FetchByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if author != nil {
+		author.TotalViews++
+		err = u.repository.Replace(ctx, author)
+		if err != nil {
+			_ = u.log.Log("method", "author.interactor.get", "msg", fmt.Sprintf("could not update total_views for author %s, error: %s",
+				author.ExternalID, err.Error()))
+		}
+	}
+
+	return author, nil
 }
 
 // Update Update an author dynamically
@@ -86,7 +101,8 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 	}
 
 	// Get previous version
-	author, err := u.Get(ctx, aggregate.ID)
+	// TODO: Remove usecase get and use repository directly to avoid non-organic total_views
+	author, err := u.repository.FetchByID(ctx, aggregate.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +135,7 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 	// Update owner id
 	if aggregate.RootAggregate.OwnerID != "" {
 		for _, owner := range author.Owners {
-			if owner.Role == string(domain.OwnerRole) {
+			if owner.Role == string(domain.RootRole) {
 				owner.ID = aggregate.RootAggregate.OwnerID
 				break
 			}
@@ -127,17 +143,17 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 	}
 
 	newOwners := make([]*domain.Owner, 0)
-	ownerCount := 0
+	rootCount := 0
 	// Add new owners
 	for _, owner := range aggregate.Owners {
-		if owner.Role == string(domain.OwnerRole) {
-			ownerCount++
+		if owner.Role == string(domain.RootRole) {
+			rootCount++
 		}
 
-		// Avoid multiple owners
-		if ownerCount > 1 {
+		// Avoid multiple root owners
+		if rootCount > 1 {
 			return nil, exception.NewErrorDescription(exception.InvalidFieldFormat,
-				fmt.Sprintf(exception.InvalidFieldFormatString, "owner_role", "just one user type owner"))
+				fmt.Sprintf(exception.InvalidFieldFormatString, "owner_role", "only one user with role owner"))
 		}
 
 		newOwners = append(newOwners, &domain.Owner{
@@ -146,9 +162,15 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 		})
 	}
 	// Avoid non-owner user
-	if ownerCount == 0 {
+	if rootCount == 0 {
 		return nil, exception.NewErrorDescription(exception.InvalidFieldFormat,
-			fmt.Sprintf(exception.InvalidFieldFormatString, "owner_role", "one user type owner"))
+			fmt.Sprintf(exception.InvalidFieldFormatString, "owner_role", "one user with role owner"))
+	}
+
+	// Avoid more than 15 owners
+	if len(newOwners) > 15 {
+		return nil, exception.NewErrorDescription(exception.InvalidFieldRange,
+			fmt.Sprintf(exception.InvalidFieldRangeString, "owners", "1", "15"))
 	}
 
 	author.Owners = newOwners
@@ -174,6 +196,7 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 func (u *AuthorUseCase) Delete(ctx context.Context, id string) error {
 	err := u.repository.Remove(ctx, id)
 	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
+	// TODO: Move domain events and misc to infrastructure layer, use SQL transactions to handle operations atomically
 	go func() {
 		if err == nil {
 			if errBus := u.eventBus.Deleted(ctx, id, false); errBus != nil {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/alexandria-oss/core"
 	"github.com/alexandria-oss/core/exception"
+	"strings"
 	"sync"
 
 	"github.com/go-kit/kit/log"
@@ -50,7 +51,7 @@ func (r *AuthorPostgresRepository) Save(ctx context.Context, author *domain.Auth
 
 	var owner *domain.Owner
 	for _, o := range author.Owners {
-		if o.Role == string(domain.OwnerRole) {
+		if o.Role == string(domain.RootRole) {
 			owner = o
 		}
 	}
@@ -116,7 +117,7 @@ func (r *AuthorPostgresRepository) FetchByID(ctx context.Context, id string) (*d
 	author := new(domain.Author)
 	err = conn.QueryRowContext(ctx, statement, id).Scan(&author.ID, &author.ExternalID, &author.FirstName,
 		&author.LastName, &author.DisplayName, &author.OwnershipType, &author.CreateTime, &author.UpdateTime, &author.DeleteTime,
-		&author.Active, &author.Verified, &author.Picture)
+		&author.Active, &author.Verified, &author.Picture, &author.TotalViews)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -126,7 +127,7 @@ func (r *AuthorPostgresRepository) FetchByID(ctx context.Context, id string) (*d
 	}
 
 	// Populate owners pool
-	statement = `SELECT "user", role_type FROM alexa1.author_user WHERE fk_author = $1 ORDER BY create_time ASC FETCH FIRST 10 ROWS ONLY`
+	statement = `SELECT "user", role_type FROM alexa1.author_user WHERE fk_author = $1 ORDER BY create_time ASC FETCH FIRST 15 ROWS ONLY`
 	rows, err := conn.QueryContext(ctx, statement, id)
 	if err != nil {
 		return nil, err
@@ -172,8 +173,7 @@ func (r *AuthorPostgresRepository) Fetch(ctx context.Context, params *core.Pagin
 		params = core.NewPaginationParams("", "0")
 	}
 
-	statement := `SELECT * FROM alexa1.author WHERE `
-
+	b := AuthorBuilder{`SELECT * FROM alexa1.author WHERE `}
 	// Criteria map filter -> Query Builder
 	for filterType, value := range filterParams {
 		// Avoid nil values and comparison computation
@@ -182,50 +182,63 @@ func (r *AuthorPostgresRepository) Fetch(ctx context.Context, params *core.Pagin
 		}
 		switch {
 		case filterType == "query":
-			statement += AndCriteriaSQL(QueryCriteriaSQL(value))
+			b.Query(value).And()
 			continue
 		case filterType == "display_name":
-			statement += AndCriteriaSQL(DisplayNameCriteriaSQL(value))
+			b.DisplayName(value).And()
 			continue
 		case filterType == "ownership_type":
-			statement += AndCriteriaSQL(OwnershipCriteriaSQL(value))
+			// Avoid non-enum type values
+			value = strings.ToLower(value)
+			if value == string(domain.PrivateOwner) || value == string(domain.CommunityOwner) {
+				b.Ownership(value).And()
+			}
 			continue
 		case filterType == "owner_id":
-			statement += AndCriteriaSQL(OwnerCriteriaSQL(value))
+			b.Owner(value).And()
 			continue
 		}
 	}
 
-	// Show disabled rows
 	isActive := "TRUE"
-	if filterParams["show_disabled"] == "true" {
+	if strings.ToUpper(filterParams["show_disabled"]) == "TRUE" {
 		isActive = "FALSE"
 	}
 
-	// Keyset pagination
-	if params.Token != "" {
-		// If params contains any external_id token
-		if filterParams["timestamp"] == "false" {
-			statement += AndCriteriaSQL(fmt.Sprintf(`id >= (SELECT id FROM alexa1.author WHERE external_id = '%s' AND active = %s)`,
-				params.Token, isActive))
-			statement += fmt.Sprintf(`active = %s ORDER BY id ASC FETCH FIRST %d ROWS ONLY`, isActive, params.Size)
-		} else {
-			// Timestamp/Most recent by default
-			statement += AndCriteriaSQL(fmt.Sprintf(`update_time <= (SELECT update_time FROM alexa1.author WHERE external_id = '%s' AND active = %s)`,
-				params.Token, isActive))
-			statement += fmt.Sprintf(`active = %s ORDER BY update_time DESC FETCH FIRST %d ROWS ONLY`, isActive, params.Size)
-		}
-	} else {
-		if filterParams["timestamp"] == "false" {
-			statement += fmt.Sprintf(`active = %s ORDER BY id ASC FETCH FIRST %d ROWS ONLY`, isActive, params.Size)
-		} else {
-			// Timestamp/Most recent by default
-			statement += fmt.Sprintf(`active = %s ORDER BY update_time DESC FETCH FIRST %d ROWS ONLY`, isActive, params.Size)
-		}
+	order := ""
+	if strings.ToUpper(filterParams["order_by"]) == "DESC" {
+		order = "DESC"
+	} else if strings.ToUpper(filterParams["order_by"]) == "ASC" {
+		order = "ASC"
 	}
 
+	// Keyset pagination, filtering type binding
+	if filterParams["filter_by"] == "id" {
+		// Filtering by ID
+		if params.Token != "" {
+			b.Filter("id", ">=", params.Token, isActive).And()
+		}
+
+		b.Active(isActive).OrderBy("id", "asc", order)
+	} else if filterParams["filter_by"] == "timestamp" {
+		// Filtering by Timestamp
+		if params.Token != "" {
+			b.Filter("update_time", "<=", params.Token, isActive).And()
+		}
+
+		b.Active(isActive).OrderBy("update_time", "desc", order)
+	} else {
+		// Filtering by Popularity - Default
+		if params.Token != "" {
+			b.Filter("total_views", "<=", params.Token, isActive).And()
+		}
+
+		b.Active(isActive).OrderBy("total_views", "desc", order)
+	}
+	b.Limit(params.Size)
+
 	// Query - entity mapping
-	rows, err := conn.QueryContext(ctx, statement)
+	rows, err := conn.QueryContext(ctx, b.Statement)
 	if err != nil {
 		return nil, err
 	} else if rows.Err() != nil {
@@ -240,7 +253,7 @@ func (r *AuthorPostgresRepository) Fetch(ctx context.Context, params *core.Pagin
 		author := new(domain.Author)
 		err = rows.Scan(&author.ID, &author.ExternalID, &author.FirstName,
 			&author.LastName, &author.DisplayName, &author.OwnershipType, &author.CreateTime, &author.UpdateTime, &author.DeleteTime,
-			&author.Active, &author.Verified, &author.Picture)
+			&author.Active, &author.Verified, &author.Picture, &author.TotalViews)
 		if err != nil {
 			continue
 		}
@@ -271,10 +284,9 @@ func (r *AuthorPostgresRepository) Replace(ctx context.Context, author *domain.A
 	if err != nil {
 		return err
 	}
-	defer tx.Commit()
 
-	statement := `CALL alexa1.update_author($1, $2, $3, $4, $5)`
-	_, err = tx.ExecContext(ctx, statement, author.ExternalID, author.FirstName, author.LastName, author.DisplayName, author.OwnershipType)
+	statement := `CALL alexa1.update_author($1, $2, $3, $4, $5, $6)`
+	_, err = tx.ExecContext(ctx, statement, author.ExternalID, author.FirstName, author.LastName, author.DisplayName, author.OwnershipType, author.TotalViews)
 	if err != nil {
 		if customErr, ok := err.(*pq.Error); ok {
 			if customErr.Code == "23505" {
@@ -315,7 +327,7 @@ func (r *AuthorPostgresRepository) Replace(ctx context.Context, author *domain.A
 		go Store(ctx, r.mem, author.ExternalID, tableName, author)
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 func (r *AuthorPostgresRepository) Remove(ctx context.Context, id string) error {

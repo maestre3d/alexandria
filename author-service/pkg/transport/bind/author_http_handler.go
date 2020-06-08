@@ -166,11 +166,12 @@ func decodeListRequest(_ context.Context, r *http.Request) (interface{}, error) 
 		PageSize:  r.URL.Query().Get("page_size"),
 		FilterParams: core.FilterParams{
 			"query":          r.URL.Query().Get("query"),
-			"timestamp":      r.URL.Query().Get("timestamp"),
+			"filter_by":      r.URL.Query().Get("filter_by"),
+			"order_by":       r.URL.Query().Get("order_by"),
+			"show_disabled":  r.URL.Query().Get("show_disabled"),
 			"display_name":   r.URL.Query().Get("display_name"),
 			"ownership_type": r.URL.Query().Get("ownership_type"),
 			"owner_id":       r.URL.Query().Get("owner_id"),
-			"show_disabled":  r.URL.Query().Get("show_disabled"),
 		},
 	}, nil
 }

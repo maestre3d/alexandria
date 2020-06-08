@@ -40,7 +40,7 @@ func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 	wire.Build(
 		authorDBMSRepositorySet,
 		wire.Bind(new(domain.IAuthorEventBus), new(*infrastructure.AuthorKafkaEventBus)),
-		infrastructure.NewAuthorKafkaEventBus,
+		infrastructure.NewAuthorAWSEventBus,
 		interactor.NewAuthorUseCase,
 	)
 

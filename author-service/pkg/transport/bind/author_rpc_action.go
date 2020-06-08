@@ -237,8 +237,11 @@ func encodeRPCCreateResponse(_ context.Context, response interface{}) (interface
 		OwnershipType: res.Author.OwnershipType,
 		CreateTime:    res.Author.CreateTime.String(),
 		UpdateTime:    res.Author.UpdateTime.String(),
+		DeleteTime:    res.Author.DeleteTime.String(),
+		Active:        res.Author.Active,
 		Verified:      res.Author.Verified,
 		Picture:       *res.Author.Picture,
+		TotalViews:    res.Author.TotalViews,
 		Owners:        parseOwners(res.Author.Owners),
 	}, nil
 }
@@ -263,8 +266,11 @@ func encodeRPCListResponse(_ context.Context, response interface{}) (interface{}
 			OwnershipType: author.OwnershipType,
 			CreateTime:    author.CreateTime.String(),
 			UpdateTime:    author.UpdateTime.String(),
+			DeleteTime:    author.DeleteTime.String(),
+			Active:        author.Active,
 			Verified:      author.Verified,
 			Picture:       *author.Picture,
+			TotalViews:    author.TotalViews,
 			Owners:        parseOwners(author.Owners),
 		}
 		authorsRPC = append(authorsRPC, authorRPC)
@@ -294,8 +300,11 @@ func encodeRPCGetResponse(_ context.Context, response interface{}) (interface{},
 		OwnershipType: res.Author.OwnershipType,
 		CreateTime:    res.Author.CreateTime.String(),
 		UpdateTime:    res.Author.UpdateTime.String(),
+		DeleteTime:    res.Author.DeleteTime.String(),
+		Active:        res.Author.Active,
 		Verified:      res.Author.Verified,
 		Picture:       *res.Author.Picture,
+		TotalViews:    res.Author.TotalViews,
 		Owners:        parseOwners(res.Author.Owners),
 	}, nil
 }
@@ -318,8 +327,11 @@ func encodeRPCUpdateResponse(_ context.Context, response interface{}) (interface
 		OwnershipType: res.Author.OwnershipType,
 		CreateTime:    res.Author.CreateTime.String(),
 		UpdateTime:    res.Author.UpdateTime.String(),
+		DeleteTime:    res.Author.DeleteTime.String(),
+		Active:        res.Author.Active,
 		Verified:      res.Author.Verified,
 		Picture:       *res.Author.Picture,
+		TotalViews:    res.Author.TotalViews,
 		Owners:        parseOwners(res.Author.Owners),
 	}, nil
 }
