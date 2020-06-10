@@ -38,23 +38,35 @@ func (u *AuthorUseCase) Create(ctx context.Context, aggregate *domain.AuthorAggr
 	}
 
 	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
+	// Transaction/interaction event, required validation, use concurrent-safe routine
+	errChan := make(chan error)
 	go func() {
 		err = u.eventBus.Created(ctx, author)
 		if err != nil {
 			_ = u.log.Log("method", "author.interactor.create", "err", err.Error())
 
+			// Rollback
 			err = u.repository.HardRemove(ctx, author.ExternalID)
 			if err != nil {
 				_ = u.log.Log("method", "author.interactor.create", "err", err.Error())
 			}
 
-			_ = u.log.Log("method", "author.interactor.create", "msg", "could not send message, rolled back")
+			_ = u.log.Log("method", "author.interactor.create", "msg", "could not send event, rolled back")
 		} else {
 			_ = u.log.Log("method", "author.interactor.create", "msg", "ALEXANDRIA_AUTHOR_CREATED event published")
 		}
+
+		errChan <- err
 	}()
 
-	return author, nil
+	select {
+	case err = <-errChan:
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return author, err
 }
 
 // List Get an author's list
@@ -73,7 +85,6 @@ func (u *AuthorUseCase) List(ctx context.Context, pageToken, pageSize string, fi
 
 // Get Obtain one author
 func (u *AuthorUseCase) Get(ctx context.Context, id string) (*domain.Author, error) {
-	// TODO: Update total_views field++, update sql script and repo, update grpc message model and binding
 	author, err := u.repository.FetchByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -81,6 +92,7 @@ func (u *AuthorUseCase) Get(ctx context.Context, id string) (*domain.Author, err
 
 	if author != nil {
 		author.TotalViews++
+		// Using repo directly to avoid unused fields on usecase's update
 		err = u.repository.Replace(ctx, author)
 		if err != nil {
 			_ = u.log.Log("method", "author.interactor.get", "msg", fmt.Sprintf("could not update total_views for author %s, error: %s",
@@ -101,8 +113,9 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 	}
 
 	// Get previous version
-	// TODO: Remove usecase get and use repository directly to avoid non-organic total_views
+	// Using repository directly to avoid non-organic total_views
 	author, err := u.repository.FetchByID(ctx, aggregate.ID)
+	authorBackup := author
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +200,32 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 	}
 
 	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
-	// TODO: Fire up "alexandria.author.updated" domain event if required
+	errChan := make(chan error)
+	go func() {
+		err := u.eventBus.Updated(ctx, author.Owners)
+		if err != nil {
+			_ = u.log.Log("method", "author.interactor.update", "err", err.Error())
+
+			// Rollback
+			err = u.repository.Replace(ctx, authorBackup)
+			if err != nil {
+				_ = u.log.Log("method", "author.interactor.update", "err", err.Error())
+			}
+
+			_ = u.log.Log("method", "author.interactor.update", "msg", "could not send event, rolled back")
+		} else {
+			_ = u.log.Log("method", "author.interactor.update", "msg", "ALEXANDRIA_AUTHOR_UPDATED event published")
+		}
+
+		errChan <- err
+	}()
+
+	select {
+	case err = <-errChan:
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return author, nil
 }
@@ -199,7 +237,9 @@ func (u *AuthorUseCase) Delete(ctx context.Context, id string) error {
 	// TODO: Move domain events and misc to infrastructure layer, use SQL transactions to handle operations atomically
 	go func() {
 		if err == nil {
-			if errBus := u.eventBus.Deleted(ctx, id, false); errBus != nil {
+			ctxTime, cancelCtx := context.WithTimeout(ctx, time.Second*10)
+			defer cancelCtx()
+			if errBus := u.eventBus.Deleted(ctxTime, id, false); errBus != nil {
 				_ = u.log.Log("method", "author.interactor.delete", "err", errBus.Error())
 			} else {
 				_ = u.log.Log("method", "author.interactor.delete", "msg", "ALEXANDRIA_AUTHOR_DELETED event published")
@@ -233,7 +273,9 @@ func (u *AuthorUseCase) HardDelete(ctx context.Context, id string) error {
 	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
 	go func() {
 		if err == nil {
-			if errBus := u.eventBus.Deleted(ctx, id, true); errBus != nil {
+			ctxTime, cancelCtx := context.WithTimeout(ctx, time.Second*10)
+			defer cancelCtx()
+			if errBus := u.eventBus.Deleted(ctxTime, id, true); errBus != nil {
 				_ = u.log.Log("method", "author.interactor.harddelete", "err", errBus.Error())
 			} else {
 				_ = u.log.Log("method", "author.interactor.harddelete", "msg", "ALEXANDRIA_AUTHOR_DELETED event published")

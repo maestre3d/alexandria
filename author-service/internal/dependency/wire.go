@@ -39,7 +39,7 @@ func provideContext() context.Context {
 func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 	wire.Build(
 		authorDBMSRepositorySet,
-		wire.Bind(new(domain.IAuthorEventBus), new(*infrastructure.AuthorKafkaEventBus)),
+		wire.Bind(new(domain.IAuthorEventBus), new(*infrastructure.AuthorAWSEventBus)),
 		infrastructure.NewAuthorAWSEventBus,
 		interactor.NewAuthorUseCase,
 	)

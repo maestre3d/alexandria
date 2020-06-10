@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/eventbus"
+	"github.com/google/uuid"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
 	"gocloud.dev/pubsub"
-	"strconv"
 	"sync"
 )
 
@@ -44,7 +44,8 @@ func (b *AuthorKafkaEventBus) Created(ctx context.Context, author *domain.Author
 		m = &pubsub.Message{
 			Body: e.Content,
 			Metadata: map[string]string{
-				"transaction_id": strconv.FormatUint(e.TransactionID, 10),
+				"transaction_id": uuid.New().String(),
+				"service":        e.ServiceName,
 				"type":           e.EventType,
 				"priority":       e.Priority,
 			},
@@ -56,11 +57,42 @@ func (b *AuthorKafkaEventBus) Created(ctx context.Context, author *domain.Author
 		m = &pubsub.Message{
 			Body: e.Content,
 			Metadata: map[string]string{
+				"service":  e.ServiceName,
 				"type":     e.EventType,
 				"priority": e.Priority,
 			},
 			BeforeSend: nil,
 		}
+	}
+
+	return topic.Send(ctx, m)
+}
+
+func (b *AuthorKafkaEventBus) Updated(ctx context.Context, ownerPool []*domain.Owner) error {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
+	poolJSON, err := json.Marshal(ownerPool)
+	if err != nil {
+		return err
+	}
+
+	topic, err := eventbus.NewKafkaProducer(ctx, domain.AuthorUpdated)
+	if err != nil {
+		return err
+	}
+	defer topic.Shutdown(ctx)
+
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, poolJSON, true)
+	m := &pubsub.Message{
+		Body: e.Content,
+		Metadata: map[string]string{
+			"transaction_id": uuid.New().String(),
+			"service":        e.ServiceName,
+			"type":           e.EventType,
+			"priority":       e.Priority,
+		},
+		BeforeSend: nil,
 	}
 
 	return topic.Send(ctx, m)
@@ -88,6 +120,7 @@ func (b *AuthorKafkaEventBus) Deleted(ctx context.Context, id string, isHard boo
 	return topic.Send(ctx, &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{
+			"service":  e.ServiceName,
 			"type":     e.EventType,
 			"priority": e.EventType,
 		},
@@ -110,6 +143,7 @@ func (b *AuthorKafkaEventBus) Restored(ctx context.Context, id string) error {
 	return topic.Send(ctx, &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{
+			"service":  e.ServiceName,
 			"type":     e.EventType,
 			"priority": e.EventType,
 		},

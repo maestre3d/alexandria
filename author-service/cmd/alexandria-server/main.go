@@ -21,6 +21,7 @@ func main() {
 		log.Print("stopping services")
 		cleanup()
 	}()
+	setVars()
 
 	// Manage goroutines
 	var g run.Group
@@ -74,4 +75,12 @@ func main() {
 	}
 
 	_ = g.Run()
+}
+
+func setVars() {
+	_ = os.Setenv("AWS_SNS_AUTHOR_CREATED", "awssns:///arn:aws:sns:us-east-1:824699638576:ALEXANDRIA_AUTHOR_CREATED?region=us-east-1")
+	_ = os.Setenv("AWS_SNS_AUTHOR_UPDATED", "awssns:///arn:aws:sns:us-east-1:824699638576:ALEXANDRIA_AUTHOR_UPDATED?region=us-east-1")
+	_ = os.Setenv("AWS_SNS_AUTHOR_DELETED", "awssns:///arn:aws:sns:us-east-1:824699638576:ALEXANDRIA_AUTHOR_DELETED?region=us-east-1")
+	_ = os.Setenv("AWS_SNS_AUTHOR_PERMANENTLY_DELETED", "awssns:///arn:aws:sns:us-east-1:824699638576:ALEXANDRIA_AUTHOR_PERMANENTLY_DELETED?region=us-east-1")
+	_ = os.Setenv("AWS_SNS_AUTHOR_RESTORED", "awssns:///arn:aws:sns:us-east-1:824699638576:ALEXANDRIA_AUTHOR_RESTORED?region=us-east-1")
 }
