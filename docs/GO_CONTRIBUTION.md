@@ -45,6 +45,8 @@ Every main function **must** create a new context from background with a cancell
 
 Every infrastructure call from a use case function **must** create it's own context.
 
+Every event **should** be called inside a new goroutine and the use case function **must** wait for it's error with a channel.
+
 ## Error handling
 We expect to keep consistency in error handling; we use multiple packages like _Uber’s multierr_ and _Go’s 1.13 errors_, so we **should** be able to use error wrapping functionality.
 
