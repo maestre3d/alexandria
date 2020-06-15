@@ -25,9 +25,13 @@ The following fields are accepted by our service.
 - page_token = string
 - page_size = int32 (min. 1, max. 100)
 - query = string
-- timestamp = boolean
+- filter_by = string (id, timestamp or popularity by default)
+- order_by = string (asc or desc)
 - show_disabled = boolean
-- owner_id = string (user from author's owners pool)
+
+Extra fields:
+- display_name = string (author's display_name field)
+- owner_id = string (user's id from author's owners pool)
 - ownership_type = string (public, private)
 
 ## Contribution

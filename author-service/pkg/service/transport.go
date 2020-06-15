@@ -7,11 +7,12 @@ import (
 )
 
 type Transport struct {
-	RPCProxy  *grpc.Server
-	HTTPProxy *proxy.HTTP
-	Config    *config.Kernel
+	RPCProxy   *grpc.Server
+	HTTPProxy  *proxy.HTTP
+	EventProxy *proxy.Event
+	Config     *config.Kernel
 }
 
-func NewTransport(rpcProxy *grpc.Server, httpProxy *proxy.HTTP, cfg *config.Kernel) *Transport {
-	return &Transport{rpcProxy, httpProxy, cfg}
+func NewTransport(rpcProxy *grpc.Server, httpProxy *proxy.HTTP, eventProxy *proxy.Event, cfg *config.Kernel) *Transport {
+	return &Transport{rpcProxy, httpProxy, eventProxy, cfg}
 }

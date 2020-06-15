@@ -14,7 +14,7 @@ import (
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
-	stdprometheus "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"strings"
 
@@ -34,7 +34,7 @@ type AuthorHandler struct {
 }
 
 func NewAuthorHTTP(svc usecase.AuthorInteractor, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) *AuthorHandler {
-	duration := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
+	duration := kitprometheus.NewSummaryFrom(prometheus.SummaryOpts{
 		Namespace:   "alexandria",
 		Subsystem:   "author_service",
 		Name:        "request_duration_seconds",
@@ -68,13 +68,15 @@ func NewAuthorHTTP(svc usecase.AuthorInteractor, logger log.Logger, tracer stdop
 func (h *AuthorHandler) SetRoutes(public, private, admin *mux.Router) {
 	// Admin routing
 	arouter := admin.PathPrefix("/author").Subrouter()
-	arouter.Path("/{id}").Methods(http.MethodDelete, http.MethodOptions).Handler(h.HardDelete())
+	arouter.Methods(http.MethodOptions)
+	arouter.Path("/{id}").Methods(http.MethodDelete).Handler(h.HardDelete())
 	arouter.Path("/{id}").Methods(http.MethodPatch).Handler(h.Restore())
 	arouter.Use(mux.CORSMethodMiddleware(arouter))
 
 	// Public routing
 	r := public.PathPrefix("/author").Subrouter()
-	r.Path("").Methods(http.MethodPost, http.MethodOptions).Handler(h.Create())
+	r.Methods(http.MethodOptions)
+	r.Path("").Methods(http.MethodPost).Handler(h.Create())
 	r.Path("").Methods(http.MethodGet).Handler(h.List())
 	r.Path("/").Methods(http.MethodPost).Handler(h.Create())
 	r.Path("/").Methods(http.MethodGet).Handler(h.List())
@@ -144,7 +146,7 @@ func (h *AuthorHandler) HardDelete() *httptransport.Server {
 		action.MakeHardDeleteAuthorEndpoint(h.service, h.logger, h.duration, h.tracer, h.zipkinTracer),
 		decodeHardDeleteRequest,
 		encodeHardDeleteResponse,
-		append(h.options, httptransport.ServerBefore(opentracing.HTTPToContext(h.tracer, "HardDelete", h.logger)))...,
+		append(h.options, httptransport.ServerBefore(opentracing.HTTPToContext(h.tracer, "Hard_Delete", h.logger)))...,
 	)
 }
 
@@ -155,8 +157,8 @@ func decodeCreateRequest(_ context.Context, r *http.Request) (interface{}, error
 		FirstName:     r.PostFormValue("first_name"),
 		LastName:      r.PostFormValue("last_name"),
 		DisplayName:   r.PostFormValue("display_name"),
-		OwnershipType: r.PostFormValue("ownership_type"),
 		OwnerID:       r.PostFormValue("owner_id"),
+		OwnershipType: r.PostFormValue("ownership_type"),
 	}, nil
 }
 
@@ -166,11 +168,12 @@ func decodeListRequest(_ context.Context, r *http.Request) (interface{}, error) 
 		PageSize:  r.URL.Query().Get("page_size"),
 		FilterParams: core.FilterParams{
 			"query":          r.URL.Query().Get("query"),
-			"timestamp":      r.URL.Query().Get("timestamp"),
+			"filter_by":      r.URL.Query().Get("filter_by"),
+			"sort":           r.URL.Query().Get("sort"),
+			"show_disabled":  r.URL.Query().Get("show_disabled"),
 			"display_name":   r.URL.Query().Get("display_name"),
 			"ownership_type": r.URL.Query().Get("ownership_type"),
 			"owner_id":       r.URL.Query().Get("owner_id"),
-			"show_disabled":  r.URL.Query().Get("show_disabled"),
 		},
 	}, nil
 }
@@ -193,11 +196,10 @@ func decodeUpdateRequest(_ context.Context, r *http.Request) (interface{}, error
 		FirstName:     r.PostFormValue("first_name"),
 		LastName:      r.PostFormValue("last_name"),
 		DisplayName:   r.PostFormValue("display_name"),
-		OwnershipType: r.PostFormValue("ownership_type"),
 		OwnerID:       r.PostFormValue("owner_id"),
+		OwnershipType: r.PostFormValue("ownership_type"),
 		Verified:      r.PostFormValue("verified"),
 		Picture:       r.PostFormValue("picture"),
-		Owners:        nil,
 	}, nil
 }
 

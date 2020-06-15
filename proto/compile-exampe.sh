@@ -11,4 +11,10 @@
 # See also
 #  https://github.com/grpc/grpc-go/tree/master/examples
 
-protoc author.proto --go_out=plugins=grpc:.
+# This is just an example to compile the proto lib to any
+# programming language required by alexandria
+# This is meant to be ran inside project root folder
+
+# Golang compile
+# Requires GOROOT, GOPATH and  GOBIN env variables
+protoc -I proto/ proto/alexandria.proto --go_out=plugins=grpc:foo-service/protogen/

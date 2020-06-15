@@ -13,11 +13,11 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/author-service/internal/dependency"
+	"github.com/maestre3d/alexandria/author-service/pb"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"github.com/maestre3d/alexandria/author-service/pkg/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/bind"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/proxy"
 )
 
@@ -38,13 +38,25 @@ func InjectTransportService() (*service.Transport, func(), error) {
 	zipkinTracer, cleanup2 := tracer.NewZipkin(kernel)
 	opentracingTracer := tracer.WrapZipkinOpenTracing(kernel, zipkinTracer)
 	authorServer := bind.NewAuthorRPC(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
-	servers := provideRPCServers(authorServer)
+	healthServer := bind.NewHealthRPC()
+	servers := provideRPCServers(authorServer, healthServer)
 	server, cleanup3 := proxy.NewRPC(servers)
 	authorHandler := bind.NewAuthorHTTP(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
 	v := provideHTTPHandlers(authorHandler)
 	http, cleanup4 := proxy.NewHTTP(kernel, v...)
-	transport := service.NewTransport(server, http, kernel)
+	authorEventHandler := bind.NewAuthorEventHandler(authorInteractor, logLogger)
+	v2 := provideEventConsumers(authorEventHandler)
+	event, cleanup5, err := proxy.NewEvent(context, kernel, v2...)
+	if err != nil {
+		cleanup4()
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	transport := service.NewTransport(server, http, event, kernel)
 	return transport, func() {
+		cleanup5()
 		cleanup4()
 		cleanup3()
 		cleanup2()
@@ -54,6 +66,8 @@ func InjectTransportService() (*service.Transport, func(), error) {
 
 // wire.go:
 
+var Ctx context.Context = context.Background()
+
 var authorInteractorSet = wire.NewSet(logger.NewZapLogger, provideAuthorInteractor)
 
 var httpProxySet = wire.NewSet(
@@ -61,10 +75,12 @@ var httpProxySet = wire.NewSet(
 	provideContext, config.NewKernel, tracer.NewZipkin, tracer.WrapZipkinOpenTracing, bind.NewAuthorHTTP, provideHTTPHandlers, proxy.NewHTTP,
 )
 
-var rpcProxySet = wire.NewSet(bind.NewAuthorRPC, provideRPCServers, proxy.NewRPC)
+var rpcProxySet = wire.NewSet(bind.NewAuthorRPC, bind.NewHealthRPC, provideRPCServers, proxy.NewRPC)
+
+var eventProxySet = wire.NewSet(bind.NewAuthorEventHandler, provideEventConsumers, proxy.NewEvent)
 
 func provideContext() context.Context {
-	return context.Background()
+	return Ctx
 }
 
 func provideAuthorInteractor(logger2 log.Logger) (usecase.AuthorInteractor, func(), error) {
@@ -82,7 +98,13 @@ func provideHTTPHandlers(authorHandler *bind.AuthorHandler) []proxy.Handler {
 	return handlers
 }
 
-// Bind/Map used rpc actions
-func provideRPCServers(authorHandler pb.AuthorServer) *proxy.Servers {
-	return &proxy.Servers{authorHandler}
+// Bind/Map used rpc servers
+func provideRPCServers(authorServer pb.AuthorServer, healthServer pb.HealthServer) *proxy.Servers {
+	return &proxy.Servers{authorServer, healthServer}
+}
+
+func provideEventConsumers(authorHandler *bind.AuthorEventHandler) []proxy.Consumer {
+	consumers := make([]proxy.Consumer, 0)
+	consumers = append(consumers, authorHandler)
+	return consumers
 }

@@ -10,13 +10,15 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/author-service/internal/dependency"
+	"github.com/maestre3d/alexandria/author-service/pb"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"github.com/maestre3d/alexandria/author-service/pkg/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/bind"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/proxy"
 )
+
+var Ctx context.Context = context.Background()
 
 var authorInteractorSet = wire.NewSet(
 	logger.NewZapLogger,
@@ -36,12 +38,19 @@ var httpProxySet = wire.NewSet(
 
 var rpcProxySet = wire.NewSet(
 	bind.NewAuthorRPC,
+	bind.NewHealthRPC,
 	provideRPCServers,
 	proxy.NewRPC,
 )
 
+var eventProxySet = wire.NewSet(
+	bind.NewAuthorEventHandler,
+	provideEventConsumers,
+	proxy.NewEvent,
+)
+
 func provideContext() context.Context {
-	return context.Background()
+	return Ctx
 }
 
 func provideAuthorInteractor(logger log.Logger) (usecase.AuthorInteractor, func(), error) {
@@ -59,13 +68,19 @@ func provideHTTPHandlers(authorHandler *bind.AuthorHandler) []proxy.Handler {
 	return handlers
 }
 
-// Bind/Map used rpc actions
-func provideRPCServers(authorHandler pb.AuthorServer) *proxy.Servers {
-	return &proxy.Servers{authorHandler}
+// Bind/Map used rpc servers
+func provideRPCServers(authorServer pb.AuthorServer, healthServer pb.HealthServer) *proxy.Servers {
+	return &proxy.Servers{authorServer, healthServer}
+}
+
+func provideEventConsumers(authorHandler *bind.AuthorEventHandler) []proxy.Consumer {
+	consumers := make([]proxy.Consumer, 0)
+	consumers = append(consumers, authorHandler)
+	return consumers
 }
 
 func InjectTransportService() (*service.Transport, func(), error) {
-	wire.Build(httpProxySet, rpcProxySet, service.NewTransport)
+	wire.Build(httpProxySet, rpcProxySet, eventProxySet, service.NewTransport)
 
 	return &service.Transport{}, nil, nil
 }

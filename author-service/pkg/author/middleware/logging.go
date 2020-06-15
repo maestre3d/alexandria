@@ -19,8 +19,7 @@ func (mw LoggingAuthorMiddleware) Create(ctx context.Context, aggregate *domain.
 	defer func(begin time.Time) {
 		mw.Logger.Log(
 			"method", "author.create",
-			"input", fmt.Sprintf("%s, %s, %s, %s, %s", aggregate.FirstName, aggregate.LastName, aggregate.DisplayName,
-				aggregate.OwnershipType, aggregate.OwnerID),
+			"input", fmt.Sprintf("%+v", aggregate),
 			"output", fmt.Sprintf("%+v", output),
 			"err", err,
 			"took", time.Since(begin),
@@ -66,9 +65,7 @@ func (mw LoggingAuthorMiddleware) Update(ctx context.Context, aggregate *domain.
 	defer func(begin time.Time) {
 		mw.Logger.Log(
 			"method", "author.update",
-			"input", fmt.Sprintf("%s, %s, %s, %s, %s, %s, %v, %s, %s", aggregate.ID, aggregate.RootAggregate.FirstName, aggregate.RootAggregate.LastName,
-				aggregate.RootAggregate.DisplayName, aggregate.RootAggregate.OwnershipType, aggregate.RootAggregate.OwnerID,
-				aggregate.Owners, aggregate.Verified, aggregate.Picture),
+			"input", fmt.Sprintf("%+v", aggregate),
 			"output", fmt.Sprintf("%+v", output),
 			"err", err,
 			"took", time.Since(begin),
@@ -120,6 +117,36 @@ func (mw LoggingAuthorMiddleware) HardDelete(ctx context.Context, id string) (er
 		)
 	}(time.Now())
 
-	err = mw.Next.Delete(ctx, id)
+	err = mw.Next.HardDelete(ctx, id)
+	return
+}
+
+func (mw LoggingAuthorMiddleware) Done(ctx context.Context, id, op string) (err error) {
+	defer func(begin time.Time) {
+		mw.Logger.Log(
+			"method", "author.done",
+			"input", fmt.Sprintf("%s, %s", id, op),
+			"output", err,
+			"err", err,
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+
+	err = mw.Next.Done(ctx, id, op)
+	return
+}
+
+func (mw LoggingAuthorMiddleware) Failed(ctx context.Context, id, op, backup string) (err error) {
+	defer func(begin time.Time) {
+		mw.Logger.Log(
+			"method", "author.failed",
+			"input", fmt.Sprintf("%s, %s, %s", id, op, backup),
+			"output", err,
+			"err", err,
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+
+	err = mw.Next.Failed(ctx, id, op, backup)
 	return
 }

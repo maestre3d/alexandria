@@ -13,15 +13,14 @@ import (
 )
 
 type UpdateRequest struct {
-	ID            string          `json:"id"`
-	FirstName     string          `json:"first_name"`
-	LastName      string          `json:"last_name"`
-	DisplayName   string          `json:"display_name"`
-	OwnershipType string          `json:"ownership_type"`
-	OwnerID       string          `json:"owner_id"`
-	Verified      string          `json:"verified"`
-	Picture       string          `json:"picture"`
-	Owners        []*domain.Owner `json:"owners"`
+	ID            string `json:"id"`
+	FirstName     string `json:"first_name"`
+	LastName      string `json:"last_name"`
+	DisplayName   string `json:"display_name"`
+	OwnerID       string `json:"owner_id"`
+	OwnershipType string `json:"ownership_type"`
+	Verified      string `json:"verified"`
+	Picture       string `json:"picture"`
 }
 
 type UpdateResponse struct {
@@ -43,7 +42,6 @@ func MakeUpdateAuthorEndpoint(svc usecase.AuthorInteractor, logger log.Logger, d
 				OwnershipType: req.OwnershipType,
 				OwnerID:       req.OwnerID,
 			},
-			Owners:   req.Owners,
 			Verified: req.Verified,
 			Picture:  req.Picture,
 		}

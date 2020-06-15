@@ -16,8 +16,8 @@ type CreateRequest struct {
 	FirstName     string `json:"first_name"`
 	LastName      string `json:"last_name"`
 	DisplayName   string `json:"display_name"`
-	OwnershipType string `json:"ownership_type"`
 	OwnerID       string `json:"owner_id"`
+	OwnershipType string `json:"ownership_type"`
 }
 
 type CreateResponse struct {
@@ -34,8 +34,8 @@ func MakeCreateAuthorEndpoint(svc usecase.AuthorInteractor, logger log.Logger, d
 			FirstName:     req.FirstName,
 			LastName:      req.LastName,
 			DisplayName:   req.DisplayName,
-			OwnershipType: req.OwnershipType,
 			OwnerID:       req.OwnerID,
+			OwnershipType: req.OwnershipType,
 		})
 		if err != nil {
 			return CreateResponse{

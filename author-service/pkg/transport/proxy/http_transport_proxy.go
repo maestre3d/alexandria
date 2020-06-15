@@ -45,17 +45,17 @@ func NewHTTP(cfg *config.Kernel, handlers ...Handler) (*HTTP, func()) {
 	proxy.Server.Handler = cors.Default().Handler(r)
 
 	cleanup := func() {
-		server.Shutdown(context.Background())
+		_ = server.Shutdown(context.Background())
 	}
 
 	return proxy, cleanup
 }
 
 func (p *HTTP) setHealthCheck() {
-	p.publicRouter.PathPrefix("/health").Methods(http.MethodGet).HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Add("Content-Type", "application/json; charset=utf-8")
-		writer.WriteHeader(http.StatusOK)
-		io.WriteString(writer, `{"alive":true}`)
+	p.publicRouter.PathPrefix("/health").Methods(http.MethodGet).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, `{"alive":true}`)
 	})
 }
 

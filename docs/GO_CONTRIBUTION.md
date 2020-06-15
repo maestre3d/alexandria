@@ -41,6 +41,12 @@ We ensure concurrency is being managed in the right way using _oklog’s run_ pa
 
 Every collaborator **must** use oklog run’s group to keep all service/signal handler/cron job & state machine goroutines lifecycles managed correctly.
 
+Every main function **must** create a new context from background with a cancellation function. Eventually, this root context **must** be injected inside the dependecy injection package. Therefore, the cancellation function **must** be triggered inside the system's exit listener whenever the listener it's triggered, so the root context gets cancelled properly.
+
+Every infrastructure call from a use case function **must** create it's own context.
+
+Every event **should** be called inside a new goroutine and the use case function **must** wait for it's error with a channel.
+
 ## Error handling
 We expect to keep consistency in error handling; we use multiple packages like _Uber’s multierr_ and _Go’s 1.13 errors_, so we **should** be able to use error wrapping functionality.
 
@@ -64,6 +70,7 @@ In the following section, we show our error handling scenarios by layer.
 |-------------------------|-----------------------------------------------------------------|:-------------------:|:---------------------:|
 | **EmptyRow**            |  Resource(s) not found                  |   404                 |   Null/Nil          |
 | **Infrastructure**      |  SQL/Docstore/API internal error        |   500                 |   Exception         |
+| **AlreadyExists**       |  Resource already exists                |   409                 |   Exception         |
 
 
 **Interactor**: _Domain's cases validation_
@@ -144,6 +151,7 @@ The following specified packages **must** be used for every new service written.
 - Gorilla Mux - HTTP Mux/Router
 - Go Redis - Redis client
 - Google UUID - UUID lib
+- Matoous NanoID - Nano ID implementation in Go
 - Google Wire - Dependency Injection container at compile-time
 - Lib pq - Postgres client
 - Go Kit - Microservices tool kit
@@ -152,13 +160,16 @@ The following specified packages **must** be used for every new service written.
 - Sony Gobreaker - Circuit breaker library
 - Sony Sonyflake - Distributed ID generator, Sony’s implementation of Twitter’s snowflake
 - Uber Zap - Logger
-- Go Cloud Development Kit (CDK) - Generic kit containing database, pub/sub, document, blob, 
+- Google Go Cloud Development Kit (CDK) - Generic kit containing database, pub/sub, document, blob, 
 secrets and runtime configuration tools
 - Prometheus Client - Prometheus instrumentation client for Go
 - Stretchr Testify - Unit Testing lib
+- Go Playground validator - Struct/Model validations
 
 _**Optional**_
 - NY Times Gizmo - Microservices tool kit
 - Spf13 Cobra - CLI tool
 - Sirupsen Logrus - Logger
 - Uber Multierr - Multi error manager
+- Jaeger Tracer - OpenCensus/OpenTracing consumer
+- Elasticsearch - Elasticsearch client for Go

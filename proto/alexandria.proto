@@ -1,0 +1,110 @@
+// Copyright 2020 The Alexandria Foundation
+//
+// Licensed under the MIT License (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.oracle.com/downloads/licenses/mit-license.html
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+package pb;
+
+option go_package = ".;pb";
+
+service Health {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  ServingStatus status = 1;
+}
+
+service Author {
+  rpc Create(CreateRequest) returns (AuthorMessage) {}
+  rpc List(ListRequest) returns (ListResponse) {}
+  rpc Get(GetRequest) returns (AuthorMessage) {}
+  rpc Update(UpdateRequest) returns (AuthorMessage) {}
+  rpc Delete(DeleteRequest) returns (Empty) {}
+  rpc Restore(RestoreRequest) returns (Empty) {}
+  rpc HardDelete(HardDeleteRequest) returns (Empty) {}
+}
+
+message AuthorMessage {
+  string id = 1;
+  string firstName = 2;
+  string lastName = 3;
+  string displayName = 4;
+  string ownerID = 5;
+  string ownershipType = 6;
+  string createTime = 7;
+  string updateTime = 8;
+  string deleteTime = 9;
+  bool active = 10;
+  bool verified = 11;
+  string picture = 12;
+  int64 totalViews = 13;
+  string status = 14;
+}
+
+message CreateRequest {
+  string firstName = 1;
+  string lastName = 2;
+  string displayName = 3;
+  string ownerID = 4;
+  string ownershipType = 5;
+}
+
+message ListRequest {
+  string pageToken = 1;
+  string pageSize = 2;
+  map<string, string> filterParams = 3;
+}
+
+message ListResponse {
+  repeated AuthorMessage authors = 1;
+  string nextPageToken = 2;
+}
+
+message GetRequest {
+  string id = 1;
+}
+
+message UpdateRequest {
+  string id = 1;
+  string firstName = 2;
+  string lastName = 3;
+  string displayName = 4;
+  string ownerID = 6;
+  string ownershipType = 5;
+  string verified = 7;
+  string picture = 8;
+}
+
+message DeleteRequest {
+  string id = 1;
+}
+
+message RestoreRequest {
+  string id = 1;
+}
+
+message HardDeleteRequest {
+  string id = 1;
+}
+
+message Empty {}
