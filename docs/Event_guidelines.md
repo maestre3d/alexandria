@@ -5,7 +5,7 @@ in microservices terminologies. We communicate our services through different ki
 
 Besides from the benfits convetional way to communicate services (synchronous) gives, an event-driven environment gives us 
 the flexibility to scale easily and additionally, it gives us the resiliency we need to keep our services healthy 
-and available.
+and available. Also, it avoids the need of Service Discovery/Service Mesh mechanisms in every service we develop.
 
 Nevertheless, we fall inside in a lot of complexity thanks to this new architectural style. Thus, we have written 
 this guidelines so any contributor will be able to fully understand our internal event architecture.
