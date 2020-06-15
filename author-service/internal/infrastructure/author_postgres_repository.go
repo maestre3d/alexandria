@@ -3,7 +3,6 @@ package infrastructure
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"github.com/alexandria-oss/core"
 	"github.com/alexandria-oss/core/exception"
 	"strings"
@@ -49,34 +48,52 @@ func (r *AuthorPostgresRepository) Save(ctx context.Context, author *domain.Auth
 	// Use Go CDK OpenCensus database metrics
 	_ = r.logger.Log("method", "author.infrastructure.postgres.save", "db_connection", r.db.Stats().OpenConnections)
 
-	var owner *domain.Owner
-	for _, o := range author.Owners {
-		if o.Role == string(domain.RootRole) {
-			owner = o
-		}
-	}
+	statement := `CALL alexa1.create_author($1, $2, $3, $4, $5, $6)`
 
-	statement := `CALL alexa1.create_author($1, $2, $3, $4, $5, $6, $7)`
-
-	if owner != nil {
-		_, err = conn.ExecContext(ctx, statement, author.ExternalID, author.FirstName, author.LastName, author.DisplayName, author.OwnershipType,
-			author.Owners[0].ID, author.Owners[0].Role)
-		if err != nil {
-			if customErr, ok := err.(*pq.Error); ok {
-				if customErr.Code == "23505" {
-					return exception.EntityExists
-				}
+	_, err = conn.ExecContext(ctx, statement, author.ExternalID, author.FirstName, author.LastName, author.DisplayName, author.OwnershipType,
+		author.OwnerID)
+	if err != nil {
+		if customErr, ok := err.(*pq.Error); ok {
+			if customErr.Code == "23505" {
+				return exception.EntityExists
 			}
 		}
-	} else {
-		return exception.NewErrorDescription(exception.RequiredField,
-			fmt.Sprintf(exception.RequiredFieldString, "owner"))
 	}
 
 	return err
 }
 
-func (r *AuthorPostgresRepository) FetchByID(ctx context.Context, id string) (*domain.Author, error) {
+func (r *AuthorPostgresRepository) SaveRaw(ctx context.Context, author *domain.Author) error {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
+	conn, err := r.db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = conn.Close()
+	}()
+	// Use Go CDK OpenCensus database metrics
+	_ = r.logger.Log("method", "author.infrastructure.postgres.save_raw", "db_connection", r.db.Stats().OpenConnections)
+
+	statement := `INSERT INTO alexa1.author VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
+
+	_, err = conn.ExecContext(ctx, statement, author.ID, author.ExternalID, author.FirstName, author.LastName, author.DisplayName, author.OwnerID,
+		author.OwnershipType, author.CreateTime, author.UpdateTime, author.DeleteTime, author.Active, author.Verified, author.Picture, author.TotalViews,
+		author.Status)
+	if err != nil {
+		if customErr, ok := err.(*pq.Error); ok {
+			if customErr.Code == "23505" {
+				return exception.EntityExists
+			}
+		}
+	}
+
+	return err
+}
+
+func (r *AuthorPostgresRepository) FetchByID(ctx context.Context, id string, showDisabled bool) (*domain.Author, error) {
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
 
@@ -110,41 +127,23 @@ func (r *AuthorPostgresRepository) FetchByID(ctx context.Context, id string) (*d
 		err = conn.Close()
 	}()
 	// Use Go CDK OpenCensus database metrics
-	_ = r.logger.Log("method", "author.infrastructure.postgres.fetchbyid", "db_connection", r.db.Stats().OpenConnections)
+	_ = r.logger.Log("method", "author.infrastructure.postgres.fetch_by_id", "db_connection", r.db.Stats().OpenConnections)
 
-	statement := `SELECT * FROM alexa1.author WHERE external_id = $1 AND active = TRUE`
+	statement := `SELECT * FROM alexa1.author WHERE external_id = $1`
+	if !showDisabled {
+		statement += ` AND active = TRUE`
+	}
 
 	author := new(domain.Author)
 	err = conn.QueryRowContext(ctx, statement, id).Scan(&author.ID, &author.ExternalID, &author.FirstName,
-		&author.LastName, &author.DisplayName, &author.OwnershipType, &author.CreateTime, &author.UpdateTime, &author.DeleteTime,
-		&author.Active, &author.Verified, &author.Picture, &author.TotalViews)
+		&author.LastName, &author.DisplayName, &author.OwnerID, &author.OwnershipType, &author.CreateTime, &author.UpdateTime, &author.DeleteTime,
+		&author.Active, &author.Verified, &author.Picture, &author.TotalViews, &author.Status)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 
 		return nil, err
-	}
-
-	// Populate owners pool
-	statement = `SELECT "user", role_type FROM alexa1.author_user WHERE fk_author = $1 ORDER BY create_time ASC FETCH FIRST 15 ROWS ONLY`
-	rows, err := conn.QueryContext(ctx, statement, id)
-	if err != nil {
-		return nil, err
-	} else if rows.Err() != nil {
-		return nil, rows.Err()
-	}
-	defer func() {
-		err = rows.Close()
-	}()
-
-	for rows.Next() {
-		owner := new(domain.Owner)
-		err = rows.Scan(&owner.ID, &owner.Role)
-		if err != nil {
-			return nil, err
-		}
-		author.Owners = append(author.Owners, owner)
 	}
 
 	// Write-through
@@ -205,11 +204,11 @@ func (r *AuthorPostgresRepository) Fetch(ctx context.Context, params *core.Pagin
 		isActive = "FALSE"
 	}
 
-	order := ""
-	if strings.ToUpper(filterParams["order_by"]) == "DESC" {
-		order = "DESC"
-	} else if strings.ToUpper(filterParams["order_by"]) == "ASC" {
-		order = "ASC"
+	sort := ""
+	if strings.ToUpper(filterParams["sort"]) == "DESC" {
+		sort = "DESC"
+	} else if strings.ToUpper(filterParams["sort"]) == "ASC" {
+		sort = "ASC"
 	}
 
 	// Keyset pagination, filtering type binding
@@ -219,21 +218,21 @@ func (r *AuthorPostgresRepository) Fetch(ctx context.Context, params *core.Pagin
 			b.Filter("id", ">=", params.Token, isActive).And()
 		}
 
-		b.Active(isActive).OrderBy("id", "asc", order)
+		b.Active(isActive).And().Raw(`status = 'STATUS_DONE'`).OrderBy("id", "asc", sort)
 	} else if filterParams["filter_by"] == "timestamp" {
 		// Filtering by Timestamp
 		if params.Token != "" {
 			b.Filter("update_time", "<=", params.Token, isActive).And()
 		}
 
-		b.Active(isActive).OrderBy("update_time", "desc", order)
+		b.Active(isActive).And().Raw(`status = 'STATUS_DONE'`).OrderBy("update_time", "desc", sort)
 	} else {
 		// Filtering by Popularity - Default
 		if params.Token != "" {
 			b.Filter("total_views", "<=", params.Token, isActive).And()
 		}
 
-		b.Active(isActive).OrderBy("total_views", "desc", order)
+		b.Active(isActive).And().Raw(`status = 'STATUS_DONE'`).OrderBy("total_views", "desc", sort)
 	}
 	b.Limit(params.Size)
 
@@ -252,10 +251,10 @@ func (r *AuthorPostgresRepository) Fetch(ctx context.Context, params *core.Pagin
 	for rows.Next() {
 		author := new(domain.Author)
 		err = rows.Scan(&author.ID, &author.ExternalID, &author.FirstName,
-			&author.LastName, &author.DisplayName, &author.OwnershipType, &author.CreateTime, &author.UpdateTime, &author.DeleteTime,
-			&author.Active, &author.Verified, &author.Picture, &author.TotalViews)
+			&author.LastName, &author.DisplayName, &author.OwnerID, &author.OwnershipType, &author.CreateTime, &author.UpdateTime, &author.DeleteTime,
+			&author.Active, &author.Verified, &author.Picture, &author.TotalViews, &author.Status)
 		if err != nil {
-			continue
+			return nil, err
 		}
 		authors = append(authors, author)
 	}
@@ -277,49 +276,30 @@ func (r *AuthorPostgresRepository) Replace(ctx context.Context, author *domain.A
 	// Use Go CDK OpenCensus database metrics
 	_ = r.logger.Log("method", "author.infrastructure.postgres.replace", "db_connection", r.db.Stats().OpenConnections)
 
-	tx, err := conn.BeginTx(ctx, &sql.TxOptions{
-		Isolation: 0,
-		ReadOnly:  false,
-	})
-	if err != nil {
-		return err
+	statement := `UPDATE alexa1.author SET first_name = $1, last_name = $2, display_name = $3, ownership_type = $4,
+    update_time = $5, total_views = $6`
+
+	var res sql.Result
+	// If owner_id was modified, then store author state to pending
+	if author.Status == string(domain.StatePending) {
+		statement += ", owner_id = $7, status = '" + author.Status + "' WHERE external_id = $8 AND active = true"
+		res, err = conn.ExecContext(ctx, statement, author.FirstName, author.LastName, author.DisplayName, author.OwnershipType, author.UpdateTime, author.TotalViews,
+			author.OwnerID, author.ExternalID)
+	} else {
+		statement += " WHERE external_id = $7 AND active = true"
+		res, err = conn.ExecContext(ctx, statement, author.FirstName, author.LastName, author.DisplayName, author.OwnershipType, author.UpdateTime, author.TotalViews,
+			author.ExternalID)
 	}
 
-	statement := `CALL alexa1.update_author($1, $2, $3, $4, $5, $6)`
-	_, err = tx.ExecContext(ctx, statement, author.ExternalID, author.FirstName, author.LastName, author.DisplayName, author.OwnershipType, author.TotalViews)
 	if err != nil {
 		if customErr, ok := err.(*pq.Error); ok {
 			if customErr.Code == "23505" {
-				tx.Rollback()
 				return exception.EntityExists
 			}
 		}
-
-		tx.Rollback()
 		return err
-	}
-
-	// Replace author's owners
-	statement = `DELETE FROM alexa1.author_user WHERE fk_author = $1`
-	_, err = tx.ExecContext(ctx, statement, author.ExternalID)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	for _, owner := range author.Owners {
-		statement = `CALL alexa1.add_user_author($1, $2, $3)`
-		_, err := tx.ExecContext(ctx, statement, author.ExternalID, owner.ID, owner.Role)
-		if err != nil {
-			if customErr, ok := err.(*pq.Error); ok {
-				if customErr.Code == "23505" {
-					tx.Rollback()
-					return exception.EntityExists
-				}
-			}
-			tx.Rollback()
-			return err
-		}
+	} else if affect, err := res.RowsAffected(); affect == 0 || err != nil {
+		return exception.EntityNotFound
 	}
 
 	// write-through cache pattern
@@ -327,7 +307,7 @@ func (r *AuthorPostgresRepository) Replace(ctx context.Context, author *domain.A
 		go Store(ctx, r.mem, author.ExternalID, tableName, author)
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 func (r *AuthorPostgresRepository) Remove(ctx context.Context, id string) error {
@@ -345,15 +325,20 @@ func (r *AuthorPostgresRepository) Remove(ctx context.Context, id string) error 
 	_ = r.logger.Log("method", "author.infrastructure.postgres.remove", "db_connection", r.db.Stats().OpenConnections)
 
 	// Soft-delete
-	statement := `UPDATE alexa1.author SET active = FALSE WHERE external_id = $1 AND active = TRUE`
-	_, err = conn.ExecContext(ctx, statement, id)
+	statement := `UPDATE alexa1.author SET active = FALSE, delete_time = CURRENT_TIMESTAMP WHERE external_id = $1 AND active = TRUE`
+	res, err := conn.ExecContext(ctx, statement, id)
+	if err != nil {
+		return err
+	} else if affect, err := res.RowsAffected(); affect == 0 || err != nil {
+		return exception.EntityNotFound
+	}
 
 	// write-through cache pattern
 	if r.mem != nil {
 		go Remove(ctx, r.mem, id, tableName)
 	}
 
-	return err
+	return nil
 }
 
 func (r *AuthorPostgresRepository) Restore(ctx context.Context, id string) error {
@@ -370,10 +355,21 @@ func (r *AuthorPostgresRepository) Restore(ctx context.Context, id string) error
 	// Use Go CDK OpenCensus database metrics
 	_ = r.logger.Log("method", "author.infrastructure.postgres.restore", "db_connection", r.db.Stats().OpenConnections)
 
-	statement := `UPDATE alexa1.author SET active = TRUE WHERE external_id = $1 AND active = FALSE`
-	_, err = conn.ExecContext(ctx, statement, id)
+	statement := `UPDATE alexa1.author SET active = TRUE, delete_time = null WHERE external_id = $1 AND active = FALSE`
+	res, err := conn.ExecContext(ctx, statement, id)
+	if err != nil {
+		return err
+	} else if affect, err := res.RowsAffected(); affect == 0 || err != nil {
+		return exception.EntityNotFound
+	}
 
-	return err
+	// Invalidate cache
+	// write-through cache pattern
+	if r.mem != nil {
+		go Remove(ctx, r.mem, id, tableName)
+	}
+
+	return nil
 }
 
 func (r *AuthorPostgresRepository) HardRemove(ctx context.Context, id string) error {
@@ -392,12 +388,47 @@ func (r *AuthorPostgresRepository) HardRemove(ctx context.Context, id string) er
 
 	// Hard-delete
 	statement := `DELETE FROM alexa1.author WHERE external_id = $1`
-	_, err = conn.ExecContext(ctx, statement, id)
+	res, err := conn.ExecContext(ctx, statement, id)
+	if err != nil {
+		return err
+	} else if affect, err := res.RowsAffected(); affect == 0 || err != nil {
+		return exception.EntityNotFound
+	}
 
 	// write-through cache pattern
 	if r.mem != nil {
 		go Remove(ctx, r.mem, id, tableName)
 	}
 
-	return err
+	return nil
+}
+
+func (r *AuthorPostgresRepository) ChangeState(ctx context.Context, id, state string) error {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
+	conn, err := r.db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = conn.Close()
+	}()
+	// Use Go CDK OpenCensus database metrics
+	_ = r.logger.Log("method", "author.infrastructure.postgres.change_state", "db_connection", r.db.Stats().OpenConnections)
+
+	statement := `UPDATE alexa1.author SET status = $1 WHERE external_id = $2 AND active = TRUE`
+	res, err := conn.ExecContext(ctx, statement, state, id)
+	if err != nil {
+		return err
+	} else if affect, err := res.RowsAffected(); affect == 0 || err != nil {
+		return exception.EntityNotFound
+	}
+
+	// write-through cache pattern
+	if r.mem != nil {
+		go Remove(ctx, r.mem, id, tableName)
+	}
+
+	return nil
 }

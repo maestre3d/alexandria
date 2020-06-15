@@ -9,37 +9,18 @@ import (
 	"time"
 )
 
-// RoleType Owner's role type enum
-type roleType string
-
 // OwnershipType Owner's Type enum
 type ownershipType string
 
+// stateType SAGA status enum
+type stateType string
+
 const (
-	RootRole       roleType      = "root"
-	AdminRole      roleType      = "admin"
-	ContribRole    roleType      = "contrib"
 	CommunityOwner ownershipType = "public"
 	PrivateOwner   ownershipType = "private"
+	StatePending   stateType     = "STATUS_PENDING"
+	StateDone      stateType     = "STATUS_DONE"
 )
-
-// Owner represents user with permissions from the author
-type Owner struct {
-	ID   string `json:"owner_id" validate:"required"`
-	Role string `json:"role" validate:"required,alphaunicode,oneof=root admin contrib"`
-}
-
-func NewOwner(id, role string) *Owner {
-	// Set root owner by default
-	if role == "" {
-		role = string(RootRole)
-	}
-
-	return &Owner{
-		ID:   id,
-		Role: strings.ToLower(role),
-	}
-}
 
 // Author entity
 type Author struct {
@@ -48,19 +29,20 @@ type Author struct {
 	FirstName     string     `json:"first_name" validate:"required,min=1,max=255,alphanumunicode"`
 	LastName      string     `json:"last_name" validate:"required,min=1,max=255,alphanumunicode"`
 	DisplayName   string     `json:"display_name" validate:"required,min=1,max=255"`
+	OwnerID       string     `json:"owner_id" validate:"required"`
 	OwnershipType string     `json:"ownership_type" validate:"required,oneof=public private"`
 	CreateTime    time.Time  `json:"create_time"`
 	UpdateTime    time.Time  `json:"update_time"`
 	DeleteTime    *time.Time `json:"delete_time"`
-	Active        bool       `json:"active"`
+	Active        bool       `json:"-"`
 	Verified      bool       `json:"verified"`
 	Picture       *string    `json:"picture"`
 	TotalViews    int64      `json:"total_views"`
-	Owners        []*Owner   `json:"owners,omitempty" validate:"required,min=1,dive"`
+	Status        string     `json:"status,omitempty" validate:"required,oneof=STATUS_PENDING STATUS_DONE"`
 }
 
 // NewAuthor Create a new author
-func NewAuthor(firstName, lastName, displayName, ownershipType string, owner *Owner) *Author {
+func NewAuthor(firstName, lastName, displayName, ownershipType, ownerID string) *Author {
 	if displayName == "" {
 		if firstName == "" {
 			displayName = lastName
@@ -77,14 +59,6 @@ func NewAuthor(firstName, lastName, displayName, ownershipType string, owner *Ow
 		strings.ToLower(ownershipType)
 	}
 
-	owners := make([]*Owner, 0)
-
-	// Add root owner
-	if owner != nil {
-		owner.Role = string(RootRole)
-		owners = append(owners, owner)
-	}
-
 	// Generate external id
 	id, err := gonanoid.ID(16)
 	if err != nil {
@@ -98,19 +72,20 @@ func NewAuthor(firstName, lastName, displayName, ownershipType string, owner *Ow
 		FirstName:     firstName,
 		LastName:      lastName,
 		DisplayName:   displayName,
+		OwnerID:       ownerID,
 		OwnershipType: ownershipType,
 		CreateTime:    time.Now(),
 		UpdateTime:    time.Now(),
 		DeleteTime:    nil,
-		Active:        false,
+		Active:        true,
 		Verified:      false,
 		Picture:       &picture,
 		TotalViews:    0,
-		Owners:        owners,
+		Status:        string(StatePending),
 	}
 }
 
-func (e *Author) IsValid() error {
+func (e Author) IsValid() error {
 	// Struct validation
 	validate := validator.New()
 
@@ -141,21 +116,6 @@ func (e *Author) IsValid() error {
 		}
 
 		return err
-	}
-
-	// Compile-time owner's role enum assertion
-	hasOwnerType := false
-	for _, owner := range e.Owners {
-		if owner.Role == string(RootRole) {
-			hasOwnerType = true
-			break
-		}
-	}
-
-	// If author's user list doesn't has an owner, then entity's invalid
-	if !hasOwnerType {
-		return exception.NewErrorDescription(exception.RequiredField,
-			fmt.Sprintf(exception.RequiredFieldString, "owner"))
 	}
 
 	return nil

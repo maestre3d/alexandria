@@ -22,9 +22,47 @@ func NewAuthorAWSEventBus(cfg *config.Kernel) *AuthorAWSEventBus {
 	return &AuthorAWSEventBus{cfg, new(sync.Mutex)}
 }
 
+func (b *AuthorAWSEventBus) StartCreate(ctx context.Context, author *domain.Author) error {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
+	authorJSON, err := json.Marshal(author)
+	if err != nil {
+		return err
+	}
+
+	topic, err := pubsub.OpenTopic(ctx, os.Getenv("AWS_SNS_AUTHOR_PENDING"))
+	if err != nil {
+		return err
+	}
+	defer topic.Shutdown(ctx)
+
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, authorJSON, false)
+	m := &pubsub.Message{
+		Body: e.Content,
+		Metadata: map[string]string{
+			"transaction_id": uuid.New().String(),
+			"operation":      "create",
+			"service":        e.ServiceName,
+			"event_type":     e.EventType,
+			"priority":       e.Priority,
+			"provider":       e.Provider,
+		},
+		BeforeSend: nil,
+	}
+
+	return topic.Send(ctx, m)
+}
+
 func (b *AuthorAWSEventBus) Created(ctx context.Context, author *domain.Author) error {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
+
+	// Do any local low-volatile operation before any TCP/UDP connection
+	authorJSON, err := json.Marshal(author)
+	if err != nil {
+		return err
+	}
 
 	// "awssns:///AWS_SNS_ARN:ALEXANDRIA_AUTHOR_CREATED?region=us-east-1"
 	topic, err := pubsub.OpenTopic(ctx, os.Getenv("AWS_SNS_AUTHOR_CREATED"))
@@ -33,50 +71,47 @@ func (b *AuthorAWSEventBus) Created(ctx context.Context, author *domain.Author) 
 	}
 	defer topic.Shutdown(ctx)
 
-	if len(author.Owners) > 0 {
-		// Send integration event, verify owner_id from identity usecase
-		// Use transaction message struct
-		msg := struct {
-			AuthorID  string          `json:"author_id"`
-			OwnerPool []*domain.Owner `json:"owner_pool"`
-		}{}
-
-		msgJSON, err := json.Marshal(msg)
-		if err != nil {
-			return err
-		}
-
-		e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, msgJSON, true)
-		m := &pubsub.Message{
-			Body: e.Content,
-			Metadata: map[string]string{
-				"transaction_id": uuid.New().String(),
-				"service":        e.ServiceName,
-				"type":           e.EventType,
-				"priority":       e.Priority,
-			},
-			BeforeSend: nil,
-		}
-
-		err = topic.Send(ctx, m)
-		if err != nil {
-			return err
-		}
+	// Send domain event, spread aggregation side-effects to all required services
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, authorJSON, false)
+	m := &pubsub.Message{
+		Body: e.Content,
+		Metadata: map[string]string{
+			"service":    e.ServiceName,
+			"event_type": e.EventType,
+			"priority":   e.Priority,
+			"provider":   e.Provider,
+		},
+		BeforeSend: nil,
 	}
 
-	// Send domain event, spread aggregation side-effects to all required services
-	// Expose every claim available
+	return topic.Send(ctx, m)
+}
+
+func (b *AuthorAWSEventBus) StartUpdate(ctx context.Context, author *domain.Author) error {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
 	authorJSON, err := json.Marshal(author)
 	if err != nil {
 		return err
 	}
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderAWS, authorJSON, false)
+
+	topic, err := pubsub.OpenTopic(ctx, os.Getenv("AWS_SNS_AUTHOR_UPDATE_PENDING"))
+	if err != nil {
+		return err
+	}
+	defer topic.Shutdown(ctx)
+
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, authorJSON, false)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
-			"service":  e.ServiceName,
-			"type":     e.EventType,
-			"priority": e.Priority,
+			"transaction_id": uuid.New().String(),
+			"operation":      "update",
+			"service":        e.ServiceName,
+			"event_type":     e.EventType,
+			"priority":       e.Priority,
+			"provider":       e.Provider,
 		},
 		BeforeSend: nil,
 	}
@@ -138,9 +173,10 @@ func (b *AuthorAWSEventBus) Deleted(ctx context.Context, id string, isHard bool)
 	return topic.Send(ctx, &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{
-			"service":  e.ServiceName,
-			"priority": e.Priority,
-			"type":     e.EventType,
+			"service":    e.ServiceName,
+			"event_type": e.EventType,
+			"priority":   e.Priority,
+			"provider":   e.Provider,
 		},
 		BeforeSend: nil,
 	})
@@ -163,9 +199,10 @@ func (b *AuthorAWSEventBus) Restored(ctx context.Context, id string) error {
 	return topic.Send(ctx, &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{
-			"service":  e.ServiceName,
-			"priority": e.Priority,
-			"type":     e.EventType,
+			"service":    e.ServiceName,
+			"event_type": e.EventType,
+			"priority":   e.Priority,
+			"provider":   e.Provider,
 		},
 		BeforeSend: nil,
 	})

@@ -15,7 +15,24 @@
 syntax = "proto3";
 package pb;
 
-option go_package = "pkg/transport/pb";
+option go_package = ".;pb";
+
+service Health {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  ServingStatus status = 1;
+}
 
 service Author {
   rpc Create(CreateRequest) returns (AuthorMessage) {}
@@ -27,34 +44,29 @@ service Author {
   rpc HardDelete(HardDeleteRequest) returns (Empty) {}
 }
 
-message OwnerMessage {
-  string id = 1;
-  string role = 2;
-}
-
 message AuthorMessage {
   string id = 1;
   string firstName = 2;
   string lastName = 3;
   string displayName = 4;
-  string ownershipType = 5;
-  string createTime = 6;
-  string updateTime = 7;
-  string deleteTime = 8;
-  bool active = 9;
-  bool verified = 10;
-  string picture = 11;
-  int64 totalViews = 12;
-  repeated OwnerMessage owners = 13;
+  string ownerID = 5;
+  string ownershipType = 6;
+  string createTime = 7;
+  string updateTime = 8;
+  string deleteTime = 9;
+  bool active = 10;
+  bool verified = 11;
+  string picture = 12;
+  int64 totalViews = 13;
+  string status = 14;
 }
 
-/* Body */
 message CreateRequest {
   string firstName = 1;
   string lastName = 2;
   string displayName = 3;
-  string ownershipType = 4;
-  string ownerID = 5;
+  string ownerID = 4;
+  string ownershipType = 5;
 }
 
 message ListRequest {
@@ -77,11 +89,10 @@ message UpdateRequest {
   string firstName = 2;
   string lastName = 3;
   string displayName = 4;
-  string ownershipType = 5;
   string ownerID = 6;
+  string ownershipType = 5;
   string verified = 7;
   string picture = 8;
-  repeated OwnerMessage owners = 9;
 }
 
 message DeleteRequest {

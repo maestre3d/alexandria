@@ -10,13 +10,12 @@ import (
 	"github.com/go-kit/kit/tracing/zipkin"
 	"github.com/go-kit/kit/transport"
 	grpctransport "github.com/go-kit/kit/transport/grpc"
-	"github.com/maestre3d/alexandria/author-service/internal/domain"
+	"github.com/maestre3d/alexandria/author-service/pb"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/action"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/pb"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
-	stdprometheus "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -32,7 +31,7 @@ type AuthorRPCServer struct {
 }
 
 func NewAuthorRPC(svc usecase.AuthorInteractor, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) pb.AuthorServer {
-	duration := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
+	duration := kitprometheus.NewSummaryFrom(prometheus.SummaryOpts{
 		Namespace:   "alexandria",
 		Subsystem:   "rpc_author_service",
 		Name:        "request_duration_seconds",
@@ -168,8 +167,8 @@ func decodeRPCCreateRequest(_ context.Context, rpcReq interface{}) (interface{},
 		FirstName:     req.FirstName,
 		LastName:      req.LastName,
 		DisplayName:   req.DisplayName,
-		OwnershipType: req.OwnershipType,
 		OwnerID:       req.OwnerID,
+		OwnershipType: req.OwnershipType,
 	}, nil
 }
 
@@ -194,11 +193,10 @@ func decodeRPCUpdateRequest(_ context.Context, rpcReq interface{}) (interface{},
 		FirstName:     req.FirstName,
 		LastName:      req.LastName,
 		DisplayName:   req.DisplayName,
-		OwnershipType: req.OwnershipType,
 		OwnerID:       req.OwnerID,
+		OwnershipType: req.OwnershipType,
 		Verified:      req.Verified,
 		Picture:       req.Picture,
-		Owners:        parseOwnerMessages(req.Owners),
 	}, nil
 }
 
@@ -234,6 +232,7 @@ func encodeRPCCreateResponse(_ context.Context, response interface{}) (interface
 		FirstName:     res.Author.FirstName,
 		LastName:      res.Author.LastName,
 		DisplayName:   res.Author.DisplayName,
+		OwnerID:       res.Author.OwnerID,
 		OwnershipType: res.Author.OwnershipType,
 		CreateTime:    res.Author.CreateTime.String(),
 		UpdateTime:    res.Author.UpdateTime.String(),
@@ -242,7 +241,7 @@ func encodeRPCCreateResponse(_ context.Context, response interface{}) (interface
 		Verified:      res.Author.Verified,
 		Picture:       *res.Author.Picture,
 		TotalViews:    res.Author.TotalViews,
-		Owners:        parseOwners(res.Author.Owners),
+		Status:        res.Author.Status,
 	}, nil
 }
 
@@ -263,6 +262,7 @@ func encodeRPCListResponse(_ context.Context, response interface{}) (interface{}
 			FirstName:     author.FirstName,
 			LastName:      author.LastName,
 			DisplayName:   author.DisplayName,
+			OwnerID:       author.OwnerID,
 			OwnershipType: author.OwnershipType,
 			CreateTime:    author.CreateTime.String(),
 			UpdateTime:    author.UpdateTime.String(),
@@ -271,7 +271,7 @@ func encodeRPCListResponse(_ context.Context, response interface{}) (interface{}
 			Verified:      author.Verified,
 			Picture:       *author.Picture,
 			TotalViews:    author.TotalViews,
-			Owners:        parseOwners(author.Owners),
+			Status:        author.Status,
 		}
 		authorsRPC = append(authorsRPC, authorRPC)
 	}
@@ -297,6 +297,7 @@ func encodeRPCGetResponse(_ context.Context, response interface{}) (interface{},
 		FirstName:     res.Author.FirstName,
 		LastName:      res.Author.LastName,
 		DisplayName:   res.Author.DisplayName,
+		OwnerID:       res.Author.OwnerID,
 		OwnershipType: res.Author.OwnershipType,
 		CreateTime:    res.Author.CreateTime.String(),
 		UpdateTime:    res.Author.UpdateTime.String(),
@@ -305,7 +306,7 @@ func encodeRPCGetResponse(_ context.Context, response interface{}) (interface{},
 		Verified:      res.Author.Verified,
 		Picture:       *res.Author.Picture,
 		TotalViews:    res.Author.TotalViews,
-		Owners:        parseOwners(res.Author.Owners),
+		Status:        res.Author.Status,
 	}, nil
 }
 
@@ -324,6 +325,7 @@ func encodeRPCUpdateResponse(_ context.Context, response interface{}) (interface
 		FirstName:     res.Author.FirstName,
 		LastName:      res.Author.LastName,
 		DisplayName:   res.Author.DisplayName,
+		OwnerID:       res.Author.OwnerID,
 		OwnershipType: res.Author.OwnershipType,
 		CreateTime:    res.Author.CreateTime.String(),
 		UpdateTime:    res.Author.UpdateTime.String(),
@@ -332,7 +334,7 @@ func encodeRPCUpdateResponse(_ context.Context, response interface{}) (interface
 		Verified:      res.Author.Verified,
 		Picture:       *res.Author.Picture,
 		TotalViews:    res.Author.TotalViews,
-		Owners:        parseOwners(res.Author.Owners),
+		Status:        res.Author.Status,
 	}, nil
 }
 
@@ -359,36 +361,4 @@ func encodeRPCHardDeleteResponse(_ context.Context, response interface{}) (inter
 		return nil, res.Err
 	}
 	return nil, nil
-}
-
-// Parse domain owners to rpc message
-func parseOwners(owners []*domain.Owner) []*pb.OwnerMessage {
-	// Parse domain to rpc
-	ownersRPC := make([]*pb.OwnerMessage, 0)
-	for _, owner := range owners {
-		ownerMsg := &pb.OwnerMessage{
-			Id:   owner.ID,
-			Role: owner.Role,
-		}
-
-		ownersRPC = append(ownersRPC, ownerMsg)
-	}
-
-	return ownersRPC
-}
-
-// Parse rpc owners to domain message
-func parseOwnerMessages(owners []*pb.OwnerMessage) []*domain.Owner {
-	// Parse rpc to domain
-	ownersDomain := make([]*domain.Owner, 0)
-	for _, owner := range owners {
-		ownerMsg := &domain.Owner{
-			ID:   owner.Id,
-			Role: owner.Role,
-		}
-
-		ownersDomain = append(ownersDomain, ownerMsg)
-	}
-
-	return ownersDomain
 }

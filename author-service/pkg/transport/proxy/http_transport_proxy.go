@@ -52,10 +52,10 @@ func NewHTTP(cfg *config.Kernel, handlers ...Handler) (*HTTP, func()) {
 }
 
 func (p *HTTP) setHealthCheck() {
-	p.publicRouter.PathPrefix("/healthpb").Methods(http.MethodGet).HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Add("Content-Type", "application/json; charset=utf-8")
-		writer.WriteHeader(http.StatusOK)
-		_, _ = io.WriteString(writer, `{"alive":true}`)
+	p.publicRouter.PathPrefix("/health").Methods(http.MethodGet).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, `{"alive":true}`)
 	})
 }
 

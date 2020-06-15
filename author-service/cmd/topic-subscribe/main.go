@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/alexandria-oss/core/config"
 	logZap "github.com/go-kit/kit/log/zap"
-	"github.com/maestre3d/alexandria/author-service/internal/infrastructure/config"
 	"github.com/oklog/run"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -25,7 +25,7 @@ func main() {
 	level := zapcore.Level(8)
 	logger := logZap.NewZapSugarLogger(loggerZap, level)
 
-	cfg := config.NewKernelConfig(ctx, logger)
+	cfg, _ := config.NewKernel(ctx)
 	logger.Log("method", "main.topic-example", "msg", "kafka brokers set to "+cfg.EventBusConfig.KafkaHost)
 	logger.Log("method", "main.topic-example", "msg", "dependencies loaded")
 

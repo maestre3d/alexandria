@@ -47,7 +47,7 @@ func (b *AuthorBuilder) Owner(ownerID string) *AuthorBuilder {
 		return b
 	}
 
-	b.Statement += fmt.Sprintf(`external_id IN (SELECT fk_author FROM alexa1.author_user WHERE "user" = '%s')`, ownerID)
+	b.Statement += fmt.Sprintf(`owner_id = '%s'`, ownerID)
 	return b
 }
 
@@ -83,7 +83,7 @@ func (b *AuthorBuilder) Raw(statement string) *AuthorBuilder {
 /*
 key = field,
 def = default order,
-param = order from params, will replace default value
+param = sorting from params, will replace default value
 */
 func (b *AuthorBuilder) OrderBy(key, def, param string) *AuthorBuilder {
 	if param != "" {

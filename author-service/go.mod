@@ -7,7 +7,7 @@ require (
 	github.com/go-kit/kit v0.10.0
 	github.com/go-playground/validator/v10 v10.3.0
 	github.com/go-redis/redis/v7 v7.2.0
-	github.com/golang/protobuf v1.4.0
+	github.com/golang/protobuf v1.4.2
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gorilla/mux v1.7.3
@@ -23,5 +23,5 @@ require (
 	gocloud.dev v0.19.0
 	gocloud.dev/pubsub/kafkapubsub v0.19.0
 	google.golang.org/grpc v1.27.1
-	google.golang.org/protobuf v1.21.0
+	google.golang.org/protobuf v1.24.0
 )

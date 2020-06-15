@@ -35,8 +35,8 @@ func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 		return nil, nil, err
 	}
 	authorPostgresRepository := infrastructure.NewAuthorPostgresRepository(db, client, logLogger)
-	authorAWSEventBus := infrastructure.NewAuthorAWSEventBus(kernel)
-	authorUseCase := interactor.NewAuthorUseCase(logLogger, authorPostgresRepository, authorAWSEventBus)
+	authorKafkaEventBus := infrastructure.NewAuthorKafkaEventBus(kernel)
+	authorUseCase := interactor.NewAuthorUseCase(logLogger, authorPostgresRepository, authorKafkaEventBus)
 	return authorUseCase, func() {
 		cleanup2()
 		cleanup()

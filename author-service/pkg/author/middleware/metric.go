@@ -89,6 +89,28 @@ func (mw MetricAuthorMiddleware) HardDelete(ctx context.Context, id string) (err
 		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	err = mw.Next.Delete(ctx, id)
+	err = mw.Next.HardDelete(ctx, id)
+	return
+}
+
+func (mw MetricAuthorMiddleware) Done(ctx context.Context, id, op string) (err error) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "author.done", "error", fmt.Sprint(err != nil)}
+		mw.RequestCount.With(lvs...).Add(1)
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	err = mw.Next.Done(ctx, id, op)
+	return
+}
+
+func (mw MetricAuthorMiddleware) Failed(ctx context.Context, id, op, backup string) (err error) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "author.failed", "error", fmt.Sprint(err != nil)}
+		mw.RequestCount.With(lvs...).Add(1)
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	err = mw.Next.Failed(ctx, id, op, backup)
 	return
 }
