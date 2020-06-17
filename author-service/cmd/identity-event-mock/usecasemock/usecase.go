@@ -8,7 +8,6 @@ import (
 	"github.com/alexandria-oss/core/eventbus"
 	"github.com/alexandria-oss/core/exception"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/event"
 	"gocloud.dev/pubsub"
 	"log"
 )
@@ -24,20 +23,22 @@ func ValidateOwners(ctx context.Context, author *domain.Author, transactionID, o
 	if err != nil {
 		// Identity not found, publish AUTHOR_OWNER_FAILED
 		// This is supposed to be inside identity's use case event bus implementation
-		topic, err := eventbus.NewKafkaProducer(ctx, "AUTHOR_OWNER_FAILED")
+		topic, err := eventbus.NewKafkaProducer(ctx, domain.OwnerFailed)
 		if err != nil {
 			return err
 		}
 		defer topic.Shutdown(ctx)
 
 		// Error event struct
-		mJSON, err := json.Marshal(&event.Transaction{
-			EntityID: author.ExternalID,
-			Code:     404,
-			Message:  fmt.Sprintf("%s: identity %s not found", exception.EntityNotFound.Error(), author.OwnerID),
+		mJSON, err := json.Marshal(&eventbus.Transaction{
+			ID:        transactionID,
+			RootID:    author.ExternalID,
+			Operation: operation,
+			Code:      404,
+			Message:   fmt.Sprintf("%s: identity %s not found", exception.EntityNotFound.Error(), author.OwnerID),
 		})
 
-		e := eventbus.NewEvent(ServiceName, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, mJSON, true)
+		e := eventbus.NewEvent(ServiceName, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, mJSON)
 		m := &pubsub.Message{
 			Body: e.Content,
 			Metadata: map[string]string{
@@ -57,24 +58,25 @@ func ValidateOwners(ctx context.Context, author *domain.Author, transactionID, o
 
 	// All identities found, Publish AUTHOR_OWNER_VERIFIED
 	// This is supposed to be inside identity's use case event bus implementation
-	topic, err := eventbus.NewKafkaProducer(ctx, "AUTHOR_OWNER_VERIFIED")
+	topic, err := eventbus.NewKafkaProducer(ctx, domain.OwnerVerified)
 	if err != nil {
 		return err
 	}
 	defer topic.Shutdown(ctx)
 
 	// Transaction event struct
-	mJSON, err := json.Marshal(&struct {
-		Message  string `json:"message"`
-		Code     int32  `json:"code"`
-		EntityID string `json:"entity_id"`
-	}{
-		"",
-		200,
-		author.ExternalID,
+	mJSON, err := json.Marshal(&eventbus.Transaction{
+		ID:        transactionID,
+		RootID:    author.ExternalID,
+		SpanID:    "",
+		TraceID:   "",
+		Operation: operation,
+		Backup:    "",
+		Code:      200,
+		Message:   "author " + author.ExternalID + " verified",
 	})
 
-	e := eventbus.NewEvent(ServiceName, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, mJSON, true)
+	e := eventbus.NewEvent(ServiceName, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, mJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{

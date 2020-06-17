@@ -3,6 +3,7 @@ package interactor
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/alexandria-oss/core"
 	"github.com/alexandria-oss/core/exception"
@@ -443,5 +444,14 @@ func (u *AuthorUseCase) Failed(ctx context.Context, id, op, backup string) error
 		err = u.repository.Replace(ctxR, authorBackup)
 	}
 
-	return err
+	// Avoid not found errors to send acknowledgement to broker
+	if err != nil && errors.Unwrap(err) != exception.EntityNotFound {
+		_ = u.log.Log("method", "author.interactor.failed", "err", err.Error())
+		return err
+	}
+
+	_ = u.log.Log("method", "author.interactor.failed", "msg", fmt.Sprintf("author %s rolled back", id),
+		"operation", op)
+
+	return nil
 }

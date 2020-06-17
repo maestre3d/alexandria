@@ -37,12 +37,22 @@ func (b *AuthorAWSEventBus) StartCreate(ctx context.Context, author *domain.Auth
 	}
 	defer topic.Shutdown(ctx)
 
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, authorJSON, false)
+	t := eventbus.Transaction{
+		ID:        uuid.New().String(),
+		RootID:    author.ExternalID,
+		SpanID:    "",
+		TraceID:   "",
+		Operation: domain.AuthorCreated,
+		Backup:    "",
+		Code:      0,
+		Message:   "",
+	}
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, authorJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
-			"transaction_id": uuid.New().String(),
-			"operation":      "create",
+			"transaction_id": t.ID,
+			"operation":      t.Operation,
 			"service":        e.ServiceName,
 			"event_type":     e.EventType,
 			"priority":       e.Priority,
@@ -72,7 +82,7 @@ func (b *AuthorAWSEventBus) Created(ctx context.Context, author *domain.Author) 
 	defer topic.Shutdown(ctx)
 
 	// Send domain event, spread aggregation side-effects to all required services
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, authorJSON, false)
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, authorJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
@@ -87,11 +97,16 @@ func (b *AuthorAWSEventBus) Created(ctx context.Context, author *domain.Author) 
 	return topic.Send(ctx, m)
 }
 
-func (b *AuthorAWSEventBus) StartUpdate(ctx context.Context, author *domain.Author) error {
+func (b *AuthorAWSEventBus) StartUpdate(ctx context.Context, author *domain.Author, backup *domain.Author) error {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
 	authorJSON, err := json.Marshal(author)
+	if err != nil {
+		return err
+	}
+
+	backupJSON, err := json.Marshal(backup)
 	if err != nil {
 		return err
 	}
@@ -102,12 +117,23 @@ func (b *AuthorAWSEventBus) StartUpdate(ctx context.Context, author *domain.Auth
 	}
 	defer topic.Shutdown(ctx)
 
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, authorJSON, false)
+	t := eventbus.Transaction{
+		ID:        uuid.New().String(),
+		RootID:    author.ExternalID,
+		SpanID:    "",
+		TraceID:   "",
+		Operation: domain.AuthorCreated,
+		Backup:    string(backupJSON),
+		Code:      0,
+		Message:   "",
+	}
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, authorJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
-			"transaction_id": uuid.New().String(),
-			"operation":      "update",
+			"transaction_id": t.ID,
+			"operation":      t.Operation,
+			"backup":         t.Backup,
 			"service":        e.ServiceName,
 			"event_type":     e.EventType,
 			"priority":       e.Priority,
@@ -134,14 +160,14 @@ func (b *AuthorAWSEventBus) Updated(ctx context.Context, author *domain.Author) 
 	}
 	defer topic.Shutdown(ctx)
 
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, authorJSON, true)
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityHigh, eventbus.ProviderAWS, authorJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
-			"transaction_id": uuid.New().String(),
-			"service":        e.ServiceName,
-			"type":           e.EventType,
-			"priority":       e.Priority,
+			"service":    e.ServiceName,
+			"event_type": e.EventType,
+			"priority":   e.Priority,
+			"provider":   e.Provider,
 		},
 		BeforeSend: nil,
 	}
@@ -169,7 +195,7 @@ func (b *AuthorAWSEventBus) Deleted(ctx context.Context, id string, isHard bool)
 	defer topic.Shutdown(ctx)
 
 	// Send domain event, Spread side-effects to all required services
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderAWS, []byte(id), false)
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderAWS, []byte(id))
 	return topic.Send(ctx, &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{
@@ -195,7 +221,7 @@ func (b *AuthorAWSEventBus) Restored(ctx context.Context, id string) error {
 	defer topic.Shutdown(ctx)
 
 	// Send domain event, Spread side-effects to all required services
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderAWS, []byte(id), false)
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderAWS, []byte(id))
 	return topic.Send(ctx, &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{

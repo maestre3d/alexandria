@@ -3,24 +3,24 @@ package proxy
 import (
 	"context"
 	"github.com/alexandria-oss/core/config"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/event"
+	"github.com/alexandria-oss/core/eventbus"
 )
 
 type Consumer interface {
-	SetBinders(s *event.Server, ctx context.Context, service string) error
+	SetBinders(s *eventbus.Server, ctx context.Context, service string) error
 }
 
 type Event struct {
-	Server    *event.Server
+	Server    *eventbus.Server
 	ctx       context.Context
 	cfg       *config.Kernel
 	consumers []Consumer
 }
 
 func NewEvent(ctx context.Context, cfg *config.Kernel, consumers ...Consumer) (*Event, func(), error) {
-	ctxS, cancel := context.WithCancel(ctx)
+	ctxS, _ := context.WithCancel(ctx)
 
-	srv := event.NewServer(ctxS, cancel)
+	srv := eventbus.NewServer(ctxS)
 	clean := func() {
 		srv.Close()
 	}

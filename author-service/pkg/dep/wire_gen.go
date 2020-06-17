@@ -44,8 +44,8 @@ func InjectTransportService() (*service.Transport, func(), error) {
 	authorHandler := bind.NewAuthorHTTP(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
 	v := provideHTTPHandlers(authorHandler)
 	http, cleanup4 := proxy.NewHTTP(kernel, v...)
-	authorEventHandler := bind.NewAuthorEventHandler(authorInteractor, logLogger)
-	v2 := provideEventConsumers(authorEventHandler)
+	authorEventConsumer := bind.NewAuthorEventConsumer(authorInteractor, logLogger)
+	v2 := provideEventConsumers(authorEventConsumer)
 	event, cleanup5, err := proxy.NewEvent(context, kernel, v2...)
 	if err != nil {
 		cleanup4()
@@ -77,13 +77,14 @@ var httpProxySet = wire.NewSet(
 
 var rpcProxySet = wire.NewSet(bind.NewAuthorRPC, bind.NewHealthRPC, provideRPCServers, proxy.NewRPC)
 
-var eventProxySet = wire.NewSet(bind.NewAuthorEventHandler, provideEventConsumers, proxy.NewEvent)
+var eventProxySet = wire.NewSet(bind.NewAuthorEventConsumer, provideEventConsumers, proxy.NewEvent)
 
 func provideContext() context.Context {
 	return Ctx
 }
 
 func provideAuthorInteractor(logger2 log.Logger) (usecase.AuthorInteractor, func(), error) {
+	dependency.Ctx = Ctx
 	authorUseCase, cleanup, err := dependency.InjectAuthorUseCase()
 
 	authorService := author.WrapAuthorInstrumentation(authorUseCase, logger2)
@@ -103,7 +104,7 @@ func provideRPCServers(authorServer pb.AuthorServer, healthServer pb.HealthServe
 	return &proxy.Servers{authorServer, healthServer}
 }
 
-func provideEventConsumers(authorHandler *bind.AuthorEventHandler) []proxy.Consumer {
+func provideEventConsumers(authorHandler *bind.AuthorEventConsumer) []proxy.Consumer {
 	consumers := make([]proxy.Consumer, 0)
 	consumers = append(consumers, authorHandler)
 	return consumers

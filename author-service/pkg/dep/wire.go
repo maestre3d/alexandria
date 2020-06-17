@@ -44,7 +44,7 @@ var rpcProxySet = wire.NewSet(
 )
 
 var eventProxySet = wire.NewSet(
-	bind.NewAuthorEventHandler,
+	bind.NewAuthorEventConsumer,
 	provideEventConsumers,
 	proxy.NewEvent,
 )
@@ -54,6 +54,7 @@ func provideContext() context.Context {
 }
 
 func provideAuthorInteractor(logger log.Logger) (usecase.AuthorInteractor, func(), error) {
+	dependency.Ctx = Ctx
 	authorUseCase, cleanup, err := dependency.InjectAuthorUseCase()
 
 	authorService := author.WrapAuthorInstrumentation(authorUseCase, logger)
@@ -73,7 +74,7 @@ func provideRPCServers(authorServer pb.AuthorServer, healthServer pb.HealthServe
 	return &proxy.Servers{authorServer, healthServer}
 }
 
-func provideEventConsumers(authorHandler *bind.AuthorEventHandler) []proxy.Consumer {
+func provideEventConsumers(authorHandler *bind.AuthorEventConsumer) []proxy.Consumer {
 	consumers := make([]proxy.Consumer, 0)
 	consumers = append(consumers, authorHandler)
 	return consumers

@@ -45,6 +45,8 @@ func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 
 // wire.go:
 
+var Ctx context.Context = context.Background()
+
 var configSet = wire.NewSet(
 	provideContext, config.NewKernel,
 )
@@ -58,5 +60,5 @@ var authorDBMSRepositorySet = wire.NewSet(
 )
 
 func provideContext() context.Context {
-	return context.Background()
+	return Ctx
 }

@@ -35,12 +35,22 @@ func (b *AuthorKafkaEventBus) StartCreate(ctx context.Context, author *domain.Au
 	}
 	defer topic.Shutdown(ctx)
 
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, authorJSON, false)
+	t := eventbus.Transaction{
+		ID:        uuid.New().String(),
+		RootID:    author.ExternalID,
+		SpanID:    "",
+		TraceID:   "",
+		Operation: domain.AuthorCreated,
+		Backup:    "",
+		Code:      0,
+		Message:   "",
+	}
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, authorJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
-			"transaction_id": uuid.New().String(),
-			"operation":      domain.AuthorCreated,
+			"transaction_id": t.ID,
+			"operation":      t.Operation,
 			"service":        e.ServiceName,
 			"event_type":     e.EventType,
 			"priority":       e.Priority,
@@ -69,7 +79,7 @@ func (b *AuthorKafkaEventBus) Created(ctx context.Context, author *domain.Author
 	defer topic.Shutdown(ctx)
 
 	// Send domain event, spread aggregation side-effects to all required services
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, authorJSON, false)
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, authorJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
@@ -104,12 +114,22 @@ func (b *AuthorKafkaEventBus) StartUpdate(ctx context.Context, author *domain.Au
 	}
 	defer topic.Shutdown(ctx)
 
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, authorJSON, false)
+	t := eventbus.Transaction{
+		ID:        uuid.New().String(),
+		RootID:    author.ExternalID,
+		SpanID:    "",
+		TraceID:   "",
+		Operation: domain.AuthorCreated,
+		Backup:    string(backupJSON),
+		Code:      0,
+		Message:   "",
+	}
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, authorJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
-			"transaction_id": uuid.New().String(),
-			"operation":      domain.AuthorUpdated,
+			"transaction_id": t.ID,
+			"operation":      t.Operation,
 			"backup":         string(backupJSON),
 			"service":        e.ServiceName,
 			"event_type":     e.EventType,
@@ -137,14 +157,14 @@ func (b *AuthorKafkaEventBus) Updated(ctx context.Context, author *domain.Author
 	}
 	defer topic.Shutdown(ctx)
 
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, authorJSON, true)
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, authorJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
-			"transaction_id": uuid.New().String(),
-			"service":        e.ServiceName,
-			"type":           e.EventType,
-			"priority":       e.Priority,
+			"service":    e.ServiceName,
+			"event_type": e.EventType,
+			"priority":   e.Priority,
+			"provider":   e.Provider,
 		},
 		BeforeSend: nil,
 	}
@@ -170,7 +190,7 @@ func (b *AuthorKafkaEventBus) Deleted(ctx context.Context, id string, isHard boo
 	defer topic.Shutdown(ctx)
 
 	// Send domain event, Spread side-effects to all required services
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, []byte(id), false)
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, []byte(id))
 	return topic.Send(ctx, &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{
@@ -194,7 +214,7 @@ func (b *AuthorKafkaEventBus) Restored(ctx context.Context, id string) error {
 	defer topic.Shutdown(ctx)
 
 	// Send domain event, Spread side-effects to all required services
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, []byte(id), false)
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, []byte(id))
 	return topic.Send(ctx, &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{

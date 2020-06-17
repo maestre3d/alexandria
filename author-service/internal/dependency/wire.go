@@ -14,6 +14,8 @@ import (
 	"github.com/maestre3d/alexandria/author-service/internal/interactor"
 )
 
+var Ctx context.Context = context.Background()
+
 var configSet = wire.NewSet(
 	provideContext,
 	config.NewKernel,
@@ -33,7 +35,7 @@ var authorDBMSRepositorySet = wire.NewSet(
 )
 
 func provideContext() context.Context {
-	return context.Background()
+	return Ctx
 }
 
 func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {

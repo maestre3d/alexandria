@@ -3,7 +3,7 @@ module github.com/maestre3d/alexandria/author-service
 go 1.13
 
 require (
-	github.com/alexandria-oss/core v0.3.3-beta
+	github.com/alexandria-oss/core v0.4.0-beta
 	github.com/go-kit/kit v0.10.0
 	github.com/go-playground/validator/v10 v10.3.0
 	github.com/go-redis/redis/v7 v7.2.0

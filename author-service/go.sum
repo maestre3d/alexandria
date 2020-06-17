@@ -53,6 +53,8 @@ github.com/alexandria-oss/core v0.3.2-beta h1:IpRugoStjbLp7iXBtDPOTa8kaK9XvSXfD6
 github.com/alexandria-oss/core v0.3.2-beta/go.mod h1:eIFTS68J7R5ksf8vSLFjsXHs4I83+f4glfr4DOZm8M0=
 github.com/alexandria-oss/core v0.3.3-beta h1:2C8/z4AZnC8gm+1agARzvmhhPh78/jtgFMt6Uge38pc=
 github.com/alexandria-oss/core v0.3.3-beta/go.mod h1:eIFTS68J7R5ksf8vSLFjsXHs4I83+f4glfr4DOZm8M0=
+github.com/alexandria-oss/core v0.4.0-beta h1:Fge3emg2Wsnlw8fZ/cUir02++yvbz9ML6T7FVlhVrQU=
+github.com/alexandria-oss/core v0.4.0-beta/go.mod h1:eIFTS68J7R5ksf8vSLFjsXHs4I83+f4glfr4DOZm8M0=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.13.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
@@ -300,6 +302,7 @@ github.com/lightstep/lightstep-tracer-go v0.18.1/go.mod h1:jlF1pusYV4pidLvZ+XD0U
 github.com/lyft/protoc-gen-validate v0.0.13/go.mod h1:XbGvPuh87YZc5TdIa2/I4pLk0QoUACkjt2znoq26NVQ=
 github.com/maestre3d/alexandria v0.0.0-20200527071840-a6f366246891 h1:InzdaYj1CG/k+90xZWOOl06RlPryCe79T3SENqL0Gu4=
 github.com/maestre3d/alexandria v0.0.0-20200604075517-47d38a293f1d h1:FJ4YQzB0zFqCXlNEhy4fWDvscoxB15xZLElGufWJ5xw=
+github.com/maestre3d/alexandria v0.0.0-20200615090918-2c5de3eaca43 h1:X3JQ4/kd5IE46MkwJL+D1/btt0vWi/RUbqAyR+FpYwA=
 github.com/magiconair/properties v1.8.1 h1:ZC2Vc7/ZFkGmsVC9KvOjumD+G5lXy2RtTKyzRKO2BQ4=
 github.com/magiconair/properties v1.8.1/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/matoous/go-nanoid v1.4.1 h1:Yag04X+qPMDtYbyJsMDhoe8rP5kRl293b2QK8KRp2SE=
