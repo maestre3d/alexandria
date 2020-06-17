@@ -13,7 +13,6 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/author-service/internal/dependency"
-	"github.com/maestre3d/alexandria/author-service/pb"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"github.com/maestre3d/alexandria/author-service/pkg/service"
@@ -37,16 +36,16 @@ func InjectTransportService() (*service.Transport, func(), error) {
 	}
 	zipkinTracer, cleanup2 := tracer.NewZipkin(kernel)
 	opentracingTracer := tracer.WrapZipkinOpenTracing(kernel, zipkinTracer)
-	authorServer := bind.NewAuthorRPC(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
-	healthServer := bind.NewHealthRPC()
-	servers := provideRPCServers(authorServer, healthServer)
-	server, cleanup3 := proxy.NewRPC(servers)
+	authorRPCServer := bind.NewAuthorRPC(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
+	healthRPCServer := bind.NewHealthRPC()
+	v := provideRPCServers(authorRPCServer, healthRPCServer)
+	server, cleanup3 := proxy.NewRPC(v)
 	authorHandler := bind.NewAuthorHTTP(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
-	v := provideHTTPHandlers(authorHandler)
-	http, cleanup4 := proxy.NewHTTP(kernel, v...)
+	v2 := provideHTTPHandlers(authorHandler)
+	http, cleanup4 := proxy.NewHTTP(kernel, v2...)
 	authorEventConsumer := bind.NewAuthorEventConsumer(authorInteractor, logLogger)
-	v2 := provideEventConsumers(authorEventConsumer)
-	event, cleanup5, err := proxy.NewEvent(context, kernel, v2...)
+	v3 := provideEventConsumers(authorEventConsumer)
+	event, cleanup5, err := proxy.NewEvent(context, kernel, v3...)
 	if err != nil {
 		cleanup4()
 		cleanup3()
@@ -100,8 +99,11 @@ func provideHTTPHandlers(authorHandler *bind.AuthorHandler) []proxy.Handler {
 }
 
 // Bind/Map used rpc servers
-func provideRPCServers(authorServer pb.AuthorServer, healthServer pb.HealthServer) *proxy.Servers {
-	return &proxy.Servers{authorServer, healthServer}
+func provideRPCServers(authorServer *bind.AuthorRPCServer, healthServer *bind.HealthRPCServer) []proxy.RPCServer {
+	servers := make([]proxy.RPCServer, 0)
+	servers = append(servers, authorServer)
+	servers = append(servers, healthServer)
+	return servers
 }
 
 func provideEventConsumers(authorHandler *bind.AuthorEventConsumer) []proxy.Consumer {

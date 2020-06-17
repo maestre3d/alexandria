@@ -2,23 +2,27 @@ package proxy
 
 import (
 	kitgrpc "github.com/go-kit/kit/transport/grpc"
-	"github.com/maestre3d/alexandria/author-service/pb"
 	"google.golang.org/grpc"
 )
 
-type Servers struct {
-	AuthorServer pb.AuthorServer
-	HealthServer pb.HealthServer
+type RPCServer interface {
+	SetRoutes(*grpc.Server)
 }
 
-func NewRPC(servers *Servers) (*grpc.Server, func()) {
+func NewRPC(servers []RPCServer) (*grpc.Server, func()) {
 	// RPC Service registry
 	rpcServer := grpc.NewServer(grpc.UnaryInterceptor(kitgrpc.Interceptor))
-	pb.RegisterAuthorServer(rpcServer, servers.AuthorServer)
-	pb.RegisterHealthServer(rpcServer, servers.HealthServer)
+	mapRoutes(servers, rpcServer)
+
 	cleanup := func() {
 		rpcServer.Stop()
 	}
 
 	return rpcServer, cleanup
+}
+
+func mapRoutes(servers []RPCServer, rpc *grpc.Server) {
+	for _, srv := range servers {
+		srv.SetRoutes(rpc)
+	}
 }

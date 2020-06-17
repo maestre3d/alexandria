@@ -16,11 +16,17 @@ import (
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
 	"github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type AuthorRPCServer struct {
+	srv pb.AuthorServer
+}
+
+// Compile-time RPC implementation
+type authorRPCImp struct {
 	create     grpctransport.Handler
 	list       grpctransport.Handler
 	get        grpctransport.Handler
@@ -30,7 +36,7 @@ type AuthorRPCServer struct {
 	hardDelete grpctransport.Handler
 }
 
-func NewAuthorRPC(svc usecase.AuthorInteractor, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) pb.AuthorServer {
+func NewAuthorRPC(svc usecase.AuthorInteractor, logger log.Logger, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) *AuthorRPCServer {
 	duration := kitprometheus.NewSummaryFrom(prometheus.SummaryOpts{
 		Namespace:   "alexandria",
 		Subsystem:   "rpc_author_service",
@@ -56,7 +62,7 @@ func NewAuthorRPC(svc usecase.AuthorInteractor, logger log.Logger, tracer stdope
 		options = append(options, zipkin.GRPCServerTrace(zipkinTracer))
 	}
 
-	return &AuthorRPCServer{
+	srv := authorRPCImp{
 		create: grpctransport.NewServer(
 			action.MakeCreateAuthorEndpoint(svc, logger, duration, tracer, zipkinTracer),
 			decodeRPCCreateRequest,
@@ -100,11 +106,17 @@ func NewAuthorRPC(svc usecase.AuthorInteractor, logger log.Logger, tracer stdope
 			append(options, grpctransport.ServerBefore(opentracing.GRPCToContext(tracer, "HardDelete", logger)))...,
 		),
 	}
+
+	return &AuthorRPCServer{srv}
+}
+
+func (a AuthorRPCServer) SetRoutes(srv *grpc.Server) {
+	pb.RegisterAuthorServer(srv, a.srv)
 }
 
 /* RPC Action Binding/Implementations */
 
-func (a AuthorRPCServer) Create(ctx context.Context, req *pb.CreateRequest) (*pb.AuthorMessage, error) {
+func (a authorRPCImp) Create(ctx context.Context, req *pb.CreateRequest) (*pb.AuthorMessage, error) {
 	_, rep, err := a.create.ServeGRPC(ctx, req)
 	if err != nil {
 		return nil, grpcutil.ResponseErr(err)
@@ -112,7 +124,7 @@ func (a AuthorRPCServer) Create(ctx context.Context, req *pb.CreateRequest) (*pb
 	return rep.(*pb.AuthorMessage), nil
 }
 
-func (a AuthorRPCServer) List(ctx context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
+func (a authorRPCImp) List(ctx context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
 	_, rep, err := a.list.ServeGRPC(ctx, req)
 	if err != nil {
 		return nil, grpcutil.ResponseErr(err)
@@ -120,7 +132,7 @@ func (a AuthorRPCServer) List(ctx context.Context, req *pb.ListRequest) (*pb.Lis
 	return rep.(*pb.ListResponse), nil
 }
 
-func (a AuthorRPCServer) Get(ctx context.Context, req *pb.GetRequest) (*pb.AuthorMessage, error) {
+func (a authorRPCImp) Get(ctx context.Context, req *pb.GetRequest) (*pb.AuthorMessage, error) {
 	_, rep, err := a.get.ServeGRPC(ctx, req)
 	if err != nil {
 		return nil, grpcutil.ResponseErr(err)
@@ -128,7 +140,7 @@ func (a AuthorRPCServer) Get(ctx context.Context, req *pb.GetRequest) (*pb.Autho
 	return rep.(*pb.AuthorMessage), nil
 }
 
-func (a AuthorRPCServer) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.AuthorMessage, error) {
+func (a authorRPCImp) Update(ctx context.Context, req *pb.UpdateRequest) (*pb.AuthorMessage, error) {
 	_, rep, err := a.update.ServeGRPC(ctx, req)
 	if err != nil {
 		return nil, grpcutil.ResponseErr(err)
@@ -136,7 +148,7 @@ func (a AuthorRPCServer) Update(ctx context.Context, req *pb.UpdateRequest) (*pb
 	return rep.(*pb.AuthorMessage), nil
 }
 
-func (a AuthorRPCServer) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.Empty, error) {
+func (a authorRPCImp) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.Empty, error) {
 	_, rep, err := a.delete.ServeGRPC(ctx, req)
 	if err != nil {
 		return nil, grpcutil.ResponseErr(err)
@@ -144,7 +156,7 @@ func (a AuthorRPCServer) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb
 	return rep.(*pb.Empty), nil
 }
 
-func (a AuthorRPCServer) Restore(ctx context.Context, req *pb.RestoreRequest) (*pb.Empty, error) {
+func (a authorRPCImp) Restore(ctx context.Context, req *pb.RestoreRequest) (*pb.Empty, error) {
 	_, rep, err := a.restore.ServeGRPC(ctx, req)
 	if err != nil {
 		return nil, grpcutil.ResponseErr(err)
@@ -152,7 +164,7 @@ func (a AuthorRPCServer) Restore(ctx context.Context, req *pb.RestoreRequest) (*
 	return rep.(*pb.Empty), nil
 }
 
-func (a AuthorRPCServer) HardDelete(ctx context.Context, req *pb.HardDeleteRequest) (*pb.Empty, error) {
+func (a authorRPCImp) HardDelete(ctx context.Context, req *pb.HardDeleteRequest) (*pb.Empty, error) {
 	_, rep, err := a.hardDelete.ServeGRPC(ctx, req)
 	if err != nil {
 		return nil, grpcutil.ResponseErr(err)
