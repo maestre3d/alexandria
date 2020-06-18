@@ -159,6 +159,7 @@ func decodeCreateRequest(_ context.Context, r *http.Request) (interface{}, error
 		DisplayName:   r.PostFormValue("display_name"),
 		OwnerID:       r.PostFormValue("owner_id"),
 		OwnershipType: r.PostFormValue("ownership_type"),
+		Country:       r.PostFormValue("country"),
 	}, nil
 }
 
@@ -174,6 +175,7 @@ func decodeListRequest(_ context.Context, r *http.Request) (interface{}, error) 
 			"display_name":   r.URL.Query().Get("display_name"),
 			"ownership_type": r.URL.Query().Get("ownership_type"),
 			"owner_id":       r.URL.Query().Get("owner_id"),
+			"country":        r.URL.Query().Get("country"),
 		},
 	}, nil
 }
@@ -200,6 +202,7 @@ func decodeUpdateRequest(_ context.Context, r *http.Request) (interface{}, error
 		OwnershipType: r.PostFormValue("ownership_type"),
 		Verified:      r.PostFormValue("verified"),
 		Picture:       r.PostFormValue("picture"),
+		Country:       r.PostFormValue("country"),
 	}, nil
 }
 

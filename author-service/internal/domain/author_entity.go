@@ -38,11 +38,12 @@ type Author struct {
 	Verified      bool       `json:"verified"`
 	Picture       *string    `json:"picture"`
 	TotalViews    int64      `json:"total_views"`
+	Country       string     `json:"country" validate:"required,min=1,max=5,alphaunicode"`
 	Status        string     `json:"status,omitempty" validate:"required,oneof=STATUS_PENDING STATUS_DONE"`
 }
 
 // NewAuthor Create a new author
-func NewAuthor(firstName, lastName, displayName, ownershipType, ownerID string) *Author {
+func NewAuthor(firstName, lastName, displayName, ownershipType, ownerID, countryCode string) *Author {
 	if displayName == "" {
 		if firstName == "" {
 			displayName = lastName
@@ -81,6 +82,7 @@ func NewAuthor(firstName, lastName, displayName, ownershipType, ownerID string) 
 		Verified:      false,
 		Picture:       &picture,
 		TotalViews:    0,
+		Country:       countryCode,
 		Status:        string(StatePending),
 	}
 }
@@ -96,7 +98,7 @@ func (e Author) IsValid() error {
 			case err.Tag() == "required":
 				return exception.NewErrorDescription(exception.RequiredField,
 					fmt.Sprintf(exception.RequiredFieldString, strings.ToLower(err.Field())))
-			case err.Tag() == "alphanum" || err.Tag() == "alpha" || err.Tag() == "alphanumunicode":
+			case err.Tag() == "alphanum" || err.Tag() == "alpha" || err.Tag() == "alphanumunicode" || err.Tag() == "alphaunicode":
 				return exception.NewErrorDescription(exception.InvalidFieldFormat,
 					fmt.Sprintf(exception.InvalidFieldFormatString, strings.ToLower(err.Field()), err.Tag()))
 			case err.Tag() == "max" || err.Tag() == "min":

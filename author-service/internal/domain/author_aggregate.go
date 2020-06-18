@@ -6,6 +6,7 @@ type AuthorAggregate struct {
 	DisplayName   string `json:"display_name"`
 	OwnerID       string `json:"owner_id"`
 	OwnershipType string `json:"ownership_type"`
+	Country       string `json:"country"`
 }
 
 type AuthorUpdateAggregate struct {

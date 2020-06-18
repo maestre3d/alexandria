@@ -51,6 +51,15 @@ func (b *AuthorBuilder) Owner(ownerID string) *AuthorBuilder {
 	return b
 }
 
+func (b *AuthorBuilder) Country(countryCode string) *AuthorBuilder {
+	if countryCode == "" {
+		return b
+	}
+
+	b.Statement += fmt.Sprintf(`country = '%s'`, countryCode)
+	return b
+}
+
 // Filter returns a query to filter useful fields like timestamp, id, or total_views
 /*
 key = field,

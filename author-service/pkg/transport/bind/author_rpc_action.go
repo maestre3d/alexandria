@@ -181,6 +181,7 @@ func decodeRPCCreateRequest(_ context.Context, rpcReq interface{}) (interface{},
 		DisplayName:   req.DisplayName,
 		OwnerID:       req.OwnerID,
 		OwnershipType: req.OwnershipType,
+		Country:       req.Country,
 	}, nil
 }
 
@@ -209,6 +210,7 @@ func decodeRPCUpdateRequest(_ context.Context, rpcReq interface{}) (interface{},
 		OwnershipType: req.OwnershipType,
 		Verified:      req.Verified,
 		Picture:       req.Picture,
+		Country:       req.Country,
 	}, nil
 }
 
@@ -253,6 +255,7 @@ func encodeRPCCreateResponse(_ context.Context, response interface{}) (interface
 		Verified:      res.Author.Verified,
 		Picture:       *res.Author.Picture,
 		TotalViews:    res.Author.TotalViews,
+		Country:       res.Author.Country,
 		Status:        res.Author.Status,
 	}, nil
 }
@@ -283,6 +286,7 @@ func encodeRPCListResponse(_ context.Context, response interface{}) (interface{}
 			Verified:      author.Verified,
 			Picture:       *author.Picture,
 			TotalViews:    author.TotalViews,
+			Country:       author.Country,
 			Status:        author.Status,
 		}
 		authorsRPC = append(authorsRPC, authorRPC)
@@ -318,6 +322,7 @@ func encodeRPCGetResponse(_ context.Context, response interface{}) (interface{},
 		Verified:      res.Author.Verified,
 		Picture:       *res.Author.Picture,
 		TotalViews:    res.Author.TotalViews,
+		Country:       res.Author.Country,
 		Status:        res.Author.Status,
 	}, nil
 }
@@ -346,6 +351,7 @@ func encodeRPCUpdateResponse(_ context.Context, response interface{}) (interface
 		Verified:      res.Author.Verified,
 		Picture:       *res.Author.Picture,
 		TotalViews:    res.Author.TotalViews,
+		Country:       res.Author.Country,
 		Status:        res.Author.Status,
 	}, nil
 }

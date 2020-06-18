@@ -58,7 +58,8 @@ message AuthorMessage {
   bool verified = 11;
   string picture = 12;
   int64 totalViews = 13;
-  string status = 14;
+  string country = 14;
+  string status = 15;
 }
 
 message CreateRequest {
@@ -67,6 +68,7 @@ message CreateRequest {
   string displayName = 3;
   string ownerID = 4;
   string ownershipType = 5;
+  string country = 6;
 }
 
 message ListRequest {
@@ -93,6 +95,7 @@ message UpdateRequest {
   string ownershipType = 5;
   string verified = 7;
   string picture = 8;
+  string country = 9;
 }
 
 message DeleteRequest {

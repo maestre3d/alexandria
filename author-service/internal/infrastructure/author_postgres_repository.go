@@ -48,10 +48,10 @@ func (r *AuthorPostgresRepository) Save(ctx context.Context, author *domain.Auth
 	// Use Go CDK OpenCensus database metrics
 	_ = r.logger.Log("method", "author.infrastructure.postgres.save", "db_connection", r.db.Stats().OpenConnections)
 
-	statement := `CALL alexa1.create_author($1, $2, $3, $4, $5, $6)`
+	statement := `CALL alexa1.create_author($1, $2, $3, $4, $5, $6, $7)`
 
 	_, err = conn.ExecContext(ctx, statement, author.ExternalID, author.FirstName, author.LastName, author.DisplayName, author.OwnershipType,
-		author.OwnerID)
+		author.OwnerID, author.Country)
 	if err != nil {
 		if customErr, ok := err.(*pq.Error); ok {
 			if customErr.Code == "23505" {
@@ -77,11 +77,11 @@ func (r *AuthorPostgresRepository) SaveRaw(ctx context.Context, author *domain.A
 	// Use Go CDK OpenCensus database metrics
 	_ = r.logger.Log("method", "author.infrastructure.postgres.save_raw", "db_connection", r.db.Stats().OpenConnections)
 
-	statement := `INSERT INTO alexa1.author VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
+	statement := `INSERT INTO alexa1.author VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`
 
 	_, err = conn.ExecContext(ctx, statement, author.ID, author.ExternalID, author.FirstName, author.LastName, author.DisplayName, author.OwnerID,
 		author.OwnershipType, author.CreateTime, author.UpdateTime, author.DeleteTime, author.Active, author.Verified, author.Picture, author.TotalViews,
-		author.Status)
+		author.Country, author.Status)
 	if err != nil {
 		if customErr, ok := err.(*pq.Error); ok {
 			if customErr.Code == "23505" {
@@ -137,7 +137,7 @@ func (r *AuthorPostgresRepository) FetchByID(ctx context.Context, id string, sho
 	author := new(domain.Author)
 	err = conn.QueryRowContext(ctx, statement, id).Scan(&author.ID, &author.ExternalID, &author.FirstName,
 		&author.LastName, &author.DisplayName, &author.OwnerID, &author.OwnershipType, &author.CreateTime, &author.UpdateTime, &author.DeleteTime,
-		&author.Active, &author.Verified, &author.Picture, &author.TotalViews, &author.Status)
+		&author.Active, &author.Verified, &author.Picture, &author.TotalViews, &author.Country, &author.Status)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -196,6 +196,9 @@ func (r *AuthorPostgresRepository) Fetch(ctx context.Context, params *core.Pagin
 		case filterType == "owner_id":
 			b.Owner(value).And()
 			continue
+		case filterType == "country":
+			b.Country(value).And()
+			continue
 		}
 	}
 
@@ -252,7 +255,7 @@ func (r *AuthorPostgresRepository) Fetch(ctx context.Context, params *core.Pagin
 		author := new(domain.Author)
 		err = rows.Scan(&author.ID, &author.ExternalID, &author.FirstName,
 			&author.LastName, &author.DisplayName, &author.OwnerID, &author.OwnershipType, &author.CreateTime, &author.UpdateTime, &author.DeleteTime,
-			&author.Active, &author.Verified, &author.Picture, &author.TotalViews, &author.Status)
+			&author.Active, &author.Verified, &author.Picture, &author.TotalViews, &author.Country, &author.Status)
 		if err != nil {
 			return nil, err
 		}
@@ -277,10 +280,10 @@ func (r *AuthorPostgresRepository) Replace(ctx context.Context, author *domain.A
 	_ = r.logger.Log("method", "author.infrastructure.postgres.replace", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `UPDATE alexa1.author SET first_name = $1, last_name = $2, display_name = $3, ownership_type = $4,
-    update_time = $5, total_views = $6, owner_id = $7, status = $8 WHERE external_id = $9 AND active = true`
+    update_time = $5, total_views = $6, owner_id = $7, status = $8, country = $9 WHERE external_id = $10 AND active = true`
 
 	res, err := conn.ExecContext(ctx, statement, author.FirstName, author.LastName, author.DisplayName, author.OwnershipType, author.UpdateTime, author.TotalViews,
-		author.OwnerID, author.Status, author.ExternalID)
+		author.OwnerID, author.Status, author.Country, author.ExternalID)
 	if err != nil {
 		if customErr, ok := err.(*pq.Error); ok {
 			if customErr.Code == "23505" {

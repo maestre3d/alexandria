@@ -27,7 +27,8 @@ func NewAuthorUseCase(logger log.Logger, repository domain.AuthorRepository, bus
 
 // Create Store a new entity
 func (u *AuthorUseCase) Create(ctx context.Context, aggregate *domain.AuthorAggregate) (*domain.Author, error) {
-	author := domain.NewAuthor(aggregate.FirstName, aggregate.LastName, aggregate.DisplayName, aggregate.OwnershipType, aggregate.OwnerID)
+	author := domain.NewAuthor(aggregate.FirstName, aggregate.LastName, aggregate.DisplayName, aggregate.OwnershipType, aggregate.OwnerID,
+		aggregate.Country)
 	err := author.IsValid()
 	if err != nil {
 		return nil, err
@@ -165,6 +166,9 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 	}
 	if aggregate.Picture != "" {
 		author.Picture = &aggregate.Picture
+	}
+	if aggregate.RootAggregate.Country != "" {
+		author.Country = aggregate.RootAggregate.Country
 	}
 
 	author.UpdateTime = time.Now()
