@@ -28,6 +28,7 @@ Besides of these types, you _should_ follow the next rules:
     - Priority: High, Mid or Low.
     - Provider: Message broker used.
 - Every event _should_ have a body, it _could_ contain entities, aggregates or just entity's ID.
+- Integration events _should_ use as body an array of strings with the reference keys to handle.
 - Integration events _could_ have a _Backup_ field inside it's metadata for replace/update operations for 
 a possible rollback.
 - Integration events _could_ use the following body:
