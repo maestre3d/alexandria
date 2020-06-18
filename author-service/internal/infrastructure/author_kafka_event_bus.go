@@ -24,7 +24,10 @@ func (b *AuthorKafkaEventBus) StartCreate(ctx context.Context, author *domain.Au
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	authorJSON, err := json.Marshal(author)
+	ownerPool := make([]string, 0)
+
+	ownerPool = append(ownerPool, author.OwnerID)
+	ownerJSON, err := json.Marshal(ownerPool)
 	if err != nil {
 		return err
 	}
@@ -45,11 +48,12 @@ func (b *AuthorKafkaEventBus) StartCreate(ctx context.Context, author *domain.Au
 		Code:      0,
 		Message:   "",
 	}
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, authorJSON)
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, ownerJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
 			"transaction_id": t.ID,
+			"root_id":        t.RootID,
 			"operation":      t.Operation,
 			"service":        e.ServiceName,
 			"event_type":     e.EventType,
@@ -98,7 +102,10 @@ func (b *AuthorKafkaEventBus) StartUpdate(ctx context.Context, author *domain.Au
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	authorJSON, err := json.Marshal(author)
+	ownerPool := make([]string, 0)
+
+	ownerPool = append(ownerPool, author.OwnerID)
+	ownerJSON, err := json.Marshal(ownerPool)
 	if err != nil {
 		return err
 	}
@@ -108,7 +115,7 @@ func (b *AuthorKafkaEventBus) StartUpdate(ctx context.Context, author *domain.Au
 		return err
 	}
 
-	topic, err := eventbus.NewKafkaProducer(ctx, domain.AuthorUpdatePending)
+	topic, err := eventbus.NewKafkaProducer(ctx, domain.AuthorPending)
 	if err != nil {
 		return err
 	}
@@ -119,18 +126,19 @@ func (b *AuthorKafkaEventBus) StartUpdate(ctx context.Context, author *domain.Au
 		RootID:    author.ExternalID,
 		SpanID:    "",
 		TraceID:   "",
-		Operation: domain.AuthorCreated,
+		Operation: domain.AuthorUpdated,
 		Backup:    string(backupJSON),
 		Code:      0,
 		Message:   "",
 	}
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, authorJSON)
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, ownerJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
 			"transaction_id": t.ID,
+			"root_id":        t.RootID,
 			"operation":      t.Operation,
-			"backup":         string(backupJSON),
+			"backup":         t.Backup,
 			"service":        e.ServiceName,
 			"event_type":     e.EventType,
 			"priority":       e.Priority,

@@ -3,18 +3,17 @@ package domain
 import "context"
 
 const (
-	AuthorPending       = "AUTHOR_PENDING"
-	AuthorCreated       = "AUTHOR_CREATED"
-	AuthorUpdatePending = "AUTHOR_UPDATE_PENDING"
-	AuthorUpdated       = "AUTHOR_UPDATED"
-	AuthorDeleted       = "AUTHOR_DELETED"
-	AuthorHardDeleted   = "AUTHOR_PERMANENTLY_DELETED"
-	AuthorRestored      = "AUTHOR_RESTORED"
-	OwnerVerified       = "AUTHOR_OWNER_VERIFIED"
-	OwnerFailed         = "AUTHOR_OWNER_FAILED"
+	AuthorPending     = "AUTHOR_PENDING"
+	AuthorCreated     = "AUTHOR_CREATED"
+	AuthorUpdated     = "AUTHOR_UPDATED"
+	AuthorDeleted     = "AUTHOR_DELETED"
+	AuthorHardDeleted = "AUTHOR_PERMANENTLY_DELETED"
+	AuthorRestored    = "AUTHOR_RESTORED"
+	OwnerVerified     = "AUTHOR_OWNER_VERIFIED"
+	OwnerFailed       = "AUTHOR_OWNER_FAILED"
 )
 
-type IAuthorEventBus interface {
+type AuthorEventBus interface {
 	StartCreate(ctx context.Context, author *Author) error
 	Created(ctx context.Context, author *Author) error
 	StartUpdate(ctx context.Context, author *Author, backup *Author) error

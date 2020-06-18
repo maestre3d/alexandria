@@ -16,12 +16,12 @@ import (
 // AuthorUseCase Author interact actions
 type AuthorUseCase struct {
 	log        log.Logger
-	repository domain.IAuthorRepository
-	event      domain.IAuthorEventBus
+	repository domain.AuthorRepository
+	event      domain.AuthorEventBus
 }
 
 // NewAuthorUseCase Create a new author interact
-func NewAuthorUseCase(logger log.Logger, repository domain.IAuthorRepository, bus domain.IAuthorEventBus) *AuthorUseCase {
+func NewAuthorUseCase(logger log.Logger, repository domain.AuthorRepository, bus domain.AuthorEventBus) *AuthorUseCase {
 	return &AuthorUseCase{logger, repository, bus}
 }
 
@@ -130,7 +130,7 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 	defer cl()
 
 	author, err := u.repository.FetchByID(ctxR, aggregate.ID, false)
-	authorBackup := author
+	authorBackup := *author
 	if err != nil {
 		return nil, err
 	}
@@ -190,9 +190,9 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 		// send a simple domain event to propagate side-effects
 		var eventStr string
 		if author.Status == string(domain.StatePending) {
-			err = u.event.StartUpdate(ctxE, author, authorBackup)
+			err = u.event.StartUpdate(ctxE, author, &authorBackup)
 			if err == nil {
-				eventStr = "AUTHOR_UPDATE_PENDING event published"
+				eventStr = "AUTHOR_PENDING event published"
 			}
 		} else {
 			err = u.event.Updated(ctxE, author)
@@ -205,7 +205,7 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 			_ = u.log.Log("method", "author.interactor.update", "err", err.Error())
 
 			// Rollback
-			err = u.repository.Replace(ctxE, authorBackup)
+			err = u.repository.Replace(ctxE, &authorBackup)
 			if err != nil {
 				_ = u.log.Log("method", "author.interactor.update", "err", err.Error())
 			}

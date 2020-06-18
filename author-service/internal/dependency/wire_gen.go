@@ -56,7 +56,7 @@ var dBMSPoolSet = wire.NewSet(
 )
 
 var authorDBMSRepositorySet = wire.NewSet(
-	dBMSPoolSet, logger.NewZapLogger, persistence.NewRedisPool, wire.Bind(new(domain.IAuthorRepository), new(*infrastructure.AuthorPostgresRepository)), infrastructure.NewAuthorPostgresRepository,
+	dBMSPoolSet, logger.NewZapLogger, persistence.NewRedisPool, wire.Bind(new(domain.AuthorRepository), new(*infrastructure.AuthorPostgresRepository)), infrastructure.NewAuthorPostgresRepository,
 )
 
 func provideContext() context.Context {

@@ -5,8 +5,8 @@ import (
 	"github.com/alexandria-oss/core"
 )
 
-// IAuthorRepository Author entity's repository
-type IAuthorRepository interface {
+// AuthorRepository Author entity's repository
+type AuthorRepository interface {
 	Save(ctx context.Context, author *Author) error
 	SaveRaw(ctx context.Context, author *Author) error
 	Fetch(ctx context.Context, params *core.PaginationParams, filterParams core.FilterParams) ([]*Author, error)

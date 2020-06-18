@@ -26,7 +26,10 @@ func (b *AuthorAWSEventBus) StartCreate(ctx context.Context, author *domain.Auth
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	authorJSON, err := json.Marshal(author)
+	ownerPool := make([]string, 0)
+
+	ownerPool = append(ownerPool, author.OwnerID)
+	ownerJSON, err := json.Marshal(ownerPool)
 	if err != nil {
 		return err
 	}
@@ -47,7 +50,7 @@ func (b *AuthorAWSEventBus) StartCreate(ctx context.Context, author *domain.Auth
 		Code:      0,
 		Message:   "",
 	}
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, authorJSON)
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, ownerJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
@@ -101,7 +104,10 @@ func (b *AuthorAWSEventBus) StartUpdate(ctx context.Context, author *domain.Auth
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	authorJSON, err := json.Marshal(author)
+	ownerPool := make([]string, 0)
+
+	ownerPool = append(ownerPool, author.OwnerID)
+	ownerJSON, err := json.Marshal(ownerPool)
 	if err != nil {
 		return err
 	}
@@ -111,7 +117,7 @@ func (b *AuthorAWSEventBus) StartUpdate(ctx context.Context, author *domain.Auth
 		return err
 	}
 
-	topic, err := pubsub.OpenTopic(ctx, os.Getenv("AWS_SNS_AUTHOR_UPDATE_PENDING"))
+	topic, err := pubsub.OpenTopic(ctx, os.Getenv("AWS_SNS_AUTHOR_PENDING"))
 	if err != nil {
 		return err
 	}
@@ -122,12 +128,12 @@ func (b *AuthorAWSEventBus) StartUpdate(ctx context.Context, author *domain.Auth
 		RootID:    author.ExternalID,
 		SpanID:    "",
 		TraceID:   "",
-		Operation: domain.AuthorCreated,
+		Operation: domain.AuthorUpdated,
 		Backup:    string(backupJSON),
 		Code:      0,
 		Message:   "",
 	}
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, authorJSON)
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderAWS, ownerJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{

@@ -277,20 +277,10 @@ func (r *AuthorPostgresRepository) Replace(ctx context.Context, author *domain.A
 	_ = r.logger.Log("method", "author.infrastructure.postgres.replace", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `UPDATE alexa1.author SET first_name = $1, last_name = $2, display_name = $3, ownership_type = $4,
-    update_time = $5, total_views = $6`
+    update_time = $5, total_views = $6, owner_id = $7, status = $8 WHERE external_id = $9 AND active = true`
 
-	var res sql.Result
-	// If owner_id was modified, then store author state to pending
-	if author.Status == string(domain.StatePending) {
-		statement += ", owner_id = $7, status = '" + author.Status + "' WHERE external_id = $8 AND active = true"
-		res, err = conn.ExecContext(ctx, statement, author.FirstName, author.LastName, author.DisplayName, author.OwnershipType, author.UpdateTime, author.TotalViews,
-			author.OwnerID, author.ExternalID)
-	} else {
-		statement += " WHERE external_id = $7 AND active = true"
-		res, err = conn.ExecContext(ctx, statement, author.FirstName, author.LastName, author.DisplayName, author.OwnershipType, author.UpdateTime, author.TotalViews,
-			author.ExternalID)
-	}
-
+	res, err := conn.ExecContext(ctx, statement, author.FirstName, author.LastName, author.DisplayName, author.OwnershipType, author.UpdateTime, author.TotalViews,
+		author.OwnerID, author.Status, author.ExternalID)
 	if err != nil {
 		if customErr, ok := err.(*pq.Error); ok {
 			if customErr.Code == "23505" {

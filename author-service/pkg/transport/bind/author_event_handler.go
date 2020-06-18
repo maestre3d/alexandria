@@ -70,16 +70,17 @@ func (h *AuthorEventConsumer) bindAuthorFailed(ctx context.Context, service stri
 
 // Hooks / Handlers
 func (h *AuthorEventConsumer) onAuthorVerified(r *eventbus.Request) {
-	tr := &eventbus.Transaction{}
-	err := json.Unmarshal(r.Message.Body, tr)
+	t := &eventbus.Transaction{}
+	err := json.Unmarshal(r.Message.Body, t)
 	if err != nil {
+		// TODO: Rollback if malformation happens, ack message
 		if r.Message.Nackable() {
 			r.Message.Nack()
 		}
 		return
 	}
 
-	err = h.svc.Done(r.Context, tr.RootID, r.Message.Metadata["operation"])
+	err = h.svc.Done(r.Context, t.RootID, t.Operation)
 	if err != nil {
 		// If not found, then acknowledge message
 		if !errors.Is(err, exception.EntityNotFound) {
@@ -95,16 +96,17 @@ func (h *AuthorEventConsumer) onAuthorVerified(r *eventbus.Request) {
 }
 
 func (h *AuthorEventConsumer) onAuthorFailed(r *eventbus.Request) {
-	tr := &eventbus.Transaction{}
-	err := json.Unmarshal(r.Message.Body, tr)
+	t := &eventbus.Transaction{}
+	err := json.Unmarshal(r.Message.Body, t)
 	if err != nil {
+		// TODO: Rollback if malformation happens, ack message
 		if r.Message.Nackable() {
 			r.Message.Nack()
 		}
 		return
 	}
 
-	err = h.svc.Failed(r.Context, tr.RootID, r.Message.Metadata["operation"], r.Message.Metadata["backup"])
+	err = h.svc.Failed(r.Context, t.RootID, t.Operation, t.Backup)
 	if err != nil {
 		// If not found, then acknowledge message
 		if !errors.Is(err, exception.EntityNotFound) {

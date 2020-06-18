@@ -30,7 +30,7 @@ var authorDBMSRepositorySet = wire.NewSet(
 	dBMSPoolSet,
 	logger.NewZapLogger,
 	persistence.NewRedisPool,
-	wire.Bind(new(domain.IAuthorRepository), new(*infrastructure.AuthorPostgresRepository)),
+	wire.Bind(new(domain.AuthorRepository), new(*infrastructure.AuthorPostgresRepository)),
 	infrastructure.NewAuthorPostgresRepository,
 )
 
@@ -41,7 +41,7 @@ func provideContext() context.Context {
 func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 	wire.Build(
 		authorDBMSRepositorySet,
-		wire.Bind(new(domain.IAuthorEventBus), new(*infrastructure.AuthorKafkaEventBus)),
+		wire.Bind(new(domain.AuthorEventBus), new(*infrastructure.AuthorKafkaEventBus)),
 		infrastructure.NewAuthorKafkaEventBus,
 		interactor.NewAuthorUseCase,
 	)
