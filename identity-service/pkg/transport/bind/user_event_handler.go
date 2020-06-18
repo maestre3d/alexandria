@@ -90,6 +90,9 @@ func (h *UserEventConsumer) onOwnerVerify(r *eventbus.Request) {
 			}
 			return
 		}
+
+		r.Message.Ack()
+		return
 	}
 
 	// Verify
@@ -106,6 +109,8 @@ func (h *UserEventConsumer) onOwnerVerify(r *eventbus.Request) {
 					r.Message.Nack()
 				}
 			}
+
+			r.Message.Ack()
 			return
 		}
 	}
