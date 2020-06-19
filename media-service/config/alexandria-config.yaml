@@ -1,16 +1,16 @@
 alexandria:
   info:
-    service: "media"
-    version: 1.0.0
+    service: "author"
+    version: 0.1.0
   persistence:
     dbms:
-      url: "postgres://postgres:root@postgres:5432/alexandria_media?sslmode=disable"
+      url: "postgres://postgres:root@postgres:5432/author?sslmode=disable"
       driver: "postgres"
       user: "postgres"
       password: "root"
       host: "postgres"
       port: 5432
-      database: "alexandria_media"
+      database: "author"
     mem:
       network: ""
       host: "redis"
@@ -25,8 +25,19 @@ alexandria:
       rpc:
         host: "0.0.0.0"
         port: 31337
-    metric:
-      zipkin:
-        host: "http://zipkin:9411/api/v2/spans"
-        endpoint: "0.0.0.0:8080"
-        bridge: true
+  tracing:
+    # OpenTracing consumers
+    zipkin:
+      host: "http://zipkin:9411/api/v2/spans"
+      endpoint: "0.0.0.0:8080"
+      bridge: true
+  event:
+    kafka:
+      cluster:
+        # Kafka Brokers nodes
+        leader:
+          host: "kafka"
+          port: 9092
+        1:
+          host: "kafka1"
+          port: 9092
