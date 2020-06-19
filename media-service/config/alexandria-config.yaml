@@ -1,10 +1,10 @@
 alexandria:
   info:
-    service: "author"
+    service: "media"
     version: 0.1.0
   persistence:
     dbms:
-      url: "postgres://postgres:root@postgres:5432/author?sslmode=disable"
+      url: "postgres://postgres:root@postgres:5432/alexandria_media?sslmode=disable"
       driver: "postgres"
       user: "postgres"
       password: "root"
