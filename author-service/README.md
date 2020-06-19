@@ -33,7 +33,7 @@ Extra fields:
 - display_name = string (author's display_name field)
 - owner_id = string (user's id from author's owners pool)
 - ownership_type = string (public, private)
-- contry = string (ISO 3166 Alpha-2 country code)
+- country = string (ISO 3166 Alpha-2 country code)
 
 ## Contribution
 Alexandria is an open-source project, that means everyone’s help is appreciated.
