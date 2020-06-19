@@ -1,9 +1,9 @@
 # Author Service API
 The Author service API handles all the author's domain operations.
 
-They contain multi-layered APIs such as Public, Private and Admin API. 
+It contains multi-layered APIs such as Public, Private and Admin API. 
 
-It uses a gRPC and HTTP Sever to expose the APIs.
+It uses gRPC and HTTP communication protocols to expose it's APIs.
 
 Alexandria is currently licensed under the MIT license.
 
