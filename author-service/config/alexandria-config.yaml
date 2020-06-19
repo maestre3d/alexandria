@@ -4,7 +4,7 @@ alexandria:
     version: 0.1.0
   persistence:
     dbms:
-      url: "postgres://postgres:root@postgres:5432/author?sslmode=disable"
+      url: "postgres://postgres:root@postgres:5432/alexandria_author?sslmode=disable"
       driver: "postgres"
       user: "postgres"
       password: "root"
@@ -39,5 +39,5 @@ alexandria:
           host: "kafka"
           port: 9092
         1:
-          host: "kafka1"
+          host: "kafka2"
           port: 9092
