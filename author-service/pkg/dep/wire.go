@@ -7,14 +7,14 @@ import (
 	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/logger"
 	"github.com/alexandria-oss/core/tracer"
+	"github.com/alexandria-oss/core/transport"
+	"github.com/alexandria-oss/core/transport/proxy"
 	"github.com/go-kit/kit/log"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/author-service/internal/dependency"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
-	"github.com/maestre3d/alexandria/author-service/pkg/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/bind"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/proxy"
 )
 
 var Ctx context.Context = context.Background()
@@ -82,8 +82,8 @@ func provideEventConsumers(authorHandler *bind.AuthorEventConsumer) []proxy.Cons
 	return consumers
 }
 
-func InjectTransportService() (*service.Transport, func(), error) {
-	wire.Build(httpProxySet, rpcProxySet, eventProxySet, service.NewTransport)
+func InjectTransportService() (*transport.Transport, func(), error) {
+	wire.Build(httpProxySet, rpcProxySet, eventProxySet, transport.NewTransport)
 
-	return &service.Transport{}, nil, nil
+	return &transport.Transport{}, nil, nil
 }

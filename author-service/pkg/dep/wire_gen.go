@@ -10,19 +10,19 @@ import (
 	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/logger"
 	"github.com/alexandria-oss/core/tracer"
+	"github.com/alexandria-oss/core/transport"
+	"github.com/alexandria-oss/core/transport/proxy"
 	"github.com/go-kit/kit/log"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/author-service/internal/dependency"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
-	"github.com/maestre3d/alexandria/author-service/pkg/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/bind"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/proxy"
 )
 
 // Injectors from wire.go:
 
-func InjectTransportService() (*service.Transport, func(), error) {
+func InjectTransportService() (*transport.Transport, func(), error) {
 	logLogger := logger.NewZapLogger()
 	authorInteractor, cleanup, err := provideAuthorInteractor(logLogger)
 	if err != nil {
@@ -53,8 +53,8 @@ func InjectTransportService() (*service.Transport, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	transport := service.NewTransport(server, http, event, kernel)
-	return transport, func() {
+	transportTransport := transport.NewTransport(server, http, event, kernel)
+	return transportTransport, func() {
 		cleanup5()
 		cleanup4()
 		cleanup3()
