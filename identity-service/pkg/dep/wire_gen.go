@@ -10,12 +10,12 @@ import (
 	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/logger"
 	"github.com/alexandria-oss/core/tracer"
+	"github.com/alexandria-oss/core/transport/proxy"
 	"github.com/go-kit/kit/log"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/identity-service/internal/dependency"
 	"github.com/maestre3d/alexandria/identity-service/pkg/service"
 	"github.com/maestre3d/alexandria/identity-service/pkg/transport/bind"
-	"github.com/maestre3d/alexandria/identity-service/pkg/transport/proxy"
 	"github.com/maestre3d/alexandria/identity-service/pkg/user"
 	"github.com/maestre3d/alexandria/identity-service/pkg/user/usecase"
 )

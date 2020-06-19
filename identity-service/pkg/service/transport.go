@@ -2,8 +2,10 @@ package service
 
 import (
 	"github.com/alexandria-oss/core/config"
-	"github.com/maestre3d/alexandria/identity-service/pkg/transport/proxy"
+	"github.com/alexandria-oss/core/transport/proxy"
 )
+
+// Custom transport service
 
 type Transport struct {
 	EventProxy *proxy.Event

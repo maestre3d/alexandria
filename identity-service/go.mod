@@ -3,7 +3,7 @@ module github.com/maestre3d/alexandria/identity-service
 go 1.13
 
 require (
-	github.com/alexandria-oss/core v0.4.0-beta
+	github.com/alexandria-oss/core v0.5.0-beta
 	github.com/aws/aws-sdk-go v1.31.1
 	github.com/go-kit/kit v0.10.0
 	github.com/google/wire v0.3.0
