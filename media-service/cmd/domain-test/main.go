@@ -1,55 +1,30 @@
 package main
 
 import (
-	"errors"
-	"github.com/maestre3d/alexandria/media-service/internal/media/domain"
-	"github.com/maestre3d/alexandria/media-service/internal/media/infrastructure"
-	"github.com/maestre3d/alexandria/media-service/internal/media/interactor"
-	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/exception"
-	"github.com/maestre3d/alexandria/media-service/internal/shared/domain/util"
-	"github.com/maestre3d/alexandria/media-service/internal/shared/infrastructure/logging"
+	"context"
+	"github.com/alexandria-oss/core"
+	"github.com/maestre3d/alexandria/media-service/internal/dependency"
 	"log"
 )
 
 func main() {
-	logger, cleanup, err := logging.NewLogger()
+	ctx := context.Background()
+	dependency.Ctx = ctx
+	mediaUse, cleanup, err := dependency.InjectMediaUseCase()
 	if err != nil {
 		panic(err)
 	}
 	defer cleanup()
 
-	repository := infrastructure.NewMediaLocalRepository(make([]*domain.MediaAggregate, 0), logger)
-	usecase := interactor.NewMediaUseCase(logger, repository)
-
-	params := &interactor.MediaParams{
-		MediaID:     "13",
-		Title:       "Thug Life",
-		DisplayName: "Green Mille by far",
-		Description: "Stephen King is the master of horror stories, fuck you",
-		UserID:      "60f90323-fc78-45e4-a0f5-71b63dd87d1a",
-		AuthorID:    "a38d10fa-f369-4e8c-8c9d-f7f9f22bdc71",
-		PublishDate: "2006-01-31",
-		MediaType:   "media_book",
-	}
-
-	err = usecase.Create(params)
+	medias, next, err := mediaUse.List(ctx, "", "1", core.FilterParams{
+		"filter_by": "timestamp",
+	})
 	if err != nil {
-		if errors.Is(err, exception.EntityExists) {
-			log.Print("exists catch")
-		}
-		log.Print(err)
-		return
-	}
-
-	log.Print("media created")
-
-	medias, err := usecase.GetAll(nil, util.FilterParams{})
-	if err != nil {
-		log.Print(err)
-		return
+		panic(err)
 	}
 
 	for _, media := range medias {
-		log.Printf("%v", media)
+		log.Printf("%+v", media)
 	}
+	log.Print(next)
 }
