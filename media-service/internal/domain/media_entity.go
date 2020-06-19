@@ -55,6 +55,9 @@ func NewMedia(ag *MediaAggregate) (*Media, error) {
 
 	ag.MediaType = ParseMediaType(ag.MediaType)
 	publishDate, err := ParseDate(ag.PublishDate)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Media{
 		ID:           0,
