@@ -34,7 +34,7 @@ func (b *AuthorAWSEventBus) StartCreate(ctx context.Context, author *domain.Auth
 		return err
 	}
 
-	topic, err := pubsub.OpenTopic(ctx, os.Getenv("AWS_SNS_AUTHOR_PENDING"))
+	topic, err := pubsub.OpenTopic(ctx, os.Getenv("AWS_SNS_OWNER_PENDING"))
 	if err != nil {
 		return err
 	}

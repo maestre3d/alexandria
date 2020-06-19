@@ -3,12 +3,12 @@ package domain
 import "context"
 
 const (
-	AuthorPending     = "AUTHOR_PENDING"
 	AuthorCreated     = "AUTHOR_CREATED"
 	AuthorUpdated     = "AUTHOR_UPDATED"
 	AuthorDeleted     = "AUTHOR_DELETED"
 	AuthorHardDeleted = "AUTHOR_PERMANENTLY_DELETED"
 	AuthorRestored    = "AUTHOR_RESTORED"
+	OwnerPending      = "OWNER_PENDING"
 	OwnerVerified     = "AUTHOR_OWNER_VERIFIED"
 	OwnerFailed       = "AUTHOR_OWNER_FAILED"
 )
