@@ -18,6 +18,15 @@ func NewUserUseCase(logger log.Logger, repo domain.UserRepository) *UserUseCase 
 	}
 }
 
+// TODO: Add the following use cases
+// Read
+// - List
+// Write
+// - Update
+// - Delete (deactivate/soft-delete)
+// - Restore (activate)
+// - HardDelete (hard-delete)
+
 func (u *UserUseCase) Get(ctx context.Context, id string) (*domain.User, error) {
 	ctxR, cancel := context.WithCancel(ctx)
 	defer cancel()

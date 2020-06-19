@@ -42,7 +42,7 @@ func (h *UserEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context, 
 
 // Consumers / Binders
 func (h *UserEventConsumer) bindOwnerVerify(ctx context.Context, service string) (*eventbus.Consumer, error) {
-	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.AuthorPending)
+	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerPending)
 	if err != nil {
 		return nil, err
 	}
@@ -56,6 +56,7 @@ func (h *UserEventConsumer) bindOwnerVerify(ctx context.Context, service string)
 
 // Hooks / Handlers
 func (h *UserEventConsumer) onOwnerVerify(r *eventbus.Request) {
+	// Service name is required for event response
 	e := &eventbus.Event{
 		Content: 	  r.Message.Body,
 		ServiceName:  r.Message.Metadata["service"],
@@ -73,6 +74,23 @@ func (h *UserEventConsumer) onOwnerVerify(r *eventbus.Request) {
 		Backup:    r.Message.Metadata["backup"],
 		Code:      0,
 		Message:   "",
+	}
+
+	if e.ServiceName == "" {
+		// TODO: Send failed event
+		t.Code = 400
+		t.Message = fmt.Sprintf( exception.RequiredFieldString, "service_name")
+		err := h.ownerFailed(r.Context, e, t)
+		if err != nil {
+			// Error while connecting to broker, do not ack
+			if r.Message.Nackable() {
+				r.Message.Nack()
+			}
+			return
+		}
+
+		r.Message.Ack()
+		return
 	}
 
 	// owners contains just an array with users id's string

@@ -4,7 +4,7 @@ alexandria:
     version: 0.1.0
   persistence:
     dbms:
-      url: "postgres://postgres:root@localhost:5432/alexandria_identity?sslmode=disable"
+      url: "postgres://postgres:root@postgres:5432/alexandria_identity?sslmode=disable"
       driver: "postgres"
       user: "postgres"
       password: "root"
@@ -13,7 +13,7 @@ alexandria:
       database: "alexandria_identity"
     mem:
       network: ""
-      host: "localhost"
+      host: "redis"
       port: 6379
       password: ""
       database: 0
@@ -44,8 +44,8 @@ alexandria:
   cloud:
     aws:
       cognito:
-        pool: "us-east-1_12iAEifyh"
-        client: "37njo8eviv33br7u2cmbbs1sbp"
+        pool: "aws_cognito_pool"
+        client: "aws_cognito_client"
   security:
     auth:
       jwt:
