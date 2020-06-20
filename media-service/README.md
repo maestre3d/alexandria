@@ -15,6 +15,8 @@ Alexandria is currently licensed under the MIT license.
 | **Get**    |  GET /media/{media-id}            |   N/A              |   Media*              |
 | **Update** |  PUT or PATCH /media/{media-id}   |   Media            |   Media*              |
 | **Delete** |  DELETE /media/{media-id}         |   N/A              |   protobuf.empty/{}   |
+| **Restore/Active**  |  PATCH /admin/media/{media-id}    |   N/A              |   protobuf.empty/{}    |
+| **HardDelete**      |  DELETE /admin/media/{media-id}   |   N/A              |   protobuf.empty/{}    |
 
 ### Accepted Queries
 The list method accepts multiple queries to make data fetching easier for everyone.
