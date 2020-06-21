@@ -14,29 +14,29 @@ import (
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
 )
 
-// AuthorPostgresRepository DBMS Author repository
-type AuthorPostgresRepository struct {
+// AuthorPQRepository DBMS Author repository
+type AuthorPQRepository struct {
 	db     *sql.DB
 	mem    *redis.Client
 	logger log.Logger
-	mtx    *sync.Mutex
+	mu     *sync.Mutex
 }
 
 const tableName = "author"
 
-// NewAuthorPostgresRepository Create an author repository
-func NewAuthorPostgresRepository(dbPool *sql.DB, memPool *redis.Client, logger log.Logger) *AuthorPostgresRepository {
-	return &AuthorPostgresRepository{
+// NewAuthorPQRepository Create an author repository
+func NewAuthorPQRepository(dbPool *sql.DB, memPool *redis.Client, logger log.Logger) *AuthorPQRepository {
+	return &AuthorPQRepository{
 		db:     dbPool,
 		mem:    memPool,
 		logger: logger,
-		mtx:    new(sync.Mutex),
+		mu:     new(sync.Mutex),
 	}
 }
 
-func (r *AuthorPostgresRepository) Save(ctx context.Context, author *domain.Author) error {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
+func (r *AuthorPQRepository) Save(ctx context.Context, author domain.Author) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	conn, err := r.db.Conn(ctx)
 	if err != nil {
@@ -63,9 +63,9 @@ func (r *AuthorPostgresRepository) Save(ctx context.Context, author *domain.Auth
 	return err
 }
 
-func (r *AuthorPostgresRepository) SaveRaw(ctx context.Context, author *domain.Author) error {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
+func (r *AuthorPQRepository) SaveRaw(ctx context.Context, author domain.Author) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	conn, err := r.db.Conn(ctx)
 	if err != nil {
@@ -93,9 +93,9 @@ func (r *AuthorPostgresRepository) SaveRaw(ctx context.Context, author *domain.A
 	return err
 }
 
-func (r *AuthorPostgresRepository) FetchByID(ctx context.Context, id string, showDisabled bool) (*domain.Author, error) {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
+func (r *AuthorPQRepository) FetchByID(ctx context.Context, id string, showDisabled bool) (*domain.Author, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	// Cache-aside pattern
 	if r.mem != nil {
@@ -103,7 +103,9 @@ func (r *AuthorPostgresRepository) FetchByID(ctx context.Context, id string, sho
 		defer close(authorChan)
 
 		go func() {
-			if author, ok := Get(ctx, r.mem, id, tableName).(*domain.Author); ok {
+			ctxR, cancel := context.WithCancel(ctx)
+			defer cancel()
+			if author, ok := Get(ctxR, r.mem, id, tableName).(*domain.Author); ok {
 				authorChan <- author
 			} else {
 				authorChan <- nil
@@ -140,7 +142,7 @@ func (r *AuthorPostgresRepository) FetchByID(ctx context.Context, id string, sho
 		&author.Active, &author.Verified, &author.Picture, &author.TotalViews, &author.Country, &author.Status)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil
+			return nil, exception.EntityNotFound
 		}
 
 		return nil, err
@@ -148,15 +150,17 @@ func (r *AuthorPostgresRepository) FetchByID(ctx context.Context, id string, sho
 
 	// Write-through
 	if r.mem != nil {
-		go Store(ctx, r.mem, author.ExternalID, tableName, author)
+		ctxR, cancel := context.WithCancel(ctx)
+		defer cancel()
+		go Store(ctxR, r.mem, author.ExternalID, tableName, author)
 	}
 
 	return author, nil
 }
 
-func (r *AuthorPostgresRepository) Fetch(ctx context.Context, params *core.PaginationParams, filterParams core.FilterParams) ([]*domain.Author, error) {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
+func (r *AuthorPQRepository) Fetch(ctx context.Context, params core.PaginationParams, filterParams core.FilterParams) ([]*domain.Author, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	conn, err := r.db.Conn(ctx)
 	if err != nil {
@@ -167,10 +171,6 @@ func (r *AuthorPostgresRepository) Fetch(ctx context.Context, params *core.Pagin
 	}()
 	// Use Go CDK OpenCensus database metrics
 	_ = r.logger.Log("method", "author.infrastructure.postgres.fetch", "db_connection", r.db.Stats().OpenConnections)
-
-	if params == nil {
-		params = core.NewPaginationParams("", "0")
-	}
 
 	b := AuthorBuilder{`SELECT * FROM alexa1.author WHERE `}
 	// Criteria map filter -> Query Builder
@@ -262,12 +262,16 @@ func (r *AuthorPostgresRepository) Fetch(ctx context.Context, params *core.Pagin
 		authors = append(authors, author)
 	}
 
+	if len(authors) == 0 {
+		return nil, exception.EntitiesNotFound
+	}
+
 	return authors, nil
 }
 
-func (r *AuthorPostgresRepository) Replace(ctx context.Context, author *domain.Author) error {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
+func (r *AuthorPQRepository) Replace(ctx context.Context, author domain.Author) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	conn, err := r.db.Conn(ctx)
 	if err != nil {
@@ -297,15 +301,17 @@ func (r *AuthorPostgresRepository) Replace(ctx context.Context, author *domain.A
 
 	// write-through cache pattern
 	if r.mem != nil {
-		go Store(ctx, r.mem, author.ExternalID, tableName, author)
+		ctxR, cancel := context.WithCancel(ctx)
+		defer cancel()
+		go Store(ctxR, r.mem, author.ExternalID, tableName, author)
 	}
 
 	return nil
 }
 
-func (r *AuthorPostgresRepository) Remove(ctx context.Context, id string) error {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
+func (r *AuthorPQRepository) Remove(ctx context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	conn, err := r.db.Conn(ctx)
 	if err != nil {
@@ -328,15 +334,17 @@ func (r *AuthorPostgresRepository) Remove(ctx context.Context, id string) error 
 
 	// write-through cache pattern
 	if r.mem != nil {
-		go Remove(ctx, r.mem, id, tableName)
+		ctxR, cancel := context.WithCancel(ctx)
+		defer cancel()
+		go Remove(ctxR, r.mem, id, tableName)
 	}
 
 	return nil
 }
 
-func (r *AuthorPostgresRepository) Restore(ctx context.Context, id string) error {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
+func (r *AuthorPQRepository) Restore(ctx context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	conn, err := r.db.Conn(ctx)
 	if err != nil {
@@ -359,15 +367,17 @@ func (r *AuthorPostgresRepository) Restore(ctx context.Context, id string) error
 	// Invalidate cache
 	// write-through cache pattern
 	if r.mem != nil {
-		go Remove(ctx, r.mem, id, tableName)
+		ctxR, cancel := context.WithCancel(ctx)
+		defer cancel()
+		go Remove(ctxR, r.mem, id, tableName)
 	}
 
 	return nil
 }
 
-func (r *AuthorPostgresRepository) HardRemove(ctx context.Context, id string) error {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
+func (r *AuthorPQRepository) HardRemove(ctx context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	conn, err := r.db.Conn(ctx)
 	if err != nil {
@@ -390,15 +400,18 @@ func (r *AuthorPostgresRepository) HardRemove(ctx context.Context, id string) er
 
 	// write-through cache pattern
 	if r.mem != nil {
-		go Remove(ctx, r.mem, id, tableName)
+		ctxR, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		go Remove(ctxR, r.mem, id, tableName)
 	}
 
 	return nil
 }
 
-func (r *AuthorPostgresRepository) ChangeState(ctx context.Context, id, state string) error {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
+func (r *AuthorPQRepository) ChangeState(ctx context.Context, id, state string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	conn, err := r.db.Conn(ctx)
 	if err != nil {
@@ -420,7 +433,9 @@ func (r *AuthorPostgresRepository) ChangeState(ctx context.Context, id, state st
 
 	// write-through cache pattern
 	if r.mem != nil {
-		go Remove(ctx, r.mem, id, tableName)
+		ctxR, cancel := context.WithCancel(ctx)
+		defer cancel()
+		go Remove(ctxR, r.mem, id, tableName)
 	}
 
 	return nil
