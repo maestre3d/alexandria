@@ -27,6 +27,8 @@ var mediaSet = wire.NewSet(
 	logger.NewZapLogger,
 	wire.Bind(new(domain.MediaRepository), new(*infrastructure.MediaPQRepository)),
 	infrastructure.NewMediaPQRepository,
+	wire.Bind(new(domain.MediaEvent), new(*infrastructure.MediaKafkaEvent)),
+	infrastructure.NewMediaKafakaEvent,
 	interactor.NewMediaUseCase,
 )
 

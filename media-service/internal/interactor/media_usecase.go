@@ -255,12 +255,12 @@ func (u *MediaUseCase) Delete(ctx context.Context, id string) error {
 				return
 			}
 
-			_ = u.logger.Log("method", "media.interactor.delete", "msg", domain.MediaDeleted+" event sending failed, rolled back")
+			_ = u.logger.Log("method", "media.interactor.delete", "msg", domain.MediaRemoved+" event sending failed, rolled back")
 			errC <- err
 			return
 		}
 
-		_ = u.logger.Log("method", "media.interactor.delete", "msg", domain.MediaDeleted+" integration event published")
+		_ = u.logger.Log("method", "media.interactor.delete", "msg", domain.MediaRemoved+" integration event published")
 		errC <- nil
 	}()
 
@@ -354,12 +354,12 @@ func (u *MediaUseCase) HardDelete(ctx context.Context, id string) error {
 				return
 			}
 
-			_ = u.logger.Log("method", "media.interactor.hard_delete", "msg", domain.MediaHardDeleted+" event sending failed, rolled back")
+			_ = u.logger.Log("method", "media.interactor.hard_delete", "msg", domain.MediaHardRemoved+" event sending failed, rolled back")
 			errC <- err
 			return
 		}
 
-		_ = u.logger.Log("method", "media.interactor.hard_delete", "msg", domain.MediaHardDeleted+" integration event published")
+		_ = u.logger.Log("method", "media.interactor.hard_delete", "msg", domain.MediaHardRemoved+" integration event published")
 		errC <- nil
 	}()
 
@@ -402,6 +402,18 @@ func (u *MediaUseCase) Done(ctx context.Context, id, op string) error {
 		// Using repo directly to avoid non-organic views
 		media, err := u.repository.FetchByID(ctxE, id, false)
 		if err != nil {
+			errC <- err
+			return
+		}
+
+		event := domain.MediaCreated
+		if op == domain.MediaCreated {
+			err = u.event.Created(ctxE, *media)
+		} else if op == domain.MediaUpdated {
+			err = u.event.Updated(ctxE, *media)
+			event = domain.MediaUpdated
+		}
+		if err != nil {
 			_ = u.logger.Log("method", "media.interactor.done", "err", err.Error())
 
 			// Rollback
@@ -415,14 +427,6 @@ func (u *MediaUseCase) Done(ctx context.Context, id, op string) error {
 			_ = u.logger.Log("method", "media.interactor.done", "msg", "could not send event, rolled back")
 			errC <- err
 			return
-		}
-
-		event := domain.MediaCreated
-		if op == domain.MediaCreated {
-			err = u.event.Created(ctxE, *media)
-		} else if op == domain.MediaUpdated {
-			err = u.event.Updated(ctxE, *media)
-			event = domain.MediaUpdated
 		}
 
 		_ = u.logger.Log("method", "media.interactor.done", "msg", event+" event published")

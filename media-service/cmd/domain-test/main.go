@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"github.com/alexandria-oss/core"
 	"github.com/maestre3d/alexandria/media-service/internal/dependency"
+	"github.com/maestre3d/alexandria/media-service/internal/domain"
 	"log"
 )
 
@@ -16,15 +16,19 @@ func main() {
 	}
 	defer cleanup()
 
-	medias, next, err := mediaUse.List(ctx, "", "1", core.FilterParams{
-		"filter_by": "timestamp",
+	media, err := mediaUse.Create(ctx, &domain.MediaAggregate{
+		Title:        "1984: Maestre",
+		DisplayName:  "1984",
+		Description:  "By George Orwell, 1984 is a novel about ... ",
+		LanguageCode: "en",
+		PublisherID:  "123",
+		AuthorID:     "987",
+		PublishDate:  "1954-01-31",
+		MediaType:    "book",
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	for _, media := range medias {
-		log.Printf("%+v", media)
-	}
-	log.Print(next)
+	log.Printf("%+v", media)
 }

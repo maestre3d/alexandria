@@ -35,7 +35,8 @@ func InjectMediaUseCase() (*interactor.MediaUseCase, func(), error) {
 		return nil, nil, err
 	}
 	mediaPQRepository := infrastructure.NewMediaPQRepository(db, client, logLogger)
-	mediaUseCase := interactor.NewMediaUseCase(logLogger, mediaPQRepository)
+	mediaKafkaEvent := infrastructure.NewMediaKafakaEvent(kernel)
+	mediaUseCase := interactor.NewMediaUseCase(logLogger, mediaPQRepository, mediaKafkaEvent)
 	return mediaUseCase, func() {
 		cleanup2()
 		cleanup()
@@ -51,7 +52,7 @@ var dataSet = wire.NewSet(
 )
 
 var mediaSet = wire.NewSet(
-	dataSet, logger.NewZapLogger, wire.Bind(new(domain.MediaRepository), new(*infrastructure.MediaPQRepository)), infrastructure.NewMediaPQRepository, interactor.NewMediaUseCase,
+	dataSet, logger.NewZapLogger, wire.Bind(new(domain.MediaRepository), new(*infrastructure.MediaPQRepository)), infrastructure.NewMediaPQRepository, wire.Bind(new(domain.MediaEvent), new(*infrastructure.MediaKafkaEvent)), infrastructure.NewMediaKafakaEvent, interactor.NewMediaUseCase,
 )
 
 func provideContext() context.Context {
