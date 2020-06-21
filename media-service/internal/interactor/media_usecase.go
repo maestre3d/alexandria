@@ -125,11 +125,11 @@ func (u *Media) Update(ctx context.Context, ag *domain.MediaUpdateAggregate) (*d
 	defer cancel()
 
 	media, err := u.repository.FetchByID(ctxR, ag.ID, false)
-	// Store backup for event rollbacks
-	mediaBackup := media
 	if err != nil {
 		return nil, err
 	}
+	// Store backup for event rollbacks
+	mediaBackup := media
 
 	// Update dynamically
 	// TODO: Try switch statement

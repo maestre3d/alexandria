@@ -38,6 +38,8 @@ func (r *MediaPQRepository) Save(ctx context.Context, media domain.Media) error 
 		return err
 	}
 	defer conn.Close()
+	// Use Go CDK OpenCensus database metrics
+	_ = r.logger.Log("method", "media.infrastructure.postgres.save", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `INSERT INTO alexa1.media(external_id, title, display_name, description, language_code, publisher_id, author_id, publish_date, media_type) 
 					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
@@ -64,6 +66,8 @@ func (r *MediaPQRepository) SaveRaw(ctx context.Context, media domain.Media) err
 		return err
 	}
 	defer conn.Close()
+	// Use Go CDK OpenCensus database metrics
+	_ = r.logger.Log("method", "media.infrastructure.postgres.save_raw", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `INSERT INTO alexa1.media 
 					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`
@@ -115,6 +119,8 @@ func (r *MediaPQRepository) FetchByID(ctx context.Context, id string, showDisabl
 		return nil, err
 	}
 	defer conn.Close()
+	// Use Go CDK OpenCensus database metrics
+	_ = r.logger.Log("method", "media.infrastructure.postgres.fetch_by_id", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `SELECT * FROM alexa1.media WHERE external_id = $1`
 	if !showDisabled {
@@ -151,6 +157,8 @@ func (r *MediaPQRepository) Fetch(ctx context.Context, params core.PaginationPar
 		return nil, err
 	}
 	defer conn.Close()
+	// Use Go CDK OpenCensus database metrics
+	_ = r.logger.Log("method", "media.infrastructure.postgres.fetch", "db_connection", r.db.Stats().OpenConnections)
 
 	// Query building
 	b := &MediaQuery{Statement: `SELECT * FROM alexa1.media WHERE `}
@@ -246,6 +254,8 @@ func (r *MediaPQRepository) Replace(ctx context.Context, media domain.Media) err
 		return err
 	}
 	defer conn.Close()
+	// Use Go CDK OpenCensus database metrics
+	_ = r.logger.Log("method", "media.infrastructure.postgres.replace", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `UPDATE alexa1.media SET title = $1, display_name = $2, description = $3, language_code = $4, publisher_id = $5, author_id = $6, 
 					publish_date = $7, media_type = $8, update_time = $9, content_url = $10, total_views = $11, status = $12 WHERE 
@@ -283,6 +293,8 @@ func (r *MediaPQRepository) Remove(ctx context.Context, id string) error {
 		return err
 	}
 	defer conn.Close()
+	// Use Go CDK OpenCensus database metrics
+	_ = r.logger.Log("method", "media.infrastructure.postgres.remove", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `UPDATE alexa1.media SET active = FALSE WHERE external_id = $1 AND active = TRUE`
 	res, err := conn.ExecContext(ctx, statement, id)
@@ -311,6 +323,8 @@ func (r *MediaPQRepository) Restore(ctx context.Context, id string) error {
 		return err
 	}
 	defer conn.Close()
+	// Use Go CDK OpenCensus database metrics
+	_ = r.logger.Log("method", "media.infrastructure.postgres.restore", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `UPDATE alexa1.media SET active = TRUE WHERE external_id = $1 AND active = FALSE`
 	res, err := conn.ExecContext(ctx, statement, id)
@@ -339,6 +353,8 @@ func (r *MediaPQRepository) HardRemove(ctx context.Context, id string) error {
 		return err
 	}
 	defer conn.Close()
+	// Use Go CDK OpenCensus database metrics
+	_ = r.logger.Log("method", "media.infrastructure.postgres.hard_remove", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `DELETE FROM alexa1.media WHERE external_id = $1`
 	res, err := conn.ExecContext(ctx, statement, id)
@@ -367,6 +383,8 @@ func (r *MediaPQRepository) ChangeState(ctx context.Context, id, state string) e
 		return err
 	}
 	defer conn.Close()
+	// Use Go CDK OpenCensus database metrics
+	_ = r.logger.Log("method", "media.infrastructure.postgres.change_state", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `UPDATE alexa1.media SET status = $1 WHERE external_id = $2 AND active = TRUE`
 	res, err := conn.ExecContext(ctx, statement, id)

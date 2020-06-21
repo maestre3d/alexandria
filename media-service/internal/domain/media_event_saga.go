@@ -5,13 +5,16 @@ import (
 )
 
 const (
-	MediaCreated   = "MEDIA_CREATED"
-	OwnerVerify    = "OWNER_VERIFY"
-	OwnerVerified  = "MEDIA_OWNER_VERIFIED"
-	OwnerFailed    = "MEDIA_OWNER_FAILED"
-	AuthorVerify   = "AUTHOR_VERIFY"
-	AuthorVerified = "MEDIA_AUTHOR_VERIFIED"
-	AuthorFailed   = "MEDIA_AUTHOR_FAILED"
+	// Side-effect events
+	MediaCreated = "MEDIA_CREATED" // Produced
+
+	// Foreign validation events
+	OwnerVerify    = "OWNER_VERIFY"          // Produced
+	OwnerVerified  = "MEDIA_OWNER_VERIFIED"  // Consumed
+	OwnerFailed    = "MEDIA_OWNER_FAILED"    // Consumed
+	AuthorVerify   = "AUTHOR_VERIFY"         // Produced
+	AuthorVerified = "MEDIA_AUTHOR_VERIFIED" // Consumed
+	AuthorFailed   = "MEDIA_AUTHOR_FAILED"   // Consumed
 )
 
 type MediaEventSAGA interface {
