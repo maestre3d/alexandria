@@ -15,3 +15,9 @@ type MediaInteractor interface {
 	Restore(ctx context.Context, id string) error
 	HardDelete(ctx context.Context, id string) error
 }
+
+type MediaSAGAInteractor interface {
+	VerifyAuthor(ctx context.Context, rootID string) error
+	Done(ctx context.Context, rootID, operation string) error
+	Failed(ctx context.Context, rootID, operation, backup string) error
+}

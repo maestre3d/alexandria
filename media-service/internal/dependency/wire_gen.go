@@ -18,7 +18,7 @@ import (
 
 // Injectors from wire.go:
 
-func InjectMediaUseCase() (*interactor.MediaUseCase, func(), error) {
+func InjectMediaUseCase() (*interactor.Media, func(), error) {
 	logLogger := logger.NewZapLogger()
 	context := provideContext()
 	kernel, err := config.NewKernel(context)
@@ -36,8 +36,34 @@ func InjectMediaUseCase() (*interactor.MediaUseCase, func(), error) {
 	}
 	mediaPQRepository := infrastructure.NewMediaPQRepository(db, client, logLogger)
 	mediaKafkaEvent := infrastructure.NewMediaKafakaEvent(kernel)
-	mediaUseCase := interactor.NewMediaUseCase(logLogger, mediaPQRepository, mediaKafkaEvent)
-	return mediaUseCase, func() {
+	media := interactor.NewMedia(logLogger, mediaPQRepository, mediaKafkaEvent)
+	return media, func() {
+		cleanup2()
+		cleanup()
+	}, nil
+}
+
+func InjectMediaSAGAUseCase() (*interactor.MediaSAGA, func(), error) {
+	context := provideContext()
+	kernel, err := config.NewKernel(context)
+	if err != nil {
+		return nil, nil, err
+	}
+	db, cleanup, err := persistence.NewPostgresPool(context, kernel)
+	if err != nil {
+		return nil, nil, err
+	}
+	client, cleanup2, err := persistence.NewRedisPool(kernel)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	logLogger := logger.NewZapLogger()
+	mediaPQRepository := infrastructure.NewMediaPQRepository(db, client, logLogger)
+	mediaKafkaEvent := infrastructure.NewMediaKafakaEvent(kernel)
+	mediaSAGAKafkaEvent := infrastructure.NewMediaSAGAKafkaEvent(kernel)
+	mediaSAGA := interactor.NewMediaSAGA(mediaPQRepository, mediaKafkaEvent, mediaSAGAKafkaEvent, logLogger)
+	return mediaSAGA, func() {
 		cleanup2()
 		cleanup()
 	}, nil
@@ -48,12 +74,10 @@ func InjectMediaUseCase() (*interactor.MediaUseCase, func(), error) {
 var Ctx = context.Background()
 
 var dataSet = wire.NewSet(
-	provideContext, config.NewKernel, persistence.NewPostgresPool, persistence.NewRedisPool,
+	provideContext, config.NewKernel, persistence.NewPostgresPool, persistence.NewRedisPool, logger.NewZapLogger, wire.Bind(new(domain.MediaRepository), new(*infrastructure.MediaPQRepository)), infrastructure.NewMediaPQRepository,
 )
 
-var mediaSet = wire.NewSet(
-	dataSet, logger.NewZapLogger, wire.Bind(new(domain.MediaRepository), new(*infrastructure.MediaPQRepository)), infrastructure.NewMediaPQRepository, wire.Bind(new(domain.MediaEvent), new(*infrastructure.MediaKafkaEvent)), infrastructure.NewMediaKafakaEvent, interactor.NewMediaUseCase,
-)
+var eventSet = wire.NewSet(wire.Bind(new(domain.MediaEvent), new(*infrastructure.MediaKafkaEvent)), infrastructure.NewMediaKafakaEvent)
 
 func provideContext() context.Context {
 	return Ctx

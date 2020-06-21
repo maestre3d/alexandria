@@ -127,7 +127,7 @@ func (r *MediaPQRepository) FetchByID(ctx context.Context, id string, showDisabl
 		&media.DeleteTime, &media.Active, &media.ContentURL, &media.TotalViews, &media.Status)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil
+			return nil, exception.EntityNotFound
 		}
 
 		return nil, err
@@ -228,6 +228,10 @@ func (r *MediaPQRepository) Fetch(ctx context.Context, params core.PaginationPar
 			return nil, err
 		}
 		medias = append(medias, media)
+	}
+
+	if len(medias) == 0 {
+		return nil, exception.EntitiesNotFound
 	}
 
 	return medias, nil

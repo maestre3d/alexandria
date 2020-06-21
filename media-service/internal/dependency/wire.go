@@ -20,23 +20,32 @@ var dataSet = wire.NewSet(
 	config.NewKernel,
 	persistence.NewPostgresPool,
 	persistence.NewRedisPool,
-)
-
-var mediaSet = wire.NewSet(
-	dataSet,
 	logger.NewZapLogger,
 	wire.Bind(new(domain.MediaRepository), new(*infrastructure.MediaPQRepository)),
 	infrastructure.NewMediaPQRepository,
+)
+
+var eventSet = wire.NewSet(
 	wire.Bind(new(domain.MediaEvent), new(*infrastructure.MediaKafkaEvent)),
 	infrastructure.NewMediaKafakaEvent,
-	interactor.NewMediaUseCase,
 )
 
 func provideContext() context.Context {
 	return Ctx
 }
 
-func InjectMediaUseCase() (*interactor.MediaUseCase, func(), error) {
-	wire.Build(mediaSet)
-	return &interactor.MediaUseCase{}, nil, nil
+func InjectMediaUseCase() (*interactor.Media, func(), error) {
+	wire.Build(dataSet, eventSet, interactor.NewMedia)
+	return &interactor.Media{}, nil, nil
+}
+
+func InjectMediaSAGAUseCase() (*interactor.MediaSAGA, func(), error) {
+	wire.Build(
+		dataSet,
+		eventSet,
+		wire.Bind(new(domain.MediaEventSAGA), new(*infrastructure.MediaSAGAKafkaEvent)),
+		infrastructure.NewMediaSAGAKafkaEvent,
+		interactor.NewMediaSAGA,
+	)
+	return &interactor.MediaSAGA{}, nil, nil
 }

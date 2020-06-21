@@ -91,18 +91,21 @@ func ParseDate(date string) (time.Time, error) {
 }
 
 func ParseMediaType(media string) string {
-	media = strings.ToLower(media)
-	switch media {
-	case "book":
-		media = Book
-	case "doc":
-		media = Doc
-	case "video":
-		media = Video
-	case "podcast":
-		media = Podcast
-	default:
-		return ""
+	media = strings.ToUpper(media)
+	if media != Book && media != Podcast && media != Doc && media != Video {
+		media = strings.ToLower(media)
+		switch media {
+		case "book":
+			media = Book
+		case "doc":
+			media = Doc
+		case "video":
+			media = Video
+		case "podcast":
+			media = Podcast
+		default:
+			return ""
+		}
 	}
 
 	return media

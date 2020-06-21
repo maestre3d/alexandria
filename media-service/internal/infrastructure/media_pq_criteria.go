@@ -2,6 +2,7 @@ package infrastructure
 
 import (
 	"fmt"
+	"github.com/maestre3d/alexandria/media-service/internal/domain"
 	"strings"
 )
 
@@ -47,6 +48,8 @@ func (b *MediaQuery) Author(id string) *MediaQuery {
 }
 
 func (b *MediaQuery) MediaType(media string) *MediaQuery {
+	media = domain.ParseMediaType(media)
+
 	if media == "" {
 		return b
 	}

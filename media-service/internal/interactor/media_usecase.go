@@ -2,32 +2,29 @@ package interactor
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/alexandria-oss/core"
-	"github.com/alexandria-oss/core/exception"
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/media-service/internal/domain"
 	"strings"
 	"time"
 )
 
-type MediaUseCase struct {
+type Media struct {
 	logger     log.Logger
 	repository domain.MediaRepository
 	event      domain.MediaEvent
 }
 
-func NewMediaUseCase(logger log.Logger, repo domain.MediaRepository, event domain.MediaEvent) *MediaUseCase {
-	return &MediaUseCase{
+func NewMedia(logger log.Logger, repo domain.MediaRepository, event domain.MediaEvent) *Media {
+	return &Media{
 		logger:     logger,
 		repository: repo,
 		event:      event,
 	}
 }
 
-func (u *MediaUseCase) Create(ctx context.Context, ag *domain.MediaAggregate) (*domain.Media, error) {
+func (u *Media) Create(ctx context.Context, ag *domain.MediaAggregate) (*domain.Media, error) {
 	media, err := domain.NewMedia(ag)
 	if err != nil {
 		return nil, err
@@ -81,7 +78,7 @@ func (u *MediaUseCase) Create(ctx context.Context, ag *domain.MediaAggregate) (*
 	return media, nil
 }
 
-func (u *MediaUseCase) Get(ctx context.Context, id string) (*domain.Media, error) {
+func (u *Media) Get(ctx context.Context, id string) (*domain.Media, error) {
 	ctxR, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -103,7 +100,7 @@ func (u *MediaUseCase) Get(ctx context.Context, id string) (*domain.Media, error
 	return media, nil
 }
 
-func (u *MediaUseCase) List(ctx context.Context, pageToken, pageSize string, filter core.FilterParams) ([]*domain.Media, string, error) {
+func (u *Media) List(ctx context.Context, pageToken, pageSize string, filter core.FilterParams) ([]*domain.Media, string, error) {
 	ctxR, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -123,7 +120,7 @@ func (u *MediaUseCase) List(ctx context.Context, pageToken, pageSize string, fil
 	return medias, nextPage, nil
 }
 
-func (u *MediaUseCase) Update(ctx context.Context, ag *domain.MediaUpdateAggregate) (*domain.Media, error) {
+func (u *Media) Update(ctx context.Context, ag *domain.MediaUpdateAggregate) (*domain.Media, error) {
 	ctxR, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -228,7 +225,7 @@ func (u *MediaUseCase) Update(ctx context.Context, ag *domain.MediaUpdateAggrega
 	return media, nil
 }
 
-func (u *MediaUseCase) Delete(ctx context.Context, id string) error {
+func (u *Media) Delete(ctx context.Context, id string) error {
 	ctxR, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -260,7 +257,7 @@ func (u *MediaUseCase) Delete(ctx context.Context, id string) error {
 			return
 		}
 
-		_ = u.logger.Log("method", "media.interactor.delete", "msg", domain.MediaRemoved+" integration event published")
+		_ = u.logger.Log("method", "media.interactor.delete", "msg", domain.MediaRemoved+" event published")
 		errC <- nil
 	}()
 
@@ -275,7 +272,7 @@ func (u *MediaUseCase) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-func (u *MediaUseCase) Restore(ctx context.Context, id string) error {
+func (u *Media) Restore(ctx context.Context, id string) error {
 	ctxR, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -307,7 +304,7 @@ func (u *MediaUseCase) Restore(ctx context.Context, id string) error {
 			return
 		}
 
-		_ = u.logger.Log("method", "media.interactor.restore", "msg", domain.MediaRestored+" integration event published")
+		_ = u.logger.Log("method", "media.interactor.restore", "msg", domain.MediaRestored+" event published")
 		errC <- nil
 	}()
 
@@ -322,7 +319,7 @@ func (u *MediaUseCase) Restore(ctx context.Context, id string) error {
 	return nil
 }
 
-func (u *MediaUseCase) HardDelete(ctx context.Context, id string) error {
+func (u *Media) HardDelete(ctx context.Context, id string) error {
 	ctxR, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -359,7 +356,7 @@ func (u *MediaUseCase) HardDelete(ctx context.Context, id string) error {
 			return
 		}
 
-		_ = u.logger.Log("method", "media.interactor.hard_delete", "msg", domain.MediaHardRemoved+" integration event published")
+		_ = u.logger.Log("method", "media.interactor.hard_delete", "msg", domain.MediaHardRemoved+" event published")
 		errC <- nil
 	}()
 
@@ -370,110 +367,6 @@ func (u *MediaUseCase) HardDelete(ctx context.Context, id string) error {
 		}
 		break
 	}
-
-	return nil
-}
-
-// SAGA Transactions
-
-func (u *MediaUseCase) Done(ctx context.Context, id, op string) error {
-	if op != domain.MediaCreated && op != domain.MediaUpdated {
-		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
-			"operation", domain.MediaCreated+" or "+domain.MediaUpdated))
-	}
-
-	ctxR, cl := context.WithCancel(ctx)
-	defer cl()
-
-	err := u.repository.ChangeState(ctxR, id, domain.StatusDone)
-	if err != nil {
-		return err
-	}
-
-	// Propagate side-effects
-	errC := make(chan error)
-	defer close(errC)
-
-	go func() {
-		ctxE, cl := context.WithCancel(ctx)
-		defer cl()
-
-		// Get author to properly propagate side-effects with respective payload
-		// Using repo directly to avoid non-organic views
-		media, err := u.repository.FetchByID(ctxE, id, false)
-		if err != nil {
-			errC <- err
-			return
-		}
-
-		event := domain.MediaCreated
-		if op == domain.MediaCreated {
-			err = u.event.Created(ctxE, *media)
-		} else if op == domain.MediaUpdated {
-			err = u.event.Updated(ctxE, *media)
-			event = domain.MediaUpdated
-		}
-		if err != nil {
-			_ = u.logger.Log("method", "media.interactor.done", "err", err.Error())
-
-			// Rollback
-			err = u.repository.ChangeState(ctxE, id, domain.StatusPending)
-			if err != nil {
-				// Failed to rollback
-				_ = u.logger.Log("method", "media.interactor.done", "err", err.Error())
-				errC <- err
-				return
-			}
-			_ = u.logger.Log("method", "media.interactor.done", "msg", "could not send event, rolled back")
-			errC <- err
-			return
-		}
-
-		_ = u.logger.Log("method", "media.interactor.done", "msg", event+" event published")
-
-		errC <- nil
-	}()
-
-	select {
-	case err = <-errC:
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (u *MediaUseCase) Failed(ctx context.Context, id, op, backup string) error {
-	if op != domain.MediaCreated && op != domain.MediaUpdated {
-		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
-			"operation", domain.MediaCreated+" or "+domain.MediaUpdated))
-	}
-
-	ctxR, cl := context.WithCancel(ctx)
-	defer cl()
-
-	var err error
-	if op == domain.MediaCreated {
-		err = u.repository.HardRemove(ctxR, id)
-	} else if op == domain.MediaUpdated {
-		mediaBackup := new(domain.Media)
-		err = json.Unmarshal([]byte(backup), mediaBackup)
-		if err != nil {
-			return err
-		}
-
-		err = u.repository.Replace(ctxR, *mediaBackup)
-	}
-
-	// Avoid not found errors to send acknowledgement to broker
-	if err != nil && errors.Unwrap(err) != exception.EntityNotFound {
-		_ = u.logger.Log("method", "media.interactor.failed", "err", err.Error())
-		return err
-	}
-
-	_ = u.logger.Log("method", "media.interactor.failed", "msg", fmt.Sprintf("media %s rolled back", id),
-		"operation", op)
 
 	return nil
 }
