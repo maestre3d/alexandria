@@ -42,7 +42,7 @@ func (h *UserEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context, 
 
 // Consumers / Binders
 func (h *UserEventConsumer) bindOwnerVerify(ctx context.Context, service string) (*eventbus.Consumer, error) {
-	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerPending)
+	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerVerify)
 	if err != nil {
 		return nil, err
 	}

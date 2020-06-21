@@ -8,7 +8,7 @@ const (
 	AuthorDeleted     = "AUTHOR_DELETED"
 	AuthorHardDeleted = "AUTHOR_PERMANENTLY_DELETED"
 	AuthorRestored    = "AUTHOR_RESTORED"
-	OwnerPending      = "OWNER_PENDING"
+	OwnerVerify       = "OWNER_VERIFY"
 	OwnerVerified     = "AUTHOR_OWNER_VERIFIED"
 	OwnerFailed       = "AUTHOR_OWNER_FAILED"
 )

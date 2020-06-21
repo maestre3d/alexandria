@@ -32,7 +32,7 @@ func (b *AuthorKafkaEventBus) StartCreate(ctx context.Context, author *domain.Au
 		return err
 	}
 
-	topic, err := eventbus.NewKafkaProducer(ctx, domain.OwnerPending)
+	topic, err := eventbus.NewKafkaProducer(ctx, domain.OwnerVerify)
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (b *AuthorKafkaEventBus) StartUpdate(ctx context.Context, author *domain.Au
 		return err
 	}
 
-	topic, err := eventbus.NewKafkaProducer(ctx, domain.OwnerPending)
+	topic, err := eventbus.NewKafkaProducer(ctx, domain.OwnerVerify)
 	if err != nil {
 		return err
 	}

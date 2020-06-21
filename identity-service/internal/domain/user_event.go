@@ -1,7 +1,7 @@
 package domain
 
 const (
-	OwnerPending        = "OWNER_PENDING"
+	OwnerVerify         = "OWNER_VERIFY"
 	OwnerVerified       = "OWNER_VERIFIED"
 	OwnerFailed         = "OWNER_FAILED"
 )
