@@ -14,19 +14,35 @@ import (
 
 var Ctx context.Context = context.Background()
 
+var dataSet = wire.NewSet(
+	provideContext,
+	config.NewKernel,
+	logger.NewZapLogger,
+	wire.Bind(new(domain.UserRepository), new(*infrastructure.UserCognitoRepository)),
+	infrastructure.NewUserCognitoRepository,
+	// provide kafka/sqs base event bus
+)
+
 func provideContext() context.Context {
 	return Ctx
 }
 
-func InjectUserUseCase() (*interactor.UserUseCase, error) {
+func InjectUserUseCase() (*interactor.User, error) {
 	wire.Build(
-		provideContext,
-		config.NewKernel,
-		logger.NewZapLogger,
-		wire.Bind(new(domain.UserRepository), new(*infrastructure.UserCognitoRepository)),
-		infrastructure.NewUserCognitoRepository,
-		interactor.NewUserUseCase,
+		dataSet,
+		interactor.NewUser,
 	)
 
-	return &interactor.UserUseCase{}, nil
+	return &interactor.User{}, nil
+}
+
+func InjectUserSAGAUseCase() (*interactor.UserSAGA, error) {
+	wire.Build(
+		dataSet,
+		wire.Bind(new(domain.UserEventSAGA), new(*infrastructure.UserSAGAKafkaEvent)),
+		infrastructure.NewUserSAGAKafkaEvent,
+		interactor.NewUserSAGA,
+	)
+
+	return &interactor.UserSAGA{}, nil
 }

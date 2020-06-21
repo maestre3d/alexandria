@@ -14,6 +14,4 @@ type MediaInteractor interface {
 	Delete(ctx context.Context, id string) error
 	Restore(ctx context.Context, id string) error
 	HardDelete(ctx context.Context, id string) error
-	Done(ctx context.Context, id, op string) error
-	Failed(ctx context.Context, id, op, backup string) error
 }

@@ -9,13 +9,15 @@ import (
 	"context"
 	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/logger"
+	"github.com/google/wire"
+	"github.com/maestre3d/alexandria/identity-service/internal/domain"
 	"github.com/maestre3d/alexandria/identity-service/internal/infrastructure"
 	"github.com/maestre3d/alexandria/identity-service/internal/interactor"
 )
 
 // Injectors from wire.go:
 
-func InjectUserUseCase() (*interactor.UserUseCase, error) {
+func InjectUserUseCase() (*interactor.User, error) {
 	logLogger := logger.NewZapLogger()
 	context := provideContext()
 	kernel, err := config.NewKernel(context)
@@ -23,13 +25,30 @@ func InjectUserUseCase() (*interactor.UserUseCase, error) {
 		return nil, err
 	}
 	userCognitoRepository := infrastructure.NewUserCognitoRepository(logLogger, kernel)
-	userUseCase := interactor.NewUserUseCase(logLogger, userCognitoRepository)
-	return userUseCase, nil
+	user := interactor.NewUser(logLogger, userCognitoRepository)
+	return user, nil
+}
+
+func InjectUserSAGAUseCase() (*interactor.UserSAGA, error) {
+	logLogger := logger.NewZapLogger()
+	context := provideContext()
+	kernel, err := config.NewKernel(context)
+	if err != nil {
+		return nil, err
+	}
+	userCognitoRepository := infrastructure.NewUserCognitoRepository(logLogger, kernel)
+	userSAGAKafkaEvent := infrastructure.NewUserSAGAKafkaEvent(kernel)
+	userSAGA := interactor.NewUserSAGA(logLogger, userCognitoRepository, userSAGAKafkaEvent)
+	return userSAGA, nil
 }
 
 // wire.go:
 
 var Ctx context.Context = context.Background()
+
+var dataSet = wire.NewSet(
+	provideContext, config.NewKernel, logger.NewZapLogger, wire.Bind(new(domain.UserRepository), new(*infrastructure.UserCognitoRepository)), infrastructure.NewUserCognitoRepository,
+)
 
 func provideContext() context.Context {
 	return Ctx

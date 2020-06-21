@@ -9,7 +9,6 @@ import (
 	"context"
 	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/logger"
-	"github.com/alexandria-oss/core/tracer"
 	"github.com/alexandria-oss/core/transport/proxy"
 	"github.com/go-kit/kit/log"
 	"github.com/google/wire"
@@ -29,11 +28,11 @@ func InjectTransportService() (*service.Transport, func(), error) {
 		return nil, nil, err
 	}
 	logLogger := logger.NewZapLogger()
-	userInteractor, err := provideUserInteractor(logLogger)
+	userSAGAInteractor, err := provideUserSAGAInteractor(logLogger)
 	if err != nil {
 		return nil, nil, err
 	}
-	userEventConsumer := bind.NewUserEventConsumer(userInteractor, logLogger, kernel)
+	userEventConsumer := bind.NewUserEventConsumer(userSAGAInteractor, logLogger, kernel)
 	v := provideEventConsumers(userEventConsumer)
 	event, cleanup, err := proxy.NewEvent(context, kernel, v...)
 	if err != nil {
@@ -49,22 +48,22 @@ func InjectTransportService() (*service.Transport, func(), error) {
 
 var Ctx context.Context = context.Background()
 
-var userInteractorSet = wire.NewSet(logger.NewZapLogger, provideUserInteractor)
+var userSAGAInteractorSet = wire.NewSet(logger.NewZapLogger, provideUserSAGAInteractor)
 
 var eventProxySet = wire.NewSet(
-	userInteractorSet,
-	provideContext, config.NewKernel, tracer.NewZipkin, tracer.WrapZipkinOpenTracing, bind.NewUserEventConsumer, provideEventConsumers, proxy.NewEvent,
+	userSAGAInteractorSet,
+	provideContext, config.NewKernel, bind.NewUserEventConsumer, provideEventConsumers, proxy.NewEvent,
 )
 
 func provideContext() context.Context {
 	return Ctx
 }
 
-func provideUserInteractor(logger2 log.Logger) (usecase.UserInteractor, error) {
+func provideUserSAGAInteractor(logger2 log.Logger) (usecase.UserSAGAInteractor, error) {
 	dependency.Ctx = Ctx
-	userUseCase, err := dependency.InjectUserUseCase()
+	userUseCase, err := dependency.InjectUserSAGAUseCase()
 
-	userService := user.WrapUserInstrumentation(userUseCase, logger2)
+	userService := user.WrapUserSAGAInstrumentation(userUseCase, logger2)
 
 	return userService, err
 }

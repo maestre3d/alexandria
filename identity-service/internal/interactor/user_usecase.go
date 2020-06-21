@@ -6,14 +6,14 @@ import (
 	"github.com/maestre3d/alexandria/identity-service/internal/domain"
 )
 
-type UserUseCase struct {
-	log        log.Logger
+type User struct {
+	logger     log.Logger
 	repository domain.UserRepository
 }
 
-func NewUserUseCase(logger log.Logger, repo domain.UserRepository) *UserUseCase {
-	return &UserUseCase{
-		log:        logger,
+func NewUser(logger log.Logger, repo domain.UserRepository) *User {
+	return &User{
+		logger:     logger,
 		repository: repo,
 	}
 }
@@ -27,7 +27,7 @@ func NewUserUseCase(logger log.Logger, repo domain.UserRepository) *UserUseCase 
 // - Restore (activate)
 // - HardDelete (hard-delete)
 
-func (u *UserUseCase) Get(ctx context.Context, id string) (*domain.User, error) {
+func (u *User) Get(ctx context.Context, id string) (*domain.User, error) {
 	ctxR, cancel := context.WithCancel(ctx)
 	defer cancel()
 	return u.repository.FetchByID(ctxR, id)

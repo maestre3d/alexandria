@@ -8,3 +8,7 @@ import (
 type UserInteractor interface {
 	Get(ctx context.Context, id string) (*domain.User, error)
 }
+
+type UserSAGAInteractor interface {
+	Verify(ctx context.Context, usersJSON []byte) error
+}
