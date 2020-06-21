@@ -36,12 +36,12 @@ func (u *UserSAGA) Verify(ctx context.Context, usersJSON []byte) error {
 		// Rollback if format error
 		err = u.event.OwnerFailed(ctxR)
 		if err != nil {
-			// If error during event publishing, not ack
+			// Error during publishing
+			_ = u.logger.Log("method", "identity.usecase.saga.verify", "err", err.Error())
 			return err
 		}
 
 		_ = u.logger.Log("method", "identity.usecase.saga.verify", "msg", domain.OwnerFailed+" integration event published")
-
 		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
 			"owner_pool", "[]string"))
 	}
@@ -52,18 +52,23 @@ func (u *UserSAGA) Verify(ctx context.Context, usersJSON []byte) error {
 			_ = u.logger.Log("method", "identity.usecase.saga.verify", "err", err.Error())
 
 			err = u.event.OwnerFailed(ctxR)
-			if err == nil {
-				_ = u.logger.Log("method", "identity.usecase.saga.verify", "msg", domain.OwnerFailed+" integration event published")
+			if err != nil {
+				_ = u.logger.Log("method", "identity.usecase.saga.verify", "err", err.Error())
+				return err
 			}
-			return err
+
+			_ = u.logger.Log("method", "identity.usecase.saga.verify", "msg", domain.OwnerFailed+" integration event published")
+			return nil
 		}
 	}
 
 	// All users have been verified
 	err = u.event.OwnerVerified(ctxR)
-	if err == nil {
-		_ = u.logger.Log("method", "identity.usecase.saga.verify", "msg", domain.OwnerVerified+" integration event published")
+	if err != nil {
+		_ = u.logger.Log("method", "identity.usecase.saga.verify", "err", err.Error())
+		return err
 	}
 
-	return err
+	_ = u.logger.Log("method", "identity.usecase.saga.verify", "msg", domain.OwnerVerified+" integration event published")
+	return nil
 }
