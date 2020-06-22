@@ -24,11 +24,16 @@ The list method accepts multiple queries to make data fetching easier for everyo
 The following fields are valid for our service.
 - page_token = string
 - page_size = int32 (min. 1, max. 100)
-- search_query = string
-- timestamp = boolean
-- media_type = string
+- query = string
+- filter_by = string (id, timestamp or popularity by default)
+- sort = string (asc or desc)
+- show_disabled = boolean
+
+Extra fields:
+- lang = string (ISO 639-1 language code)
+- media_type = string (book, video, podcast or doc)
+- publisher = string
 - author = string
-- user = string
 
 ## Contribution
 Alexandria is an open-source project, that means everyone’s help is appreciated.
