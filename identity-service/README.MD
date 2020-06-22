@@ -3,21 +3,21 @@ The Identity service API handles all the user's domain operations.
 
 It contains multi-layered APIs such as Public, Private and Admin API. 
 
-It uses gRPC and HTTP communication protocols to expose it's APIs.
+It uses gRPC and HTTP communication protocols to expose its APIs.
 
 The Identity API v1 is using Amazon Web Service's Cognito as user pool and identity federation manager.
 
 Alexandria is currently licensed under the MIT license.
 
 ## Endpoints
-| Method              |     HTTP Mapping                    |  HTTP Request body |  HTTP Response body    |
-|---------------------|:-----------------------------------:|:------------------:|:----------------------:|
-| **List**            |  GET /user                        |   N/A              |   User* list         |
-| **Get**             |  GET /user/{author-id}            |   N/A              |   User*              |
-| **Update**          |  PUT or PATCH /user/{user-id}   |   User           |   User*              |
-| **Delete**          |  DELETE /user/{user-id}         |   N/A              |   protobuf.empty/{}    |
-| **Restore/Active**  |  PATCH /admin/userr/{user-id}    |   N/A              |   protobuf.empty/{}    |
-| **HardDelete**      |  DELETE /admin/user/{user-id}   |   N/A              |   protobuf.empty/{}    |
+| Method              |     HTTP Mapping                        |  HTTP Request body  |  HTTP Response body |
+|---------------------|:---------------------------------------:|:-------------------:|:-------------------:|
+| **List**            |  GET /user                              |   N/A               |   User* list        |
+| **Get**             |  GET /user/{author-id}                  |   N/A               |   User*             |
+| **Update**          |  PUT or PATCH /private/user/{user-id}   |   User              |   User*             |
+| **Delete**          |  DELETE /private/user/{user-id}         |   N/A               |   protobuf.empty/{} |
+| **Restore/Active**  |  PATCH /private/userr/{user-id}         |   N/A               |   protobuf.empty/{} |
+| **HardDelete**      |  DELETE /admin/user/{user-id}           |   N/A               |   protobuf.empty/{} |
 
 ### Accepted Queries
 The list method accepts multiple queries to make data fetching easier for everyone.
