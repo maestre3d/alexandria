@@ -21,6 +21,7 @@ type UpdateRequest struct {
 	OwnershipType string `json:"ownership_type"`
 	Verified      string `json:"verified"`
 	Picture       string `json:"picture"`
+	Country       string `json:"country"`
 }
 
 type UpdateResponse struct {
@@ -41,6 +42,7 @@ func MakeUpdateAuthorEndpoint(svc usecase.AuthorInteractor, logger log.Logger, d
 				DisplayName:   req.DisplayName,
 				OwnershipType: req.OwnershipType,
 				OwnerID:       req.OwnerID,
+				Country:       req.Country,
 			},
 			Verified: req.Verified,
 			Picture:  req.Picture,

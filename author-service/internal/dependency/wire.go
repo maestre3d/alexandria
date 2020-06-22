@@ -14,35 +14,45 @@ import (
 	"github.com/maestre3d/alexandria/author-service/internal/interactor"
 )
 
-var configSet = wire.NewSet(
+var Ctx context.Context = context.Background()
+
+var dataSet = wire.NewSet(
 	provideContext,
 	config.NewKernel,
-)
-
-var dBMSPoolSet = wire.NewSet(
-	configSet,
 	persistence.NewPostgresPool,
+	persistence.NewRedisPool,
+	logger.NewZapLogger,
+	wire.Bind(new(domain.AuthorRepository), new(*infrastructure.AuthorPQRepository)),
+	infrastructure.NewAuthorPQRepository,
 )
 
-var authorDBMSRepositorySet = wire.NewSet(
-	dBMSPoolSet,
-	logger.NewZapLogger,
-	persistence.NewRedisPool,
-	wire.Bind(new(domain.IAuthorRepository), new(*infrastructure.AuthorPostgresRepository)),
-	infrastructure.NewAuthorPostgresRepository,
+var eventSet = wire.NewSet(
+	wire.Bind(new(domain.AuthorEventBus), new(*infrastructure.AuthorKafkaEventBus)),
+	infrastructure.NewAuthorKafkaEventBus,
 )
 
 func provideContext() context.Context {
-	return context.Background()
+	return Ctx
 }
 
-func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
+func InjectAuthorUseCase() (*interactor.Author, func(), error) {
 	wire.Build(
-		authorDBMSRepositorySet,
-		wire.Bind(new(domain.IAuthorEventBus), new(*infrastructure.AuthorKafkaEventBus)),
-		infrastructure.NewAuthorKafkaEventBus,
-		interactor.NewAuthorUseCase,
+		dataSet,
+		eventSet,
+		interactor.NewAuthor,
 	)
 
-	return &interactor.AuthorUseCase{}, nil, nil
+	return &interactor.Author{}, nil, nil
+}
+
+func InjectAuthorSAGAUseCase() (*interactor.AuthorSAGA, func(), error) {
+	wire.Build(
+		dataSet,
+		eventSet,
+		wire.Bind(new(domain.AuthorSAGAEventBus), new(*infrastructure.AuthorSAGAKafkaEventBus)),
+		infrastructure.NewAuthorSAGAKafkaEventBus,
+		interactor.NewAuthorSAGA,
+	)
+
+	return &interactor.AuthorSAGA{}, nil, nil
 }

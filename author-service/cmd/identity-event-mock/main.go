@@ -7,7 +7,6 @@ import (
 	"github.com/alexandria-oss/core/eventbus"
 	"github.com/maestre3d/alexandria/author-service/cmd/identity-event-mock/usecasemock"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/event"
 	"github.com/oklog/run"
 	"log"
 	"os"
@@ -29,7 +28,7 @@ func main() {
 
 	var g run.Group
 	{
-		eventSrv := event.NewServer(ctx, cancel, consumeAuthorPending(ctx), consumeAuthorPending2(ctx))
+		eventSrv := eventbus.NewServer(ctx, consumeAuthorPending(ctx))
 		g.Add(func() error {
 			log.Print("starting pubsub service")
 			return eventSrv.Serve()
@@ -62,26 +61,13 @@ func main() {
 	_ = g.Run()
 }
 
-func consumeAuthorPending(ctx context.Context) *event.Consumer {
+func consumeAuthorPending(ctx context.Context) *eventbus.Consumer {
 	sub, err := eventbus.NewKafkaConsumer(ctx, ServiceName, domain.AuthorPending)
 	if err != nil {
 		panic(err)
 	}
 
-	return &event.Consumer{
-		MaxHandler: 10,
-		Consumer:   sub,
-		Handler:    onAuthorCreated,
-	}
-}
-
-func consumeAuthorPending2(ctx context.Context) *event.Consumer {
-	sub, err := eventbus.NewKafkaConsumer(ctx, "identity2", domain.AuthorPending)
-	if err != nil {
-		panic(err)
-	}
-
-	return &event.Consumer{
+	return &eventbus.Consumer{
 		MaxHandler: 10,
 		Consumer:   sub,
 		Handler:    onAuthorCreated,
@@ -90,15 +76,26 @@ func consumeAuthorPending2(ctx context.Context) *event.Consumer {
 
 /* Handlers / Binder */
 
-func onAuthorCreated(r *event.Request) error {
+func onAuthorCreated(r *eventbus.Request) {
 	author := new(domain.Author)
 	err := json.Unmarshal(r.Message.Body, author)
 	if err != nil {
-		return err
+		if r.Message.Nackable() {
+			r.Message.Nack()
+		}
+		return
 	}
 
 	log.Printf("%v", author)
 
-	return usecasemock.ValidateOwners(r.Context, author, r.Message.Metadata["transaction_id"],
+	err = usecasemock.ValidateOwners(r.Context, author, r.Message.Metadata["transaction_id"],
 		r.Message.Metadata["operation"])
+	if err != nil {
+		if r.Message.Nackable() {
+			r.Message.Nack()
+		}
+		return
+	}
+
+	r.Message.Ack()
 }

@@ -4,7 +4,7 @@ alexandria:
     version: 0.1.0
   persistence:
     dbms:
-      url: "postgres://postgres:root@localhost:5432/alexandria_identity?sslmode=disable"
+      url: "postgres://postgres:root@postgres:5432/alexandria_identity?sslmode=disable"
       driver: "postgres"
       user: "postgres"
       password: "root"
@@ -13,7 +13,7 @@ alexandria:
       database: "alexandria_identity"
     mem:
       network: ""
-      host: "localhost"
+      host: "redis"
       port: 6379
       password: ""
       database: 0
@@ -31,7 +31,7 @@ alexandria:
       host: "http://zipkin:9411/api/v2/spans"
       endpoint: "0.0.0.0:8080"
       bridge: true
-  event:
+  eventbus:
     kafka:
       cluster:
         # Kafka Brokers nodes
@@ -44,8 +44,8 @@ alexandria:
   cloud:
     aws:
       cognito:
-        pool: "us-east-1_12iAEifyh"
-        client: "37njo8eviv33br7u2cmbbs1sbp"
+        pool: "AWS_COGNITO_POOL_ID"
+        client: "AWS_COGNITO_CLIENT_ID"
   security:
     auth:
       jwt:

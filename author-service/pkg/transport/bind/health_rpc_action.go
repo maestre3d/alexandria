@@ -3,14 +3,24 @@ package bind
 import (
 	"context"
 	"github.com/maestre3d/alexandria/author-service/pb"
+	"google.golang.org/grpc"
 )
 
-type HealthRPCServer struct{}
-
-func NewHealthRPC() pb.HealthServer {
-	return HealthRPCServer{}
+type HealthRPCServer struct {
+	srv pb.HealthServer
 }
 
-func (a HealthRPCServer) Check(ctx context.Context, req *pb.HealthCheckRequest) (*pb.HealthCheckResponse, error) {
+// Compile-time RPC implementation
+type healthRPCImp struct{}
+
+func NewHealthRPC() *HealthRPCServer {
+	return &HealthRPCServer{healthRPCImp{}}
+}
+
+func (a HealthRPCServer) SetRoutes(srv *grpc.Server) {
+	pb.RegisterHealthServer(srv, a.srv)
+}
+
+func (a healthRPCImp) Check(ctx context.Context, req *pb.HealthCheckRequest) (*pb.HealthCheckResponse, error) {
 	return &pb.HealthCheckResponse{Status: pb.HealthCheckResponse_SERVING}, nil
 }

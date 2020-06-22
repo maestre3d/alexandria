@@ -18,7 +18,7 @@ import (
 
 // Injectors from wire.go:
 
-func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
+func InjectAuthorUseCase() (*interactor.Author, func(), error) {
 	logLogger := logger.NewZapLogger()
 	context := provideContext()
 	kernel, err := config.NewKernel(context)
@@ -34,10 +34,36 @@ func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	authorPostgresRepository := infrastructure.NewAuthorPostgresRepository(db, client, logLogger)
+	authorPQRepository := infrastructure.NewAuthorPQRepository(db, client, logLogger)
 	authorKafkaEventBus := infrastructure.NewAuthorKafkaEventBus(kernel)
-	authorUseCase := interactor.NewAuthorUseCase(logLogger, authorPostgresRepository, authorKafkaEventBus)
-	return authorUseCase, func() {
+	author := interactor.NewAuthor(logLogger, authorPQRepository, authorKafkaEventBus)
+	return author, func() {
+		cleanup2()
+		cleanup()
+	}, nil
+}
+
+func InjectAuthorSAGAUseCase() (*interactor.AuthorSAGA, func(), error) {
+	logLogger := logger.NewZapLogger()
+	context := provideContext()
+	kernel, err := config.NewKernel(context)
+	if err != nil {
+		return nil, nil, err
+	}
+	db, cleanup, err := persistence.NewPostgresPool(context, kernel)
+	if err != nil {
+		return nil, nil, err
+	}
+	client, cleanup2, err := persistence.NewRedisPool(kernel)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	authorPQRepository := infrastructure.NewAuthorPQRepository(db, client, logLogger)
+	authorSAGAKafkaEventBus := infrastructure.NewAuthorSAGAKafkaEventBus(kernel)
+	authorKafkaEventBus := infrastructure.NewAuthorKafkaEventBus(kernel)
+	authorSAGA := interactor.NewAuthorSAGA(logLogger, authorPQRepository, authorSAGAKafkaEventBus, authorKafkaEventBus)
+	return authorSAGA, func() {
 		cleanup2()
 		cleanup()
 	}, nil
@@ -45,18 +71,14 @@ func InjectAuthorUseCase() (*interactor.AuthorUseCase, func(), error) {
 
 // wire.go:
 
-var configSet = wire.NewSet(
-	provideContext, config.NewKernel,
+var Ctx context.Context = context.Background()
+
+var dataSet = wire.NewSet(
+	provideContext, config.NewKernel, persistence.NewPostgresPool, persistence.NewRedisPool, logger.NewZapLogger, wire.Bind(new(domain.AuthorRepository), new(*infrastructure.AuthorPQRepository)), infrastructure.NewAuthorPQRepository,
 )
 
-var dBMSPoolSet = wire.NewSet(
-	configSet, persistence.NewPostgresPool,
-)
-
-var authorDBMSRepositorySet = wire.NewSet(
-	dBMSPoolSet, logger.NewZapLogger, persistence.NewRedisPool, wire.Bind(new(domain.IAuthorRepository), new(*infrastructure.AuthorPostgresRepository)), infrastructure.NewAuthorPostgresRepository,
-)
+var eventSet = wire.NewSet(wire.Bind(new(domain.AuthorEventBus), new(*infrastructure.AuthorKafkaEventBus)), infrastructure.NewAuthorKafkaEventBus)
 
 func provideContext() context.Context {
-	return context.Background()
+	return Ctx
 }

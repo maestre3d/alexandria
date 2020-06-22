@@ -2,50 +2,52 @@ package action
 
 import (
 	"context"
-	"github.com/go-kit/kit/metrics"
-	"github.com/go-kit/kit/tracing/opentracing"
-	"github.com/go-kit/kit/tracing/zipkin"
-
-	"time"
-
-	"github.com/go-kit/kit/circuitbreaker"
+	"github.com/alexandria-oss/core/middleware"
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/ratelimit"
-	"github.com/maestre3d/alexandria/media-service/internal/media/domain"
-	"github.com/maestre3d/alexandria/media-service/pkg/media/service"
-	"github.com/maestre3d/alexandria/media-service/pkg/shared"
-	"github.com/sony/gobreaker"
-	"golang.org/x/time/rate"
+	"github.com/go-kit/kit/metrics"
+	"github.com/maestre3d/alexandria/media-service/internal/domain"
+	"github.com/maestre3d/alexandria/media-service/pkg/media/usecase"
 	stdopentracing "github.com/opentracing/opentracing-go"
 	stdzipkin "github.com/openzipkin/zipkin-go"
-	kitoc "github.com/go-kit/kit/tracing/opencensus"
 )
 
 type CreateRequest struct {
-	Title       string `json:"title"`
-	DisplayName string `json:"display_name"`
-	Description string `json:"description"`
-	UserID      string `json:"user_id"`
-	AuthorID    string `json:"author_id"`
-	PublishDate string `json:"publish_date"`
-	MediaType   string `json:"media_type"`
+	Title        string `json:"title"`
+	DisplayName  string `json:"display_name"`
+	Description  string `json:"description"`
+	LanguageCode string `json:"language_code"`
+	PublisherID  string `json:"publisher_id"`
+	AuthorID     string `json:"author_id"`
+	PublishDate  string `json:"publish_date"`
+	MediaType    string `json:"media_type"`
 }
 
 type CreateResponse struct {
-	Media *domain.MediaEntity `json:"media"`
-	Err   error               `json:"-"`
+	Media *domain.Media `json:"media"`
+	Err   error         `json:"-"`
 }
 
-func MakeCreateMediaEndpoint(svc service.IMediaService, logger log.Logger, duration metrics.Histogram, tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
+func MakeCreateMediaEndpoint(svc usecase.MediaInteractor, logger log.Logger, duration metrics.Histogram,
+	tracer stdopentracing.Tracer, zipkinTracer *stdzipkin.Tracer) endpoint.Endpoint {
 	ep := func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(CreateRequest)
-		createdMedia, err := svc.Create(req.Title, req.DisplayName, req.Description, req.UserID, req.AuthorID, req.PublishDate, req.MediaType)
+
+		createdMedia, err := svc.Create(ctx, &domain.MediaAggregate{
+			Title:        req.Title,
+			DisplayName:  req.DisplayName,
+			Description:  req.Description,
+			LanguageCode: req.LanguageCode,
+			PublisherID:  req.PublisherID,
+			AuthorID:     req.AuthorID,
+			PublishDate:  req.PublishDate,
+			MediaType:    req.MediaType,
+		})
 		if err != nil {
 			return CreateResponse{
 				Media: nil,
 				Err:   err,
-			}, nil
+			}, err
 		}
 
 		return CreateResponse{
@@ -54,33 +56,15 @@ func MakeCreateMediaEndpoint(svc service.IMediaService, logger log.Logger, durat
 		}, nil
 	}
 
-	// Transport's fault-tolerant patterns
-	limiter := rate.NewLimiter(rate.Every(time.Second), 1)
-	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
-		Name:          "media.create",
-		MaxRequests:   100,
-		Interval:      0,
-		Timeout:       15 * time.Second,
-		ReadyToTrip:   nil,
-		OnStateChange: nil,
+	// Required resiliency and instrumentation
+	action := "create"
+	ep = middleware.WrapResiliency(ep, "media", action)
+	return middleware.WrapInstrumentation(ep, "media", action, &middleware.WrapInstrumentParams{
+		Logger:       logger,
+		Duration:     duration,
+		Tracer:       tracer,
+		ZipkinTracer: zipkinTracer,
 	})
-	ep = ratelimit.NewErroringLimiter(limiter)(ep)
-	ep = circuitbreaker.Gobreaker(cb)(ep)
-
-	// Distributed Tracing
-	// OpenCensus tracer
-	ep = kitoc.TraceEndpoint("gokit:endpoint create")(ep)
-	// OpenTracing server
-	ep = opentracing.TraceServer(tracer, "Create")(ep)
-	if zipkinTracer != nil {
-		ep = zipkin.TraceEndpoint(zipkinTracer, "Create")(ep)
-	}
-
-	// Transport metrics
-	ep = shared.LoggingMiddleware(log.With(logger, "method", "media.create"))(ep)
-	ep = shared.InstrumentingMiddleware(duration.With("method", "media.create"))(ep)
-
-	return ep
 }
 
 // compile time assertions for our response types implementing endpoint.Failer.

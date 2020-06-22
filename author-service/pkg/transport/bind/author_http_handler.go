@@ -70,20 +70,26 @@ func (h *AuthorHandler) SetRoutes(public, private, admin *mux.Router) {
 	arouter := admin.PathPrefix("/author").Subrouter()
 	arouter.Methods(http.MethodOptions)
 	arouter.Path("/{id}").Methods(http.MethodDelete).Handler(h.HardDelete())
-	arouter.Path("/{id}").Methods(http.MethodPatch).Handler(h.Restore())
 	arouter.Use(mux.CORSMethodMiddleware(arouter))
+
+	// Private routing
+	pRouter := private.PathPrefix("/author").Subrouter()
+	pRouter.Methods(http.MethodOptions)
+	pRouter.Path("").Methods(http.MethodPost).Handler(h.Create())
+	pRouter.Path("/").Methods(http.MethodPost).Handler(h.Create())
+
+	pRouter.Path("/{id}").Methods(http.MethodPatch, http.MethodPut).Handler(h.Update())
+	pRouter.Path("/{id}").Methods(http.MethodDelete).Handler(h.Delete())
+	pRouter.Path("/{id}/restore").Methods(http.MethodPatch).Handler(h.Restore())
+	pRouter.Use(mux.CORSMethodMiddleware(arouter))
 
 	// Public routing
 	r := public.PathPrefix("/author").Subrouter()
 	r.Methods(http.MethodOptions)
-	r.Path("").Methods(http.MethodPost).Handler(h.Create())
 	r.Path("").Methods(http.MethodGet).Handler(h.List())
-	r.Path("/").Methods(http.MethodPost).Handler(h.Create())
 	r.Path("/").Methods(http.MethodGet).Handler(h.List())
 
 	r.Path("/{id}").Methods(http.MethodGet).Handler(h.Get())
-	r.Path("/{id}").Methods(http.MethodPatch, http.MethodPut).Handler(h.Update())
-	r.Path("/{id}").Methods(http.MethodDelete).Handler(h.Delete())
 	r.Use(mux.CORSMethodMiddleware(r))
 }
 
@@ -159,6 +165,7 @@ func decodeCreateRequest(_ context.Context, r *http.Request) (interface{}, error
 		DisplayName:   r.PostFormValue("display_name"),
 		OwnerID:       r.PostFormValue("owner_id"),
 		OwnershipType: r.PostFormValue("ownership_type"),
+		Country:       r.PostFormValue("country"),
 	}, nil
 }
 
@@ -174,12 +181,13 @@ func decodeListRequest(_ context.Context, r *http.Request) (interface{}, error) 
 			"display_name":   r.URL.Query().Get("display_name"),
 			"ownership_type": r.URL.Query().Get("ownership_type"),
 			"owner_id":       r.URL.Query().Get("owner_id"),
+			"country":        r.URL.Query().Get("country"),
 		},
 	}, nil
 }
 
 func decodeGetRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	return action.GetRequest{mux.Vars(r)["id"]}, nil
+	return action.GetRequest{ID: mux.Vars(r)["id"]}, nil
 }
 
 func decodeUpdateRequest(_ context.Context, r *http.Request) (interface{}, error) {
@@ -200,19 +208,20 @@ func decodeUpdateRequest(_ context.Context, r *http.Request) (interface{}, error
 		OwnershipType: r.PostFormValue("ownership_type"),
 		Verified:      r.PostFormValue("verified"),
 		Picture:       r.PostFormValue("picture"),
+		Country:       r.PostFormValue("country"),
 	}, nil
 }
 
 func decodeDeleteRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	return action.DeleteRequest{mux.Vars(r)["id"]}, nil
+	return action.DeleteRequest{ID: mux.Vars(r)["id"]}, nil
 }
 
 func decodeRestoreRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	return action.RestoreRequest{mux.Vars(r)["id"]}, nil
+	return action.RestoreRequest{ID: mux.Vars(r)["id"]}, nil
 }
 
 func decodeHardDeleteRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	return action.HardDeleteRequest{mux.Vars(r)["id"]}, nil
+	return action.HardDeleteRequest{ID: mux.Vars(r)["id"]}, nil
 }
 
 /* Encode HTTP Response */

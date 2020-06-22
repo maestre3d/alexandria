@@ -2,7 +2,6 @@ package interactor
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/alexandria-oss/core"
 	"github.com/alexandria-oss/core/exception"
@@ -12,21 +11,23 @@ import (
 	"time"
 )
 
-// AuthorUseCase Author interact actions
-type AuthorUseCase struct {
+// Author
+// business actions
+type Author struct {
 	log        log.Logger
-	repository domain.IAuthorRepository
-	event      domain.IAuthorEventBus
+	repository domain.AuthorRepository
+	event      domain.AuthorEventBus
 }
 
-// NewAuthorUseCase Create a new author interact
-func NewAuthorUseCase(logger log.Logger, repository domain.IAuthorRepository, bus domain.IAuthorEventBus) *AuthorUseCase {
-	return &AuthorUseCase{logger, repository, bus}
+// NewAuthor Create a new author interact
+func NewAuthor(logger log.Logger, repository domain.AuthorRepository, bus domain.AuthorEventBus) *Author {
+	return &Author{logger, repository, bus}
 }
 
 // Create Store a new entity
-func (u *AuthorUseCase) Create(ctx context.Context, aggregate *domain.AuthorAggregate) (*domain.Author, error) {
-	author := domain.NewAuthor(aggregate.FirstName, aggregate.LastName, aggregate.DisplayName, aggregate.OwnershipType, aggregate.OwnerID)
+func (u *Author) Create(ctx context.Context, aggregate *domain.AuthorAggregate) (*domain.Author, error) {
+	author := domain.NewAuthor(aggregate.FirstName, aggregate.LastName, aggregate.DisplayName, aggregate.OwnershipType, aggregate.OwnerID,
+		aggregate.Country)
 	err := author.IsValid()
 	if err != nil {
 		return nil, err
@@ -35,7 +36,7 @@ func (u *AuthorUseCase) Create(ctx context.Context, aggregate *domain.AuthorAggr
 	ctxR, cl := context.WithCancel(ctx)
 	defer cl()
 
-	err = u.repository.Save(ctxR, author)
+	err = u.repository.Save(ctxR, *author)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +48,7 @@ func (u *AuthorUseCase) Create(ctx context.Context, aggregate *domain.AuthorAggr
 		ctxE, cl := context.WithCancel(ctx)
 		defer cl()
 
-		err = u.event.StartCreate(ctxE, author)
+		err = u.event.StartCreate(ctxE, *author)
 		if err != nil {
 			_ = u.log.Log("method", "author.interactor.create", "err", err.Error())
 
@@ -59,7 +60,7 @@ func (u *AuthorUseCase) Create(ctx context.Context, aggregate *domain.AuthorAggr
 
 			_ = u.log.Log("method", "author.interactor.create", "msg", "could not send event, rolled back")
 		} else {
-			_ = u.log.Log("method", "author.interactor.create", "msg", "AUTHOR_PENDING integration event published")
+			_ = u.log.Log("method", "author.interactor.create", "msg", domain.OwnerVerify+" integration event published")
 		}
 
 		errChan <- err
@@ -76,13 +77,13 @@ func (u *AuthorUseCase) Create(ctx context.Context, aggregate *domain.AuthorAggr
 }
 
 // List Get an author's list
-func (u *AuthorUseCase) List(ctx context.Context, pageToken, pageSize string, filterParams core.FilterParams) (output []*domain.Author, nextToken string, err error) {
+func (u *Author) List(ctx context.Context, pageToken, pageSize string, filterParams core.FilterParams) (output []*domain.Author, nextToken string, err error) {
 	ctxR, cl := context.WithCancel(ctx)
 	defer cl()
 
 	params := core.NewPaginationParams(pageToken, pageSize)
 	params.Size++
-	output, err = u.repository.Fetch(ctxR, params, filterParams)
+	output, err = u.repository.Fetch(ctxR, *params, filterParams)
 
 	nextToken = ""
 	if len(output) >= params.Size {
@@ -93,7 +94,7 @@ func (u *AuthorUseCase) List(ctx context.Context, pageToken, pageSize string, fi
 }
 
 // Get Obtain one author
-func (u *AuthorUseCase) Get(ctx context.Context, id string) (*domain.Author, error) {
+func (u *Author) Get(ctx context.Context, id string) (*domain.Author, error) {
 	ctxR, cl := context.WithCancel(ctx)
 	defer cl()
 
@@ -105,7 +106,7 @@ func (u *AuthorUseCase) Get(ctx context.Context, id string) (*domain.Author, err
 	if author != nil {
 		author.TotalViews++
 		// Using repo directly to avoid unused fields on use case's update
-		err = u.repository.Replace(ctx, author)
+		err = u.repository.Replace(ctx, *author)
 		if err != nil {
 			_ = u.log.Log("method", "author.interactor.get", "msg", fmt.Sprintf("could not update total_views for author %s, error: %s",
 				author.ExternalID, err.Error()))
@@ -116,7 +117,7 @@ func (u *AuthorUseCase) Get(ctx context.Context, id string) (*domain.Author, err
 }
 
 // Update Update an author dynamically
-func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpdateAggregate) (*domain.Author, error) {
+func (u *Author) Update(ctx context.Context, aggregate *domain.AuthorUpdateAggregate) (*domain.Author, error) {
 	// Check if body has values, if not return to avoid any transaction
 	if aggregate.RootAggregate.FirstName == "" && aggregate.RootAggregate.LastName == "" && aggregate.RootAggregate.DisplayName == "" &&
 		aggregate.RootAggregate.OwnershipType == "" && aggregate.RootAggregate.OwnerID == "" {
@@ -129,10 +130,10 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 	defer cl()
 
 	author, err := u.repository.FetchByID(ctxR, aggregate.ID, false)
-	authorBackup := author
 	if err != nil {
 		return nil, err
 	}
+	authorBackup := author
 
 	// Update entity dynamically
 	if aggregate.RootAggregate.FirstName != "" {
@@ -148,7 +149,7 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 	// transaction
 	if aggregate.RootAggregate.OwnerID != "" {
 		author.OwnerID = aggregate.RootAggregate.OwnerID
-		author.Status = string(domain.StatePending)
+		author.Status = domain.StatusPending
 	}
 	if aggregate.RootAggregate.OwnershipType != "" {
 		author.OwnershipType = aggregate.RootAggregate.OwnershipType
@@ -165,6 +166,9 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 	if aggregate.Picture != "" {
 		author.Picture = &aggregate.Picture
 	}
+	if aggregate.RootAggregate.Country != "" {
+		author.Country = aggregate.RootAggregate.Country
+	}
 
 	author.UpdateTime = time.Now()
 
@@ -173,7 +177,7 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 		return nil, err
 	}
 
-	err = u.repository.Replace(ctxR, author)
+	err = u.repository.Replace(ctxR, *author)
 	if err != nil {
 		return nil, err
 	}
@@ -188,15 +192,15 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 		// If author owner id is changed, then start transaction with integration event, if not
 		// send a simple domain event to propagate side-effects
 		var eventStr string
-		if author.Status == string(domain.StatePending) {
-			err = u.event.StartUpdate(ctxE, author, authorBackup)
+		if author.Status == domain.StatusPending {
+			err = u.event.StartUpdate(ctxE, *author, *authorBackup)
 			if err == nil {
-				eventStr = "AUTHOR_UPDATE_PENDING event published"
+				eventStr = domain.OwnerVerify + " event published"
 			}
 		} else {
-			err = u.event.Updated(ctxE, author)
+			err = u.event.Updated(ctxE, *author)
 			if err == nil {
-				eventStr = "AUTHOR_UPDATED event published"
+				eventStr = domain.AuthorUpdated + " event published"
 			}
 		}
 
@@ -204,7 +208,7 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 			_ = u.log.Log("method", "author.interactor.update", "err", err.Error())
 
 			// Rollback
-			err = u.repository.Replace(ctxE, authorBackup)
+			err = u.repository.Replace(ctxE, *authorBackup)
 			if err != nil {
 				_ = u.log.Log("method", "author.interactor.update", "err", err.Error())
 			}
@@ -228,7 +232,7 @@ func (u *AuthorUseCase) Update(ctx context.Context, aggregate *domain.AuthorUpda
 }
 
 // Delete Remove an author from the store
-func (u *AuthorUseCase) Delete(ctx context.Context, id string) error {
+func (u *Author) Delete(ctx context.Context, id string) error {
 	ctxR, cl := context.WithCancel(ctx)
 	defer cl()
 
@@ -237,21 +241,20 @@ func (u *AuthorUseCase) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
-	// TODO: Recommended to move domain events and misc to infrastructure layer, use SQL transactions to handle operations atomically
 	// Propagate side-effects
 	errC := make(chan error)
 	defer close(errC)
 	go func() {
 		ctxE, cl := context.WithCancel(ctx)
 		defer cl()
-		if err = u.event.Deleted(ctxE, id, false); err != nil {
+		if err = u.event.Removed(ctxE, id); err != nil {
 			_ = u.log.Log("method", "author.interactor.delete", "err", err.Error())
 
 			// Rollback
 			err = u.repository.Restore(ctxE, id)
 			_ = u.log.Log("method", "author.interactor.delete", "msg", "could not send event, rolled back")
 		} else {
-			_ = u.log.Log("method", "author.interactor.delete", "msg", "AUTHOR_DELETED event published")
+			_ = u.log.Log("method", "author.interactor.delete", "msg", domain.AuthorRemoved+" event published")
 		}
 
 		errC <- err
@@ -270,7 +273,7 @@ func (u *AuthorUseCase) Delete(ctx context.Context, id string) error {
 // Resiliency
 
 // Restore recover an author from the store
-func (u *AuthorUseCase) Restore(ctx context.Context, id string) error {
+func (u *Author) Restore(ctx context.Context, id string) error {
 	ctxR, cl := context.WithCancel(ctx)
 	defer cl()
 
@@ -293,7 +296,7 @@ func (u *AuthorUseCase) Restore(ctx context.Context, id string) error {
 			err = u.repository.Remove(ctxE, id)
 			_ = u.log.Log("method", "author.interactor.restore", "msg", "could not send event, rolled back")
 		} else {
-			_ = u.log.Log("method", "author.interactor.restore", "msg", "AUTHOR_RESTORED event published")
+			_ = u.log.Log("method", "author.interactor.restore", "msg", domain.AuthorRestored+" event published")
 		}
 
 		errC <- err
@@ -310,7 +313,7 @@ func (u *AuthorUseCase) Restore(ctx context.Context, id string) error {
 }
 
 // HardDelete Remove an author from the store permanently
-func (u *AuthorUseCase) HardDelete(ctx context.Context, id string) error {
+func (u *Author) HardDelete(ctx context.Context, id string) error {
 	ctxR, cl := context.WithCancel(ctx)
 	defer cl()
 
@@ -334,14 +337,14 @@ func (u *AuthorUseCase) HardDelete(ctx context.Context, id string) error {
 	go func() {
 		ctxE, cl := context.WithCancel(ctx)
 		defer cl()
-		if err = u.event.Deleted(ctxE, id, true); err != nil {
+		if err = u.event.HardRemoved(ctxE, id); err != nil {
 			_ = u.log.Log("method", "author.interactor.hard_delete", "err", err.Error())
 
 			// Rollback
-			err = u.repository.SaveRaw(ctxE, authorBackup)
+			err = u.repository.SaveRaw(ctxE, *authorBackup)
 			_ = u.log.Log("method", "author.interactor.restore", "msg", "could not send event, rolled back")
 		} else {
-			_ = u.log.Log("method", "author.interactor.hard_delete", "msg", "AUTHOR_PERMANENTLY_DELETED event published")
+			_ = u.log.Log("method", "author.interactor.hard_delete", "msg", domain.AuthorHardRemoved+" event published")
 		}
 
 		errC <- err
@@ -352,95 +355,6 @@ func (u *AuthorUseCase) HardDelete(ctx context.Context, id string) error {
 		if err != nil {
 			return err
 		}
-	}
-
-	return err
-}
-
-// SAGA Transactions
-
-// Done Change author's state to done, mostly for SAGA transactions
-func (u *AuthorUseCase) Done(ctx context.Context, id, op string) error {
-	if op != domain.AuthorCreated && op != domain.AuthorUpdated {
-		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
-			"operation", domain.AuthorCreated+" or "+domain.AuthorUpdated))
-	}
-
-	ctxR, cl := context.WithCancel(ctx)
-	defer cl()
-
-	err := u.repository.ChangeState(ctxR, id, string(domain.StateDone))
-	if err != nil {
-		return err
-	}
-	// Domain Event nomenclature -> APP_NAME.SERVICE.ACTION
-	// Propagate side-effects
-	errC := make(chan error)
-	defer close(errC)
-
-	go func() {
-		ctxE, cl := context.WithCancel(ctx)
-		defer cl()
-
-		// Get author to properly propagate side-effects with respective payload
-		// Using repo directly to avoid non-organic views
-		var eventStr string
-		author, err := u.repository.FetchByID(ctxE, id, false)
-		if err == nil {
-			if op == domain.AuthorCreated {
-				err = u.event.Created(ctxE, author)
-				eventStr = "AUTHOR_CREATED event published"
-			} else if op == domain.AuthorUpdated {
-				err = u.event.Updated(ctxE, author)
-				eventStr = "AUTHOR_UPDATED event published"
-			}
-		}
-
-		if err != nil {
-			_ = u.log.Log("method", "author.interactor.done", "err", err.Error())
-
-			// Rollback
-			err = u.repository.ChangeState(ctxE, id, string(domain.StatePending))
-			_ = u.log.Log("method", "author.interactor.done", "msg", "could not send event, rolled back")
-
-		} else {
-			_ = u.log.Log("method", "author.interactor.done", "msg", eventStr)
-		}
-
-		errC <- err
-	}()
-
-	select {
-	case err = <-errC:
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// Failed Restore or hard delete author for rollback, mostly for SAGA transactions
-func (u *AuthorUseCase) Failed(ctx context.Context, id, op, backup string) error {
-	if op != domain.AuthorCreated && op != domain.AuthorUpdated {
-		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
-			"operation", domain.AuthorCreated+" or "+domain.AuthorUpdated))
-	}
-
-	ctxR, cl := context.WithCancel(ctx)
-	defer cl()
-
-	var err error
-	if op == domain.AuthorCreated {
-		err = u.repository.HardRemove(ctxR, id)
-	} else if op == domain.AuthorUpdated {
-		authorBackup := new(domain.Author)
-		err = json.Unmarshal([]byte(backup), authorBackup)
-		if err != nil {
-			return err
-		}
-
-		err = u.repository.Replace(ctxR, authorBackup)
 	}
 
 	return err

@@ -3,23 +3,21 @@ services:
   #
   # Microservices
   #
-  media:
-    build: ./media-service
-    hostname: media.alexandria.com
-    image: alexandria-media
+  identity:
+    build: ./identity-service
+    hostname: identity.alexandria.com
+    image: alexandria-identity
     restart: on-failure
     volumes:
-      - api:/usr/src/media/
+      - api:/usr/src/identity/
     ports:
-      - "3001:8080"
-      - "4001:31337"
+      - "3000:8080"
+      - "4000:31337"
     depends_on:
-      - postgres
-      - redis
       - kafka
       - zipkin
     networks:
-      - alexandrianet
+      - alexandria-tier
 
   author:
     build: ./author-service
@@ -29,6 +27,24 @@ services:
     volumes:
       - api:/usr/src/author/
     ports:
+      - "3001:8080"
+      - "4001:31337"
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+      - zipkin
+    networks:
+      - alexandria-tier
+
+  media:
+    build: ./media-service
+    hostname: media.alexandria.com
+    image: alexandria-media
+    restart: on-failure
+    volumes:
+      - api:/usr/src/media/
+    ports:
       - "3002:8080"
       - "4002:31337"
     depends_on:
@@ -37,40 +53,25 @@ services:
       - kafka
       - zipkin
     networks:
-      - alexandrianet
+      - alexandria-tier
 
-  event-telemetry:
-    build: ./event-telemetry-service
-    hostname: telemetry.alexandria.com
-    image: alexandria-event-telemetry
-    restart: always
-    volumes:
-      - api:/usr/src/event-telemetry/
-    ports:
-      - "3000:8080"
-      - "4000:31337"
-    depends_on:
-      - kafka
-      - zipkin
-    networks:
-      - alexandrianet
 
   #
   # Infrastructure
   #
   redis:
     image: redis:alpine
-    restart: always
+    restart: on-failure
     ports:
-      - "6378:6379"
+      - "6380:6379"
     networks:
-      - alexandrianet
+      - alexandria-tier
 
   postgres:
     image: "postgres:12.2-alpine"
-    restart: always
+    restart: on-failure
     ports:
-      - "5433:5432"
+      - "5431:5432"
     environment:
       - POSTGRES_MULTIPLE_DATABASES=alexandria_author,alexandria_media
       - POSTGRES_USER=postgres
@@ -78,21 +79,21 @@ services:
     volumes:
       - ./scripts/migrations/:/docker-entrypoint-initdb.d/
     networks:
-      - alexandrianet
+      - alexandria-tier
 
   zipkin:
     image: "openzipkin/zipkin"
-    restart: always
+    restart: on-failure
     ports:
       - "9412:9411"
     networks:
-      - alexandrianet
+      - alexandria-tier
 
   zookeeper:
     image: "bitnami/zookeeper:latest"
-    restart: always
+    restart: on-failure
     ports:
-      - "2181:2181"
+      - "2182:2181"
     environment:
       - ZOO_ENABLE_AUTH=no
       - ZOO_SERVER_USERS=kafka
@@ -101,15 +102,15 @@ services:
     volumes:
       - ./third-party/zookeeper/:/bitnami/zookeeper
     networks:
-      - alexandrianet
+      - alexandria-tier
 
   kafka:
     image: "bitnami/kafka:latest"
-    restart: always
+    restart: on-failure
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
+      - "9093:9092"
     environment:
       - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
       - ALLOW_PLAINTEXT_LISTENER=yes
@@ -125,14 +126,16 @@ services:
     volumes:
       - ./third-party/kafka/:/bitnami/kafka
     networks:
-      - alexandrianet
+      - alexandria-tier
 
 
 volumes:
   api:
+    driver: local
   database_postgres:
+    driver: local
 
 # Networks to be created to facilitate communication between containers
 networks:
-  alexandrianet:
-    driver: bridge
+  alexandria-tier:
+      driver: bridge

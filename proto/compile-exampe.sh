@@ -17,4 +17,4 @@
 
 # Golang compile
 # Requires GOROOT, GOPATH and  GOBIN env variables
-protoc -I proto/ proto/alexandria.proto --go_out=plugins=grpc:foo-service/protogen/
+protoc -I proto/ proto/alexandria.proto --go_out=plugins=grpc:foo-service/pb/

@@ -10,20 +10,19 @@ import (
 	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/logger"
 	"github.com/alexandria-oss/core/tracer"
+	"github.com/alexandria-oss/core/transport"
+	"github.com/alexandria-oss/core/transport/proxy"
 	"github.com/go-kit/kit/log"
 	"github.com/google/wire"
 	"github.com/maestre3d/alexandria/author-service/internal/dependency"
-	"github.com/maestre3d/alexandria/author-service/pb"
 	"github.com/maestre3d/alexandria/author-service/pkg/author"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
-	"github.com/maestre3d/alexandria/author-service/pkg/service"
 	"github.com/maestre3d/alexandria/author-service/pkg/transport/bind"
-	"github.com/maestre3d/alexandria/author-service/pkg/transport/proxy"
 )
 
 // Injectors from wire.go:
 
-func InjectTransportService() (*service.Transport, func(), error) {
+func InjectTransportService() (*transport.Transport, func(), error) {
 	logLogger := logger.NewZapLogger()
 	authorInteractor, cleanup, err := provideAuthorInteractor(logLogger)
 	if err != nil {
@@ -37,16 +36,14 @@ func InjectTransportService() (*service.Transport, func(), error) {
 	}
 	zipkinTracer, cleanup2 := tracer.NewZipkin(kernel)
 	opentracingTracer := tracer.WrapZipkinOpenTracing(kernel, zipkinTracer)
-	authorServer := bind.NewAuthorRPC(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
-	healthServer := bind.NewHealthRPC()
-	servers := provideRPCServers(authorServer, healthServer)
-	server, cleanup3 := proxy.NewRPC(servers)
+	authorRPCServer := bind.NewAuthorRPC(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
+	healthRPCServer := bind.NewHealthRPC()
+	v := provideRPCServers(authorRPCServer, healthRPCServer)
+	server, cleanup3 := proxy.NewRPC(v)
 	authorHandler := bind.NewAuthorHTTP(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
-	v := provideHTTPHandlers(authorHandler)
-	http, cleanup4 := proxy.NewHTTP(kernel, v...)
-	authorEventHandler := bind.NewAuthorEventHandler(authorInteractor, logLogger)
-	v2 := provideEventConsumers(authorEventHandler)
-	event, cleanup5, err := proxy.NewEvent(context, kernel, v2...)
+	v2 := provideHTTPHandlers(authorHandler)
+	http, cleanup4 := proxy.NewHTTP(kernel, v2...)
+	authorSAGAInteractor, cleanup5, err := provideAuthorSAGAInteractor(logLogger)
 	if err != nil {
 		cleanup4()
 		cleanup3()
@@ -54,8 +51,20 @@ func InjectTransportService() (*service.Transport, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	transport := service.NewTransport(server, http, event, kernel)
-	return transport, func() {
+	authorEventConsumer := bind.NewAuthorEventConsumer(authorSAGAInteractor, logLogger)
+	v3 := provideEventConsumers(authorEventConsumer)
+	event, cleanup6, err := proxy.NewEvent(context, kernel, v3...)
+	if err != nil {
+		cleanup5()
+		cleanup4()
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	transportTransport := transport.NewTransport(server, http, event, kernel)
+	return transportTransport, func() {
+		cleanup6()
 		cleanup5()
 		cleanup4()
 		cleanup3()
@@ -77,16 +86,28 @@ var httpProxySet = wire.NewSet(
 
 var rpcProxySet = wire.NewSet(bind.NewAuthorRPC, bind.NewHealthRPC, provideRPCServers, proxy.NewRPC)
 
-var eventProxySet = wire.NewSet(bind.NewAuthorEventHandler, provideEventConsumers, proxy.NewEvent)
+var eventProxySet = wire.NewSet(
+	provideAuthorSAGAInteractor, bind.NewAuthorEventConsumer, provideEventConsumers, proxy.NewEvent,
+)
 
 func provideContext() context.Context {
 	return Ctx
 }
 
 func provideAuthorInteractor(logger2 log.Logger) (usecase.AuthorInteractor, func(), error) {
+	dependency.Ctx = Ctx
 	authorUseCase, cleanup, err := dependency.InjectAuthorUseCase()
 
 	authorService := author.WrapAuthorInstrumentation(authorUseCase, logger2)
+
+	return authorService, cleanup, err
+}
+
+func provideAuthorSAGAInteractor(logger2 log.Logger) (usecase.AuthorSAGAInteractor, func(), error) {
+	dependency.Ctx = Ctx
+	authorUseCase, cleanup, err := dependency.InjectAuthorSAGAUseCase()
+
+	authorService := author.WrapAuthorSAGAInstrumentation(authorUseCase, logger2)
 
 	return authorService, cleanup, err
 }
@@ -99,11 +120,14 @@ func provideHTTPHandlers(authorHandler *bind.AuthorHandler) []proxy.Handler {
 }
 
 // Bind/Map used rpc servers
-func provideRPCServers(authorServer pb.AuthorServer, healthServer pb.HealthServer) *proxy.Servers {
-	return &proxy.Servers{authorServer, healthServer}
+func provideRPCServers(authorServer *bind.AuthorRPCServer, healthServer *bind.HealthRPCServer) []proxy.RPCServer {
+	servers := make([]proxy.RPCServer, 0)
+	servers = append(servers, authorServer)
+	servers = append(servers, healthServer)
+	return servers
 }
 
-func provideEventConsumers(authorHandler *bind.AuthorEventHandler) []proxy.Consumer {
+func provideEventConsumers(authorHandler *bind.AuthorEventConsumer) []proxy.Consumer {
 	consumers := make([]proxy.Consumer, 0)
 	consumers = append(consumers, authorHandler)
 	return consumers

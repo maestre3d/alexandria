@@ -1,38 +1,39 @@
 # Author Service API
 The Author service API handles all the author's domain operations.
 
-They contain multi-layered APIs such as Public, Private and Admin API. 
+It contains multi-layered APIs such as Public, Private and Admin API. 
 
-It uses a gRPC and HTTP Sever to expose the APIs.
+It uses gRPC and HTTP communication protocols to expose its APIs.
 
 Alexandria is currently licensed under the MIT license.
 
 ## Endpoints
-| Method              |     HTTP Mapping                    |  HTTP Request body |  HTTP Response body    |
-|---------------------|:-----------------------------------:|:------------------:|:----------------------:|
-| **List**            |  GET /author                        |   N/A              |   Author* list         |
-| **Create**          |  POST /author                       |   Author           |   Author*              |
-| **Get**             |  GET /author/{author-id}            |   N/A              |   Author*              |
-| **Update**          |  PUT or PATCH /author/{author-id}   |   Author           |   Author*              |
-| **Delete**          |  DELETE /author/{author-id}         |   N/A              |   protobuf.empty/{}    |
-| **Restore/Active**  |  PATCH /admin/author/{author-id}    |   N/A              |   protobuf.empty/{}    |
-| **HardDelete**      |  DELETE /admin/author/{author-id}   |   N/A              |   protobuf.empty/{}    |
+| Method              |     HTTP Mapping                            |  HTTP Request body |  HTTP Response body    |
+|---------------------|:-------------------------------------------:|:------------------:|:----------------------:|
+| **List**            |  GET /author                                |   N/A              |   Author* list         |
+| **Get**             |  GET /author/{author-id}                    |   N/A              |   Author*              |
+| **Create**          |  POST /private/author                       |   Author           |   Author*              |
+| **Update**          |  PUT or PATCH /private/author/{author-id}   |   Author           |   Author*              |
+| **Delete**          |  DELETE /private/author/{author-id}         |   N/A              |   protobuf.empty/{}    |
+| **Restore/Active**  |  PATCH /private/author/{author-id}          |   N/A              |   protobuf.empty/{}    |
+| **HardDelete**      |  DELETE /admin/author/{author-id}           |   N/A              |   protobuf.empty/{}    |
 
 ### Accepted Queries
 The list method accepts multiple queries to make data fetching easier for everyone.
 
-The following fields are accepted by our service.
+The following fields are valid for our service.
 - page_token = string
 - page_size = int32 (min. 1, max. 100)
 - query = string
 - filter_by = string (id, timestamp or popularity by default)
-- order_by = string (asc or desc)
+- sort = string (asc or desc)
 - show_disabled = boolean
 
 Extra fields:
 - display_name = string (author's display_name field)
 - owner_id = string (user's id from author's owners pool)
 - ownership_type = string (public, private)
+- country = string (ISO 3166 Alpha-2 country code)
 
 ## Contribution
 Alexandria is an open-source project, that means everyone’s help is appreciated.
