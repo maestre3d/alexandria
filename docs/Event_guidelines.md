@@ -17,22 +17,37 @@ that every contributor must follow.
 There is two event types:
 - **Integration**: This represents a _transaction_, mostly SAGAs. They **must** contain an root span ID for tracing,
 transaction ID and operation type if applicable. Also, every event must consider a rollback operation for 
-every single commit operation.
+every single commit operation. _They are immutable._
 - **Domain**: This represents an _event with side-effects_, does not need any transaction. This is used
-to propagate effects in our distributed environment. Any service _could_ be listening to it.
+to propagate effects in our distributed environment. Any service _could_ be listening to it. _They are mutable._
 
 Besides of these types, you _should_ follow the next rules:
 - Every event _should_ have inside its metadata the fields: 
+    - ID: Event unique identifier.
     - Service: Service who sends the event (could be using the server config file).
     - Event type: Integration or Domain event.
     - Priority: High, Mid or Low.
     - Provider: Message broker used.
+    - Dispatch Time: Unix timestamp.
 - Every event _should_ have a body, it _could_ contain entities, aggregates or just entity's ID.
 - Integration events _should_ use as body an array of strings with the reference keys to handle.
 - Integration events _could_ have a _Backup_ field inside it's metadata for replace/update operations for 
 a possible rollback.
-- Integration events _could_ use the following body:
-  - Entity ID: Aggregation entity's ID.
+
+## Transactions
+In every event-driven architecture, using transactions is a **must**-have to keep data up to date.
+In the following section, we will discuss about transactions in a deep way.
+
+This represents an integration event.
+Transactions _should_ use the following body:
+  - ID: Transaction ID
+  - Root ID: Aggregation/Entity ID.
+  - Span ID: OpenTracing/OpenCensus root span ID.
+  - Trace ID: OpenTracing/OpenCensus trace ID.
+  - Operation: Kind of operation to perform. (FOO_CREATED, FOO_UPDATED)
+  - Backup: Aggregate/Entity's backup for update-like operations. This _could_ be skipped.
+  
+If a transaction fails, you _should_ replace the event body with a generic response like this:
   - Code: HTTP status-like code.
   - Message: Event's extra information about transaction (useful for logging).
 
@@ -56,19 +71,38 @@ goal.
 - Every service cluster **must** have it's own _consumer group/queue_ so messages will be acknowledged consistently.
 - At codebase, every consumer **must** be listening inside the transport layer.
 
+## Tracing
+Even though we are using asynchronous communication, we **must** still trace our operations to enable observability.
+We recommend using either OpenCensus or OpenTracing APIs to do this, along with a tracer like Jaeger or Zipkin.
+This is mostly recommended for every integration event (transaction).
+
+## Context Propagation
+Since almost any service will perform transactions, context propagation is a nice way to handle transaction chaining.
+We recommend following the OpenCensus/OpenTracing approaches.
+
+To keep transactions and events intact, you **must** use context propagation.
+
+An event context **must** have the following fields:
+- Transaction entity: The root transaction entity, this is immutable.
+- Event entity: The parent's event entity, this is mutable.
+
 ## Best practices
-- Do not acknowledge messages if something happened at your interaction or infrastructure layers 
-(database connection closed, data parsing error, etc).
+- Do not acknowledge messages if something happened at your infrastructure layer 
+(database connection closed, error while openning topic, etc).
+- Acknowledge messages if a client-related error happened (data parsing, malformed event context, etc) to avoid processing loops.
 - Send the complete entity for every domain event sent.
 - Write opposite use case functions in case of a rollback. (e.g. create-hard_delete)
-- Write Done() and Failed() functions for SAGA commit/rollback transactions. (Keep your main functions organic)
+  - Create a createRaw() function in every repository to restore from a hard delete operation.
+- Segregate organic business cases (normal use case) from SAGA use cases, create a new interactor class/struct for SAGA-only operations.
+  - Write Done() and Failed() functions for SAGA commit/rollback transactions. (Keep your main functions organic)
+- For producer calling, add a new function in your Organic/SAGA interactor and trigger the producer from the event bus at the infrastructure layer.
 - For replace operations, attach the old entity in the event's metadata as a 'backup' field in case of a rollback.
 - For create operation's rollback, execute hard delete.
 - Log whenever a new event was produced.
 - Inject metrics from Prometheus or OpenMetrics.
 - Use distributed tracing instrumentation.
 - Create a new context for each consumer. _*If applicable_
-- If event producing fails, rollback immediately using straight repository's methods.
+- If event producing fails and you performed a write operation, rollback immediately using straight repository's methods.
 - For every entity that requires transactions, add a new field called 'status' and create an enum with all the 
 states available, so the client's could know the current status.
 - Use short polling to receive updates in _"real time"_ on the client (React/Angular/Android/iOS, etc),
@@ -78,8 +112,6 @@ and they _could_ be represented like this:
   - Proccessing: Client calls to API with /GET, receives the created resource/entity but with status different than done.
   - Done: Client calls to API with /GET, receives the created resource/entity with status equal to done.
   - Failed: Client calls to API with /GET, receives a 404/NotFound error.
+- Wrap topics with resiliency patterns like circuit breaker(hystrix, gobreaker, etc) to avoid common communication errors.
+- Propagate the event context like OpenTracing/OpenCensus to keep the transaction and event entities intact.
 
-## Tracing
-Even though we are using asynchronous communication, we **must** still trace our operations to enable observability.
-We recommend using either OpenCensus or OpenTracing APIs to do this, along with a tracer like Jaeger or Zipkin.
-This is mostly recommended for every integration event (transaction).
