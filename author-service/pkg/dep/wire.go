@@ -43,6 +43,7 @@ var rpcProxySet = wire.NewSet(
 )
 
 var eventProxySet = wire.NewSet(
+	provideAuthorSAGAInteractor,
 	bind.NewAuthorEventConsumer,
 	provideEventConsumers,
 	proxy.NewEvent,
@@ -57,6 +58,15 @@ func provideAuthorInteractor(logger log.Logger) (usecase.AuthorInteractor, func(
 	authorUseCase, cleanup, err := dependency.InjectAuthorUseCase()
 
 	authorService := author.WrapAuthorInstrumentation(authorUseCase, logger)
+
+	return authorService, cleanup, err
+}
+
+func provideAuthorSAGAInteractor(logger log.Logger) (usecase.AuthorSAGAInteractor, func(), error) {
+	dependency.Ctx = Ctx
+	authorUseCase, cleanup, err := dependency.InjectAuthorSAGAUseCase()
+
+	authorService := author.WrapAuthorSAGAInstrumentation(authorUseCase, logger)
 
 	return authorService, cleanup, err
 }

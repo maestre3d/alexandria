@@ -57,6 +57,8 @@ github.com/alexandria-oss/core v0.4.0-beta h1:Fge3emg2Wsnlw8fZ/cUir02++yvbz9ML6T
 github.com/alexandria-oss/core v0.4.0-beta/go.mod h1:eIFTS68J7R5ksf8vSLFjsXHs4I83+f4glfr4DOZm8M0=
 github.com/alexandria-oss/core v0.5.0-beta h1:pk18IHH6s+e8xz4CMlj4OnONFOsoTUqhpy30rI9/XiE=
 github.com/alexandria-oss/core v0.5.0-beta/go.mod h1:cAiGx3Kl2132FY1VC0zUHnV7z1C3Z+1ZO1ZiERb/ScY=
+github.com/alexandria-oss/core v0.5.2-beta h1:VikROF5p1h0t0JnhWdSYsjH0jsbvlAiqfuX+AGmORko=
+github.com/alexandria-oss/core v0.5.2-beta/go.mod h1:cAiGx3Kl2132FY1VC0zUHnV7z1C3Z+1ZO1ZiERb/ScY=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.13.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=

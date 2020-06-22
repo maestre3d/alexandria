@@ -43,10 +43,19 @@ func InjectTransportService() (*transport.Transport, func(), error) {
 	authorHandler := bind.NewAuthorHTTP(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
 	v2 := provideHTTPHandlers(authorHandler)
 	http, cleanup4 := proxy.NewHTTP(kernel, v2...)
-	authorEventConsumer := bind.NewAuthorEventConsumer(authorInteractor, logLogger)
-	v3 := provideEventConsumers(authorEventConsumer)
-	event, cleanup5, err := proxy.NewEvent(context, kernel, v3...)
+	authorSAGAInteractor, cleanup5, err := provideAuthorSAGAInteractor(logLogger)
 	if err != nil {
+		cleanup4()
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	authorEventConsumer := bind.NewAuthorEventConsumer(authorSAGAInteractor, logLogger)
+	v3 := provideEventConsumers(authorEventConsumer)
+	event, cleanup6, err := proxy.NewEvent(context, kernel, v3...)
+	if err != nil {
+		cleanup5()
 		cleanup4()
 		cleanup3()
 		cleanup2()
@@ -55,6 +64,7 @@ func InjectTransportService() (*transport.Transport, func(), error) {
 	}
 	transportTransport := transport.NewTransport(server, http, event, kernel)
 	return transportTransport, func() {
+		cleanup6()
 		cleanup5()
 		cleanup4()
 		cleanup3()
@@ -76,7 +86,9 @@ var httpProxySet = wire.NewSet(
 
 var rpcProxySet = wire.NewSet(bind.NewAuthorRPC, bind.NewHealthRPC, provideRPCServers, proxy.NewRPC)
 
-var eventProxySet = wire.NewSet(bind.NewAuthorEventConsumer, provideEventConsumers, proxy.NewEvent)
+var eventProxySet = wire.NewSet(
+	provideAuthorSAGAInteractor, bind.NewAuthorEventConsumer, provideEventConsumers, proxy.NewEvent,
+)
 
 func provideContext() context.Context {
 	return Ctx
@@ -87,6 +99,15 @@ func provideAuthorInteractor(logger2 log.Logger) (usecase.AuthorInteractor, func
 	authorUseCase, cleanup, err := dependency.InjectAuthorUseCase()
 
 	authorService := author.WrapAuthorInstrumentation(authorUseCase, logger2)
+
+	return authorService, cleanup, err
+}
+
+func provideAuthorSAGAInteractor(logger2 log.Logger) (usecase.AuthorSAGAInteractor, func(), error) {
+	dependency.Ctx = Ctx
+	authorUseCase, cleanup, err := dependency.InjectAuthorSAGAUseCase()
+
+	authorService := author.WrapAuthorSAGAInstrumentation(authorUseCase, logger2)
 
 	return authorService, cleanup, err
 }

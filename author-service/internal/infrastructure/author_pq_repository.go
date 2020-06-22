@@ -356,7 +356,7 @@ func (r *AuthorPQRepository) Restore(ctx context.Context, id string) error {
 	// Use Go CDK OpenCensus database metrics
 	_ = r.logger.Log("method", "author.infrastructure.postgres.restore", "db_connection", r.db.Stats().OpenConnections)
 
-	statement := `UPDATE alexa1.author SET active = TRUE, delete_time = null WHERE external_id = $1 AND active = FALSE`
+	statement := `UPDATE alexa1.author SET active = TRUE, delete_time = NULL WHERE external_id = $1 AND active = FALSE`
 	res, err := conn.ExecContext(ctx, statement, id)
 	if err != nil {
 		return err

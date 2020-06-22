@@ -2,21 +2,19 @@ package bind
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"github.com/alexandria-oss/core/eventbus"
-	"github.com/alexandria-oss/core/exception"
+	"github.com/alexandria-oss/core/httputil"
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 )
 
 type AuthorEventConsumer struct {
-	svc    usecase.AuthorInteractor
+	svc    usecase.AuthorSAGAInteractor
 	logger log.Logger
 }
 
-func NewAuthorEventConsumer(svc usecase.AuthorInteractor, logger log.Logger) *AuthorEventConsumer {
+func NewAuthorEventConsumer(svc usecase.AuthorSAGAInteractor, logger log.Logger) *AuthorEventConsumer {
 	// TODO: Add instrumentation, Dist tracing with OpenTracing and Zipkin/Jaeger and Metrics with Prometheus w/ Grafana
 	return &AuthorEventConsumer{
 		svc:    svc,
@@ -24,17 +22,20 @@ func NewAuthorEventConsumer(svc usecase.AuthorInteractor, logger log.Logger) *Au
 	}
 }
 
-func (h *AuthorEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context, service string) error {
-	verifyBind, err := h.bindAuthorVerified(ctx, service)
+func (c *AuthorEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context, service string) error {
+	aVerify, err := c.bindAuthorVerify(ctx, service)
+
+	verifyBind, err := c.bindAuthorVerified(ctx, service)
 	if err != nil {
 		return err
 	}
 
-	failedBind, err := h.bindAuthorFailed(ctx, service)
+	failedBind, err := c.bindAuthorFailed(ctx, service)
 	if err != nil {
 		return err
 	}
 
+	s.AddConsumer(aVerify)
 	s.AddConsumer(verifyBind)
 	s.AddConsumer(failedBind)
 
@@ -42,7 +43,24 @@ func (h *AuthorEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context
 }
 
 // Consumers / Binders
-func (h *AuthorEventConsumer) bindAuthorVerified(ctx context.Context, service string) (*eventbus.Consumer, error) {
+
+// Verifier listener
+func (c *AuthorEventConsumer) bindAuthorVerify(ctx context.Context, service string) (*eventbus.Consumer, error) {
+	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.AuthorVerify)
+	if err != nil {
+		return nil, err
+	}
+
+	return &eventbus.Consumer{
+		MaxHandler: 10,
+		Consumer:   sub,
+		Handler:    c.onAuthorVerify,
+	}, nil
+}
+
+// Choreography-SAGA listeners / Foreign validations
+
+func (c *AuthorEventConsumer) bindAuthorVerified(ctx context.Context, service string) (*eventbus.Consumer, error) {
 	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerVerified)
 	if err != nil {
 		return nil, err
@@ -51,11 +69,11 @@ func (h *AuthorEventConsumer) bindAuthorVerified(ctx context.Context, service st
 	return &eventbus.Consumer{
 		MaxHandler: 10,
 		Consumer:   sub,
-		Handler:    h.onAuthorVerified,
+		Handler:    c.onAuthorVerified,
 	}, nil
 }
 
-func (h *AuthorEventConsumer) bindAuthorFailed(ctx context.Context, service string) (*eventbus.Consumer, error) {
+func (c *AuthorEventConsumer) bindAuthorFailed(ctx context.Context, service string) (*eventbus.Consumer, error) {
 	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerFailed)
 	if err != nil {
 		return nil, err
@@ -64,26 +82,78 @@ func (h *AuthorEventConsumer) bindAuthorFailed(ctx context.Context, service stri
 	return &eventbus.Consumer{
 		MaxHandler: 10,
 		Consumer:   sub,
-		Handler:    h.onAuthorFailed,
+		Handler:    c.onAuthorFailed,
 	}, nil
 }
 
 // Hooks / Handlers
-func (h *AuthorEventConsumer) onAuthorVerified(r *eventbus.Request) {
-	t := &eventbus.Transaction{}
-	err := json.Unmarshal(r.Message.Body, t)
-	if err != nil {
-		// TODO: Rollback if malformation happens, ack message
-		if r.Message.Nackable() {
-			r.Message.Nack()
-		}
-		return
+
+func (c *AuthorEventConsumer) onAuthorVerify(r *eventbus.Request) {
+	// Wrap whole event for context propagation / OpenTracing-like
+	eC := &eventbus.EventContext{
+		Transaction: &eventbus.Transaction{
+			ID:        r.Message.Metadata["transaction_id"],
+			RootID:    r.Message.Metadata["root_id"],
+			SpanID:    r.Message.Metadata["span_id"],
+			TraceID:   r.Message.Metadata["trace_id"],
+			Operation: r.Message.Metadata["operation"],
+			Backup:    r.Message.Metadata["backup"],
+		},
+		Event: &eventbus.Event{
+			Content:      r.Message.Body,
+			ID:           r.Message.Metadata["event_id"],
+			ServiceName:  r.Message.Metadata["service"],
+			EventType:    r.Message.Metadata["event_type"],
+			Priority:     r.Message.Metadata["priority"],
+			Provider:     r.Message.Metadata["provider"],
+			DispatchTime: r.Message.Metadata["dispatch_time"],
+		},
 	}
 
-	err = h.svc.Done(r.Context, t.RootID, t.Operation)
+	ctxU := context.WithValue(r.Context, eventbus.EventContextKey("event"), eC)
+	err := c.svc.Verify(ctxU, eC.Event.Content)
 	if err != nil {
-		// If not found, then acknowledge message
-		if !errors.Is(err, exception.EntityNotFound) {
+		// If internal error, do nack
+		code := httputil.ErrorToCode(err)
+		if code == 500 {
+			if r.Message.Nackable() {
+				r.Message.Nack()
+			}
+			_ = c.logger.Log("method", "author.transport.event", "msg", "err", err.Error())
+			return
+		}
+	}
+
+	r.Message.Ack()
+}
+
+func (c *AuthorEventConsumer) onAuthorVerified(r *eventbus.Request) {
+	// Wrap whole event for context propagation / OpenTracing-like
+	eC := &eventbus.EventContext{
+		Transaction: &eventbus.Transaction{
+			ID:        r.Message.Metadata["transaction_id"],
+			RootID:    r.Message.Metadata["root_id"],
+			SpanID:    r.Message.Metadata["span_id"],
+			TraceID:   r.Message.Metadata["trace_id"],
+			Operation: r.Message.Metadata["operation"],
+		},
+		Event: &eventbus.Event{
+			Content:      r.Message.Body,
+			ID:           r.Message.Metadata["event_id"],
+			ServiceName:  r.Message.Metadata["service"],
+			EventType:    r.Message.Metadata["event_type"],
+			Priority:     r.Message.Metadata["priority"],
+			Provider:     r.Message.Metadata["provider"],
+			DispatchTime: r.Message.Metadata["dispatch_time"],
+		},
+	}
+
+	ctxU := context.WithValue(r.Context, eventbus.EventContextKey("event"), eC)
+	err := c.svc.Done(ctxU, eC.Transaction.RootID, eC.Transaction.Operation)
+	if err != nil {
+		// If internal error, do nack
+		code := httputil.ErrorToCode(err)
+		if code == 500 {
 			if r.Message.Nackable() {
 				r.Message.Nack()
 			}
@@ -95,27 +165,39 @@ func (h *AuthorEventConsumer) onAuthorVerified(r *eventbus.Request) {
 	r.Message.Ack()
 }
 
-func (h *AuthorEventConsumer) onAuthorFailed(r *eventbus.Request) {
-	t := &eventbus.Transaction{}
-	err := json.Unmarshal(r.Message.Body, t)
-	if err != nil {
-		// TODO: Rollback if malformation happens, ack message
-		if r.Message.Nackable() {
-			r.Message.Nack()
-		}
-		return
+func (c *AuthorEventConsumer) onAuthorFailed(r *eventbus.Request) {
+	// Wrap whole event for context propagation / OpenTracing-like
+	eC := &eventbus.EventContext{
+		Transaction: &eventbus.Transaction{
+			ID:        r.Message.Metadata["transaction_id"],
+			RootID:    r.Message.Metadata["root_id"],
+			SpanID:    r.Message.Metadata["span_id"],
+			TraceID:   r.Message.Metadata["trace_id"],
+			Operation: r.Message.Metadata["operation"],
+			Backup:    r.Message.Metadata["backup"],
+		},
+		Event: &eventbus.Event{
+			Content:      r.Message.Body,
+			ID:           r.Message.Metadata["event_id"],
+			ServiceName:  r.Message.Metadata["service"],
+			EventType:    r.Message.Metadata["event_type"],
+			Priority:     r.Message.Metadata["priority"],
+			Provider:     r.Message.Metadata["provider"],
+			DispatchTime: r.Message.Metadata["dispatch_time"],
+		},
 	}
 
-	err = h.svc.Failed(r.Context, t.RootID, t.Operation, t.Backup)
+	ctxU := context.WithValue(r.Context, eventbus.EventContextKey("event"), eC)
+	err := c.svc.Failed(ctxU, eC.Transaction.RootID, eC.Transaction.Operation, eC.Transaction.Backup)
 	if err != nil {
-		// If not found, then acknowledge message
-		if !errors.Is(err, exception.EntityNotFound) {
+		// If internal error, do nack
+		code := httputil.ErrorToCode(err)
+		if code == 500 {
 			if r.Message.Nackable() {
 				r.Message.Nack()
 			}
 			return
 		}
-
 	}
 
 	r.Message.Ack()

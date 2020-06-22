@@ -34,7 +34,7 @@ func (mw LoggingAuthorMiddleware) List(ctx context.Context, pageToken, pageSize 
 	defer func(begin time.Time) {
 		mw.Logger.Log(
 			"method", "author.list",
-			"input", fmt.Sprintf("%s, %s, %s", pageToken, pageSize, filterParams),
+			"input", fmt.Sprintf("page_token: %s, page_size: %s, filter: %s", pageToken, pageSize, filterParams),
 			"output", fmt.Sprintf("%+v", output),
 			"next_token", nextToken,
 			"err", err,
@@ -50,7 +50,7 @@ func (mw LoggingAuthorMiddleware) Get(ctx context.Context, id string) (output *d
 	defer func(begin time.Time) {
 		mw.Logger.Log(
 			"method", "author.get",
-			"input", fmt.Sprintf("%s", id),
+			"input", fmt.Sprintf("id: %s", id),
 			"output", output,
 			"err", err,
 			"took", time.Since(begin),
@@ -80,7 +80,7 @@ func (mw LoggingAuthorMiddleware) Delete(ctx context.Context, id string) (err er
 	defer func(begin time.Time) {
 		mw.Logger.Log(
 			"method", "author.delete",
-			"input", fmt.Sprintf("%s", id),
+			"input", fmt.Sprintf("id: %s", id),
 			"output", err,
 			"err", err,
 			"took", time.Since(begin),
@@ -95,7 +95,7 @@ func (mw LoggingAuthorMiddleware) Restore(ctx context.Context, id string) (err e
 	defer func(begin time.Time) {
 		mw.Logger.Log(
 			"method", "author.restore",
-			"input", fmt.Sprintf("%s", id),
+			"input", fmt.Sprintf("id: %s", id),
 			"output", err,
 			"err", err,
 			"took", time.Since(begin),
@@ -110,7 +110,7 @@ func (mw LoggingAuthorMiddleware) HardDelete(ctx context.Context, id string) (er
 	defer func(begin time.Time) {
 		mw.Logger.Log(
 			"method", "author.hard_delete",
-			"input", fmt.Sprintf("%s", id),
+			"input", fmt.Sprintf("id: %s", id),
 			"output", err,
 			"err", err,
 			"took", time.Since(begin),
@@ -121,32 +121,52 @@ func (mw LoggingAuthorMiddleware) HardDelete(ctx context.Context, id string) (er
 	return
 }
 
-func (mw LoggingAuthorMiddleware) Done(ctx context.Context, id, op string) (err error) {
+type LoggingAuthorSAGAMiddleware struct {
+	Logger log.Logger
+	Next   usecase.AuthorSAGAInteractor
+}
+
+func (mw LoggingAuthorSAGAMiddleware) Verify(ctx context.Context, authorsJSON []byte) (err error) {
 	defer func(begin time.Time) {
 		mw.Logger.Log(
-			"method", "author.done",
-			"input", fmt.Sprintf("%s, %s", id, op),
+			"method", "author.saga.verify",
+			"input", fmt.Sprintf("author_pool: %s", string(authorsJSON)),
 			"output", err,
 			"err", err,
 			"took", time.Since(begin),
 		)
 	}(time.Now())
 
-	err = mw.Next.Done(ctx, id, op)
+	err = mw.Next.Verify(ctx, authorsJSON)
 	return
 }
 
-func (mw LoggingAuthorMiddleware) Failed(ctx context.Context, id, op, backup string) (err error) {
+func (mw LoggingAuthorSAGAMiddleware) Done(ctx context.Context, rootID, operation string) (err error) {
 	defer func(begin time.Time) {
 		mw.Logger.Log(
-			"method", "author.failed",
-			"input", fmt.Sprintf("%s, %s, %s", id, op, backup),
+			"method", "author.saga.done",
+			"input", fmt.Sprintf("root_id: %s, operation: %s", rootID, operation),
 			"output", err,
 			"err", err,
 			"took", time.Since(begin),
 		)
 	}(time.Now())
 
-	err = mw.Next.Failed(ctx, id, op, backup)
+	err = mw.Next.Done(ctx, rootID, operation)
+	return
+}
+
+func (mw LoggingAuthorSAGAMiddleware) Failed(ctx context.Context, rootID, operation, backup string) (err error) {
+	defer func(begin time.Time) {
+		mw.Logger.Log(
+			"method", "author.saga.failed",
+			"input", fmt.Sprintf("root_id: %s, operation: %s, backup: %s", rootID, operation, backup),
+			"output", err,
+			"err", err,
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+
+	err = mw.Next.Failed(ctx, rootID, operation, backup)
 	return
 }

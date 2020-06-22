@@ -12,14 +12,11 @@ import (
 // OwnershipType Owner's Type enum
 type ownershipType string
 
-// stateType SAGA status enum
-type stateType string
-
 const (
 	CommunityOwner ownershipType = "public"
 	PrivateOwner   ownershipType = "private"
-	StatePending   stateType     = "STATUS_PENDING"
-	StateDone      stateType     = "STATUS_DONE"
+	StatusPending                = "STATUS_PENDING"
+	StatusDone                   = "STATUS_DONE"
 )
 
 // Author entity
@@ -83,7 +80,7 @@ func NewAuthor(firstName, lastName, displayName, ownershipType, ownerID, country
 		Picture:       &picture,
 		TotalViews:    0,
 		Country:       countryCode,
-		Status:        string(StatePending),
+		Status:        StatusPending,
 	}
 }
 

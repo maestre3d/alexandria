@@ -93,24 +93,41 @@ func (mw MetricAuthorMiddleware) HardDelete(ctx context.Context, id string) (err
 	return
 }
 
-func (mw MetricAuthorMiddleware) Done(ctx context.Context, id, op string) (err error) {
+type MetricAuthorSAGAMiddleware struct {
+	RequestCount   metrics.Counter
+	RequestLatency metrics.Histogram
+	Next           usecase.AuthorSAGAInteractor
+}
+
+func (mw MetricAuthorSAGAMiddleware) Verify(ctx context.Context, authorsJSON []byte) (err error) {
 	defer func(begin time.Time) {
-		lvs := []string{"method", "author.done", "error", fmt.Sprint(err != nil)}
+		lvs := []string{"method", "author.saga.verify", "error", fmt.Sprint(err != nil)}
 		mw.RequestCount.With(lvs...).Add(1)
 		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	err = mw.Next.Done(ctx, id, op)
+	err = mw.Next.Verify(ctx, authorsJSON)
 	return
 }
 
-func (mw MetricAuthorMiddleware) Failed(ctx context.Context, id, op, backup string) (err error) {
+func (mw MetricAuthorSAGAMiddleware) Done(ctx context.Context, rootID, operation string) (err error) {
 	defer func(begin time.Time) {
-		lvs := []string{"method", "author.failed", "error", fmt.Sprint(err != nil)}
+		lvs := []string{"method", "author.saga.done", "error", fmt.Sprint(err != nil)}
 		mw.RequestCount.With(lvs...).Add(1)
 		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	err = mw.Next.Failed(ctx, id, op, backup)
+	err = mw.Next.Done(ctx, rootID, operation)
+	return
+}
+
+func (mw MetricAuthorSAGAMiddleware) Failed(ctx context.Context, rootID, operation, backup string) (err error) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "author.saga.failed", "error", fmt.Sprint(err != nil)}
+		mw.RequestCount.With(lvs...).Add(1)
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	err = mw.Next.Failed(ctx, rootID, operation, backup)
 	return
 }
