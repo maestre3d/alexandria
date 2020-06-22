@@ -7,6 +7,9 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
+	"github.com/sony/gobreaker"
+	"gocloud.dev/pubsub"
+	"time"
 )
 
 type AuthorEventConsumer struct {
@@ -20,6 +23,22 @@ func NewAuthorEventConsumer(svc usecase.AuthorSAGAInteractor, logger log.Logger)
 		svc:    svc,
 		logger: logger,
 	}
+}
+
+func (c AuthorEventConsumer) defaultCircuitBreaker(action string) *gobreaker.CircuitBreaker {
+	st := gobreaker.Settings{
+		Name:        "author_consumer_kafka_" + action,
+		MaxRequests: 5,
+		Interval:    10 * time.Second,
+		Timeout:     15 * time.Second,
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return counts.Requests >= 3 && failureRatio >= 0.6
+		},
+		OnStateChange: nil,
+	}
+
+	return gobreaker.NewCircuitBreaker(st)
 }
 
 func (c *AuthorEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context, service string) error {
@@ -46,14 +65,21 @@ func (c *AuthorEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context
 
 // Verifier listener
 func (c *AuthorEventConsumer) bindAuthorVerify(ctx context.Context, service string) (*eventbus.Consumer, error) {
-	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.AuthorVerify)
+	sub, err := c.defaultCircuitBreaker("author_verify").Execute(func() (interface{}, error) {
+		sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.AuthorVerify)
+		if err != nil {
+			return nil, err
+		}
+
+		return sub, nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	return &eventbus.Consumer{
 		MaxHandler: 10,
-		Consumer:   sub,
+		Consumer:   sub.(*pubsub.Subscription),
 		Handler:    c.onAuthorVerify,
 	}, nil
 }
@@ -61,27 +87,41 @@ func (c *AuthorEventConsumer) bindAuthorVerify(ctx context.Context, service stri
 // Choreography-SAGA listeners / Foreign validations
 
 func (c *AuthorEventConsumer) bindAuthorVerified(ctx context.Context, service string) (*eventbus.Consumer, error) {
-	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerVerified)
+	sub, err := c.defaultCircuitBreaker("author_verified").Execute(func() (interface{}, error) {
+		sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerVerified)
+		if err != nil {
+			return nil, err
+		}
+
+		return sub, nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	return &eventbus.Consumer{
 		MaxHandler: 10,
-		Consumer:   sub,
+		Consumer:   sub.(*pubsub.Subscription),
 		Handler:    c.onAuthorVerified,
 	}, nil
 }
 
 func (c *AuthorEventConsumer) bindAuthorFailed(ctx context.Context, service string) (*eventbus.Consumer, error) {
-	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerFailed)
+	sub, err := c.defaultCircuitBreaker("author_failed").Execute(func() (interface{}, error) {
+		sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerFailed)
+		if err != nil {
+			return nil, err
+		}
+
+		return sub, nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	return &eventbus.Consumer{
 		MaxHandler: 10,
-		Consumer:   sub,
+		Consumer:   sub.(*pubsub.Subscription),
 		Handler:    c.onAuthorFailed,
 	}, nil
 }

@@ -8,6 +8,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/identity-service/internal/domain"
 	"github.com/maestre3d/alexandria/identity-service/pkg/user/usecase"
+	"github.com/sony/gobreaker"
+	"time"
 )
 
 type UserEventConsumer struct {
@@ -25,6 +27,22 @@ func NewUserEventConsumer(svc usecase.UserSAGAInteractor, logger log.Logger, cfg
 	}
 }
 
+func (c UserEventConsumer) defaultCircuitBreaker(action string) *gobreaker.CircuitBreaker {
+	st := gobreaker.Settings{
+		Name:        "user_consumer_kafka_" + action,
+		MaxRequests: 5,
+		Interval:    10 * time.Second,
+		Timeout:     15 * time.Second,
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return counts.Requests >= 3 && failureRatio >= 0.6
+		},
+		OnStateChange: nil,
+	}
+
+	return gobreaker.NewCircuitBreaker(st)
+}
+
 func (c *UserEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context, service string) error {
 	verifyBind, err := c.bindOwnerVerify(ctx, service)
 	if err != nil {
@@ -38,16 +56,23 @@ func (c *UserEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context, 
 
 // Consumers / Binders
 func (c *UserEventConsumer) bindOwnerVerify(ctx context.Context, service string) (*eventbus.Consumer, error) {
-	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerVerify)
+	consumer, err := c.defaultCircuitBreaker("owner_verify").Execute(func() (interface{}, error) {
+		sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerVerify)
+		if err != nil {
+			return nil, err
+		}
+
+		return &eventbus.Consumer{
+			MaxHandler: 10,
+			Consumer:   sub,
+			Handler:    c.onOwnerVerify,
+		}, nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &eventbus.Consumer{
-		MaxHandler: 10,
-		Consumer:   sub,
-		Handler:    c.onOwnerVerify,
-	}, nil
+	return consumer.(*eventbus.Consumer), nil
 }
 
 // Hooks / Handlers

@@ -31,7 +31,7 @@ alexandria:
       host: "http://zipkin:9411/api/v2/spans"
       endpoint: "0.0.0.0:8080"
       bridge: true
-  event:
+  eventbus:
     kafka:
       cluster:
         # Kafka Brokers nodes
@@ -39,5 +39,5 @@ alexandria:
           host: "kafka"
           port: 9092
         1:
-          host: "kafka2"
+          host: "kafka1"
           port: 9092

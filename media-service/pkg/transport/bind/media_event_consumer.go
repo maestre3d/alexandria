@@ -8,6 +8,9 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/media-service/internal/domain"
 	"github.com/maestre3d/alexandria/media-service/pkg/media/usecase"
+	"github.com/sony/gobreaker"
+	"gocloud.dev/pubsub"
+	"time"
 )
 
 type MediaEventConsumer struct {
@@ -23,6 +26,22 @@ func NewMediaEventConsumer(svc usecase.MediaSAGAInteractor, logger log.Logger, c
 		logger: logger,
 		cfg:    cfg,
 	}
+}
+
+func (c MediaEventConsumer) defaultCircuitBreaker(action string) *gobreaker.CircuitBreaker {
+	st := gobreaker.Settings{
+		Name:        "media_consumer_kafka_" + action,
+		MaxRequests: 5,
+		Interval:    10 * time.Second,
+		Timeout:     15 * time.Second,
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return counts.Requests >= 3 && failureRatio >= 0.6
+		},
+		OnStateChange: nil,
+	}
+
+	return gobreaker.NewCircuitBreaker(st)
 }
 
 func (c *MediaEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context, service string) error {
@@ -56,53 +75,81 @@ func (c *MediaEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context,
 
 // Consumers / Binders
 func (c *MediaEventConsumer) bindOwnerVerified(ctx context.Context, service string) (*eventbus.Consumer, error) {
-	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerVerified)
+	sub, err := c.defaultCircuitBreaker("owner_verified").Execute(func() (interface{}, error) {
+		sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerVerified)
+		if err != nil {
+			return nil, err
+		}
+
+		return sub, nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	return &eventbus.Consumer{
 		MaxHandler: 10,
-		Consumer:   sub,
+		Consumer:   sub.(*pubsub.Subscription),
 		Handler:    c.onOwnerVerified,
 	}, nil
 }
 
 func (c *MediaEventConsumer) bindOwnerFailed(ctx context.Context, service string) (*eventbus.Consumer, error) {
-	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerFailed)
+	sub, err := c.defaultCircuitBreaker("owner_verify").Execute(func() (interface{}, error) {
+		sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.OwnerFailed)
+		if err != nil {
+			return nil, err
+		}
+
+		return sub, nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	return &eventbus.Consumer{
 		MaxHandler: 10,
-		Consumer:   sub,
+		Consumer:   sub.(*pubsub.Subscription),
 		Handler:    c.onMediaFailed,
 	}, nil
 }
 
 func (c *MediaEventConsumer) bindAuthorVerified(ctx context.Context, service string) (*eventbus.Consumer, error) {
-	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.AuthorVerified)
+	sub, err := c.defaultCircuitBreaker("author_verified").Execute(func() (interface{}, error) {
+		sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.AuthorVerified)
+		if err != nil {
+			return nil, err
+		}
+
+		return sub, nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	return &eventbus.Consumer{
 		MaxHandler: 10,
-		Consumer:   sub,
+		Consumer:   sub.(*pubsub.Subscription),
 		Handler:    c.onAuthorVerified,
 	}, nil
 }
 
 func (c *MediaEventConsumer) bindAuthorFailed(ctx context.Context, service string) (*eventbus.Consumer, error) {
-	sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.AuthorFailed)
+	sub, err := c.defaultCircuitBreaker("author_failed").Execute(func() (interface{}, error) {
+		sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.AuthorFailed)
+		if err != nil {
+			return nil, err
+		}
+
+		return sub, nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	return &eventbus.Consumer{
 		MaxHandler: 10,
-		Consumer:   sub,
+		Consumer:   sub.(*pubsub.Subscription),
 		Handler:    c.onMediaFailed,
 	}, nil
 }

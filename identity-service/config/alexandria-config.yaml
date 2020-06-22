@@ -31,7 +31,7 @@ alexandria:
       host: "http://zipkin:9411/api/v2/spans"
       endpoint: "0.0.0.0:8080"
       bridge: true
-  event:
+  eventbus:
     kafka:
       cluster:
         # Kafka Brokers nodes
@@ -44,8 +44,8 @@ alexandria:
   cloud:
     aws:
       cognito:
-        pool: "aws_cognito_pool"
-        client: "aws_cognito_client"
+        pool: "AWS_COGNITO_POOL_ID"
+        client: "AWS_COGNITO_CLIENT_ID"
   security:
     auth:
       jwt:

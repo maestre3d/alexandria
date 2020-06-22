@@ -36,9 +36,12 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 
+CMD ["mkdir .aws"]
+
 # Copy the Pre-built binary file from the previous stage
 COPY --from=builder /go/src/github.com/maestre3d/alexandria/identity-service .
 COPY --from=builder /go/src/github.com/maestre3d/alexandria/identity-service/config/alexandria-config.yaml .
+COPY --from=builder /go/src/github.com/maestre3d/alexandria/identity-service/config/.aws ./.aws
 
 # Expose port 8080 to the outside world
 EXPOSE 8080
