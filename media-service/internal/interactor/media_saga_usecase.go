@@ -49,6 +49,8 @@ func (u *MediaSAGA) VerifyAuthor(ctx context.Context, rootID string) error {
 	return nil
 }
 
+// Verifier implementation
+
 // Finishing actions
 
 func (u *MediaSAGA) Done(ctx context.Context, rootID, operation string) error {
@@ -134,14 +136,15 @@ func (u *MediaSAGA) Failed(ctx context.Context, rootID, operation, backup string
 		mediaBackup := new(domain.Media)
 		err = json.Unmarshal([]byte(backup), mediaBackup)
 		if err != nil {
-			return err
+			return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+				"backup", "media entity"))
 		}
 
 		err = u.repository.Replace(ctxR, *mediaBackup)
 	}
 
 	// Avoid not found errors to send acknowledgement to broker
-	if err != nil && errors.Unwrap(err) != exception.EntityNotFound {
+	if err != nil && !errors.Is(err, exception.EntityNotFound) {
 		_ = u.logger.Log("method", "media.interactor.saga.failed", "err", err.Error())
 		return err
 	}

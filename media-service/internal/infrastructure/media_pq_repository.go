@@ -296,7 +296,7 @@ func (r *MediaPQRepository) Remove(ctx context.Context, id string) error {
 	// Use Go CDK OpenCensus database metrics
 	_ = r.logger.Log("method", "media.infrastructure.postgres.remove", "db_connection", r.db.Stats().OpenConnections)
 
-	statement := `UPDATE alexa1.media SET active = FALSE WHERE external_id = $1 AND active = TRUE`
+	statement := `UPDATE alexa1.media SET active = FALSE, delete_time = CURRENT_TIMESTAMP WHERE external_id = $1 AND active = TRUE`
 	res, err := conn.ExecContext(ctx, statement, id)
 	if err != nil {
 		return err
@@ -326,7 +326,7 @@ func (r *MediaPQRepository) Restore(ctx context.Context, id string) error {
 	// Use Go CDK OpenCensus database metrics
 	_ = r.logger.Log("method", "media.infrastructure.postgres.restore", "db_connection", r.db.Stats().OpenConnections)
 
-	statement := `UPDATE alexa1.media SET active = TRUE WHERE external_id = $1 AND active = FALSE`
+	statement := `UPDATE alexa1.media SET active = TRUE, delete_time = NULL WHERE external_id = $1 AND active = FALSE`
 	res, err := conn.ExecContext(ctx, statement, id)
 	if err != nil {
 		return err
@@ -387,7 +387,7 @@ func (r *MediaPQRepository) ChangeState(ctx context.Context, id, state string) e
 	_ = r.logger.Log("method", "media.infrastructure.postgres.change_state", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `UPDATE alexa1.media SET status = $1 WHERE external_id = $2 AND active = TRUE`
-	res, err := conn.ExecContext(ctx, statement, id)
+	res, err := conn.ExecContext(ctx, statement, state, id)
 	if err != nil {
 		return err
 	} else if af, err := res.RowsAffected(); af == 0 || err != nil {

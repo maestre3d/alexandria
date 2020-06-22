@@ -90,7 +90,7 @@ func (c *MediaEventConsumer) bindAuthorVerified(ctx context.Context, service str
 	return &eventbus.Consumer{
 		MaxHandler: 10,
 		Consumer:   sub,
-		Handler:    c.onOwnerVerified,
+		Handler:    c.onAuthorVerified,
 	}, nil
 }
 

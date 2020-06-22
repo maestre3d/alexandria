@@ -129,7 +129,7 @@ func (u *Media) Update(ctx context.Context, ag *domain.MediaUpdateAggregate) (*d
 		return nil, err
 	}
 	// Store backup for event rollbacks
-	mediaBackup := media
+	mediaBackup := *media
 
 	// Update dynamically
 	// TODO: Try switch statement
@@ -187,7 +187,7 @@ func (u *Media) Update(ctx context.Context, ag *domain.MediaUpdateAggregate) (*d
 	go func() {
 		event := domain.OwnerVerify
 		if media.Status == domain.StatusPending {
-			err = u.event.StartUpdate(ctxE, *media, *mediaBackup)
+			err = u.event.StartUpdate(ctxE, *media, mediaBackup)
 		} else {
 			event = domain.MediaUpdated
 			err = u.event.Updated(ctxE, *media)
@@ -197,7 +197,7 @@ func (u *Media) Update(ctx context.Context, ag *domain.MediaUpdateAggregate) (*d
 			// Event failed to be sent
 			_ = u.logger.Log("method", "media.interactor.update", "err", err.Error())
 			// Rollback
-			err = u.repository.Replace(ctxE, *mediaBackup)
+			err = u.repository.Replace(ctxE, mediaBackup)
 			if err != nil {
 				// Failed to rollback
 				_ = u.logger.Log("method", "media.interactor.update", "err", err.Error())
