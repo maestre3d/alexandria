@@ -22,24 +22,21 @@ every single commit operation. _They are immutable._
 to propagate effects in our distributed environment. Any service _could_ be listening to it. _They are mutable._
 
 Besides of these types, you _should_ follow the next rules:
-- Every event _should_ have inside its metadata the fields: 
+- Every event **must** have inside its metadata the fields: 
     - ID: Event unique identifier.
-    - Service: Service who sends the event (could be using the server config file).
+    - Service: Service who sends the event in upper case (could be using the server config file).
     - Event type: Integration or Domain event.
     - Priority: High, Mid or Low.
     - Provider: Message broker used.
     - Dispatch Time: Unix timestamp.
 - Every event _should_ have a body, it _could_ contain entities, aggregates or just entity's ID.
-- Integration events _should_ use as body an array of strings with the reference keys to handle.
-- Integration events _could_ have a _Backup_ field inside it's metadata for replace/update operations for 
-a possible rollback.
 
 ## Transactions
 In every event-driven architecture, using transactions is a **must**-have to keep data up to date.
 In the following section, we will discuss about transactions in a deep way.
 
 This represents an integration event.
-Transactions _should_ use the following body:
+Transactions **must** use the following body:
   - ID: Transaction ID
   - Root ID: Aggregation/Entity ID.
   - Span ID: OpenTracing/OpenCensus root span ID.
@@ -50,6 +47,12 @@ Transactions _should_ use the following body:
 If a transaction fails, you _should_ replace the event body with a generic response like this:
   - Code: HTTP status-like code.
   - Message: Event's extra information about transaction (useful for logging).
+
+### Best Practices
+- If you need to verify external entities from your service using events, you **must** send an string array/slice with all the IDs (reference/foreign keys) you want to verify as event's JSON body/content.
+- If your service verifies unique identifiers, you **must** add a Verify() function inside you SAGA interactor and your SAGA event bus **must** have a Verified() and Failed() functions.
+- The SAGA event bus **must** receive the correct event context to respond successfully.
+- Verified() and Failed() event functions **must** use the event's entity "service" field to attach the name to the domain's event name (e.g. Service Name = SERVICEFOO, Domain's Event Name = AUTHOR_VERIFIED, Result = SERVICEFOO_AUTHOR_VERIFIED), this is done to avoid event overlapping with other services.
 
 ## Producer
 This represents the publisher of a topic.
@@ -86,7 +89,7 @@ An event context **must** have the following fields:
 - Transaction entity: The root transaction entity, this is immutable.
 - Event entity: The parent's event entity, this is mutable.
 
-## Best practices
+## Best Practices
 - Do not acknowledge messages if something happened at your infrastructure layer 
 (database connection closed, error while openning topic, etc).
 - Acknowledge messages if a client-related error happened (data parsing, malformed event context, etc) to avoid processing loops.
