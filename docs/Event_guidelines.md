@@ -44,7 +44,7 @@ Transactions _should_ use the following body:
   - Root ID: Aggregation/Entity ID.
   - Span ID: OpenTracing/OpenCensus root span ID.
   - Trace ID: OpenTracing/OpenCensus trace ID.
-  - Operation: Kind of operation to perform. (FOO_CREATED, FOO_UPDATED)
+  - Operation: Kind of operation to perform. (e.g. FOO_CREATED, FOO_UPDATED)
   - Backup: Aggregate/Entity's backup for update-like operations. This _could_ be skipped.
   
 If a transaction fails, you _should_ replace the event body with a generic response like this:
