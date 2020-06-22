@@ -13,6 +13,12 @@ this guidelines so any contributor will be able to fully understand our internal
 In the following section, we define our guidelines for event consuming and producing along with some terminology  
 that every contributor must follow.
 
+
+### Conventions Used in This Document
+The requirement level keywords "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" used in this document are to be interpreted as described in [RFC 2119](https://www.ietf.org/rfc/rfc2119.txt).
+
+In this document, such keywords are highlighted using **bold** font.
+
 ## Events
 There is two event types:
 - **Integration**: This represents a _transaction_, mostly SAGAs. They **must** contain an root span ID for tracing,
