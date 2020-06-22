@@ -42,7 +42,7 @@ func (e UserSAGAKafkaEvent) defaultCircuitBreaker(action string) *gobreaker.Circ
 	return gobreaker.NewCircuitBreaker(st)
 }
 
-func (e *UserSAGAKafkaEvent) OwnerVerified(ctx context.Context) error {
+func (e *UserSAGAKafkaEvent) Verified(ctx context.Context) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -92,7 +92,7 @@ func (e *UserSAGAKafkaEvent) OwnerVerified(ctx context.Context) error {
 	return err
 }
 
-func (e *UserSAGAKafkaEvent) OwnerFailed(ctx context.Context) error {
+func (e *UserSAGAKafkaEvent) Failed(ctx context.Context) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 

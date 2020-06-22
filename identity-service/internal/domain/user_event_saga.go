@@ -10,6 +10,6 @@ const (
 )
 
 type UserEventSAGA interface {
-	OwnerVerified(ctx context.Context) error
-	OwnerFailed(ctx context.Context) error
+	Verified(ctx context.Context) error
+	Failed(ctx context.Context) error
 }
