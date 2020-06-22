@@ -51,7 +51,7 @@ If a transaction fails, you _should_ replace the event body with a generic respo
 ### Best Practices
 - If you need to verify external entities from your service using events, you **must** send an string array/slice with all the IDs (reference/foreign keys) you want to verify as event's JSON body/content.
 - If your service verifies unique identifiers, you **must** add a Verify() function inside you SAGA interactor and your SAGA event bus **must** have a Verified() and Failed() functions.
-- The SAGA event bus **must** receive the correct event context to respond successfully.
+- The SAGA event bus' functions **must** receive the correct event context to respond successfully.
 - Verified() and Failed() event functions **must** use the event's entity "service" field to attach the name to the domain's event name (e.g. Service Name = SERVICEFOO, Domain's Event Name = AUTHOR_VERIFIED, Result = SERVICEFOO_AUTHOR_VERIFIED), this is done to avoid event overlapping with other services.
 
 ## Producer
