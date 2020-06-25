@@ -55,6 +55,21 @@ services:
     networks:
       - alexandria-tier
 
+  blob:
+    build: ./blob-service
+    hostname: blob.alexandria.com
+    image: alexandria-blob
+    restart: on-failure
+    volumes:
+      - api:/usr/src/blob/
+    ports:
+      - "3003:8080"
+    depends_on:
+      - kafka
+      - zipkin
+    networks:
+      - alexandria-tier
+
 
   #
   # Infrastructure
