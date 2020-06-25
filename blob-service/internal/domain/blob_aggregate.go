@@ -5,6 +5,6 @@ type BlobAggregate struct {
 	Service   string `json:"service"`
 	BlobType  string `json:"blob_type"`
 	Extension string `json:"extension"`
-	Size      int64  `json:"size"`
+	Size      string `json:"size"`
 	Content   File   `json:"content"`
 }

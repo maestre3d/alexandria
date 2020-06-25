@@ -3,8 +3,10 @@ package interactor
 import (
 	"context"
 	"fmt"
+	"github.com/alexandria-oss/core/exception"
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/blob-service/internal/domain"
+	"strconv"
 	"strings"
 )
 
@@ -24,9 +26,15 @@ func NewBlob(logger log.Logger, repo domain.BlobRepository, storage domain.BlobS
 	}
 }
 
-func (u *Blob) Store(ctx context.Context, ag domain.BlobAggregate) (*domain.Blob, error) {
-	blob := domain.NewBlob(ag.RootID, ag.Service, ag.BlobType, ag.Extension, ag.Size)
-	err := blob.IsValid()
+func (u *Blob) Store(ctx context.Context, ag *domain.BlobAggregate) (*domain.Blob, error) {
+	size, err := strconv.ParseInt(ag.Size, 10, 64)
+	if err != nil {
+		return nil, exception.NewErrorDescription(exception.InvalidFieldFormat,
+			fmt.Sprintf(exception.InvalidFieldFormatString, "size", "int64/bigint"))
+	}
+
+	blob := domain.NewBlob(ag.RootID, ag.Service, ag.BlobType, ag.Extension, size)
+	err = blob.IsValid()
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +118,11 @@ func (u *Blob) Delete(ctx context.Context, id, service string) error {
 	}
 
 	err = u.repository.Remove(ctxR, prefID)
+	if err != nil {
+		u.logger.Log("method", "blob.interactor.store", "msg",
+			"persistence removal failed",
+			"err", err.Error())
+	}
 
 	errC := make(chan error)
 	go func() {
