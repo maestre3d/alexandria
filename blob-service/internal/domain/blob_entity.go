@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/alexandria-oss/core/exception"
 	"github.com/go-playground/validator/v10"
+	"io"
 	"math"
-	"mime/multipart"
 	"strings"
 	"time"
 )
@@ -16,17 +16,24 @@ const (
 	User   = "user"
 )
 
+type File interface {
+	io.Reader
+	io.ReaderAt
+	io.Seeker
+	io.Closer
+}
+
 type Blob struct {
-	ID         string                `json:"id" docstore:"id" validate:"required"`
-	Service    string                `json:"service" docstore:"service" validate:"required,oneof=media author user"`
-	Name       string                `json:"name" docstore:"name" validate:"required,min=1,max=512"`
-	Size       int64                 `json:"size" docstore:"size"`
-	BlobType   string                `json:"blob_type" docstore:"blob_type" validate:"required"`
-	Extension  string                `json:"extension" docstore:"extension" validate:"required,min=1,max=8"`
-	Url        string                `json:"url" docstore:"url" validate:"max=2048"`
-	CreateTime int64                 `json:"create_time" docstore:"create_time"`
-	UpdateTime int64                 `json:"update_time" docstore:"update_time"`
-	File       *multipart.FileHeader `json:"-" docstore:"-"`
+	ID         string `json:"id" docstore:"id" validate:"required"`
+	Service    string `json:"service" docstore:"service" validate:"required,oneof=media author user"`
+	Name       string `json:"name" docstore:"name" validate:"required,min=1,max=512"`
+	Size       int64  `json:"size" docstore:"size"`
+	BlobType   string `json:"blob_type" docstore:"blob_type" validate:"required"`
+	Extension  string `json:"extension" docstore:"extension" validate:"required,min=1,max=8"`
+	Url        string `json:"url" docstore:"url" validate:"max=2048"`
+	CreateTime int64  `json:"create_time" docstore:"create_time"`
+	UpdateTime int64  `json:"update_time" docstore:"update_time"`
+	Content    File   `json:"-" docstore:"-"`
 }
 
 func NewBlob(rootID, service, blobType, extension string, size int64) *Blob {
@@ -43,8 +50,23 @@ func NewBlob(rootID, service, blobType, extension string, size int64) *Blob {
 	}
 
 	blob.Url = fmt.Sprintf("https://%s/%s/%s/%s", StorageDomain, StoragePath, blob.Service, blob.Name)
+	// Attach Service_ID as first 4 bytes in Root_ID to avoid entity collision in logging tables
+	blob.ID = GetServiceID(blob.Service) + blob.ID
 
 	return blob
+}
+
+func GetServiceID(service string) string {
+	switch service {
+	case User:
+		return "0001"
+	case Author:
+		return "0002"
+	case Media:
+		return "0003"
+	default:
+		return "0000"
+	}
 }
 
 func (e Blob) IsValid() error {

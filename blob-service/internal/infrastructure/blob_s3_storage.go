@@ -34,12 +34,6 @@ func (s *BlobS3Storage) Store(ctx context.Context, blobRef *domain.Blob) error {
 	defer bucket.Close()
 	bucket = blob.PrefixedBucket(bucket, domain.StoragePath+"/"+blobRef.Service+"/")
 
-	file, err := blobRef.File.Open()
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
 	ctxR, cancel := context.WithCancel(ctx)
 	defer cancel()
 	w, err := bucket.NewWriter(ctxR, blobRef.Name, nil)
@@ -48,7 +42,7 @@ func (s *BlobS3Storage) Store(ctx context.Context, blobRef *domain.Blob) error {
 	}
 
 	buf := bytes.NewBuffer(nil)
-	_, err = io.Copy(buf, file)
+	_, err = io.Copy(buf, blobRef.Content)
 	if err != nil {
 		return err
 	}

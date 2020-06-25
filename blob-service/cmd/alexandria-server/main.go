@@ -3,29 +3,27 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/alexandria-oss/core"
-	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/exception"
 	"github.com/alexandria-oss/core/httputil"
-	"github.com/alexandria-oss/core/logger"
 	"github.com/gorilla/mux"
+	"github.com/maestre3d/alexandria/blob-service/internal/dependency"
 	"github.com/maestre3d/alexandria/blob-service/internal/domain"
-	"github.com/maestre3d/alexandria/blob-service/internal/infrastructure"
-	"github.com/maestre3d/alexandria/blob-service/internal/interactor"
 	"math"
 	"net/http"
+	"strings"
 )
 
 func main() {
-	ctx := context.Background()
-	zapLog := logger.NewZapLogger()
-	cfg, err := config.NewKernel(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	dependency.Ctx = ctx
+	blobInter, cleanup, err := dependency.InjectBlobUseCase()
 	if err != nil {
 		panic(err)
 	}
-	repo := infrastructure.NewBlobDynamoRepository(zapLog, cfg)
-	storage := infrastructure.NewBlobS3Storage(zapLog)
-	blobInter := interactor.NewBlob(zapLog, repo, storage)
+	defer cleanup()
 
 	r := mux.NewRouter()
 	// Store
@@ -42,6 +40,17 @@ func main() {
 		}
 		defer f.Close()
 
+		contentSlice := strings.Split(h.Header.Get("Content-Type"), "/")
+		if len(contentSlice) <= 1 {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(&httputil.GenericResponse{
+				Message: fmt.Sprintf(exception.InvalidFieldFormatString,
+					"file", "invalid file extension"),
+				Code: http.StatusBadRequest,
+			})
+			return
+		}
+
 		// go's file.size is in bytes
 		var maxSize int64
 		maxSize = 8192 * (int64(math.Pow(1024, 2)))
@@ -55,7 +64,14 @@ func main() {
 			return
 		}
 
-		b, err := blobInter.Store(r.Context(), mux.Vars(r)["id"], domain.Media, h)
+		b, err := blobInter.Store(r.Context(), domain.BlobAggregate{
+			RootID:    mux.Vars(r)["id"],
+			Service:   domain.Media,
+			BlobType:  contentSlice[0],
+			Extension: contentSlice[1],
+			Size:      h.Size,
+			Content:   f,
+		})
 		if err != nil {
 			code := httputil.ErrorToCode(err)
 			w.WriteHeader(code)
@@ -70,7 +86,7 @@ func main() {
 	})
 
 	// Get
-	r.PathPrefix(core.PrivateAPI + "/blob/{id}").Methods(http.MethodGet).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.PathPrefix(core.PrivateAPI + "/blob/media/{id}").Methods(http.MethodGet).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "application/json; utf-8")
 		id := mux.Vars(r)["id"]
 		if id == "" {
@@ -87,7 +103,7 @@ func main() {
 				id += ": " + sortKey
 			}*/
 
-		b, err := blobInter.Get(r.Context(), id)
+		b, err := blobInter.Get(r.Context(), id, domain.Media)
 		if err != nil {
 			code := httputil.ErrorToCode(err)
 			w.WriteHeader(code)
@@ -102,7 +118,7 @@ func main() {
 	})
 
 	// Delete
-	r.PathPrefix(core.PrivateAPI + "/blob/{id}").Methods(http.MethodDelete).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.PathPrefix(core.PrivateAPI + "/blob/media/{id}").Methods(http.MethodDelete).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "application/json; utf-8")
 		id := mux.Vars(r)["id"]
 		if id == "" {
@@ -113,7 +129,7 @@ func main() {
 			})
 		}
 
-		err := blobInter.Delete(r.Context(), id)
+		err := blobInter.Delete(r.Context(), id, domain.Media)
 		if err != nil {
 			code := httputil.ErrorToCode(err)
 			w.WriteHeader(code)
