@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/alexandria-oss/core/exception"
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/blob-service/internal/domain"
 	"gocloud.dev/blob"
+	"gocloud.dev/gcerrors"
 	"io"
 	"sync"
 )
@@ -69,9 +71,17 @@ func (s *BlobS3Storage) Delete(ctx context.Context, key, service string) error {
 		return err
 	}
 	defer bucket.Close()
-	bucket = blob.PrefixedBucket(bucket, "alexandria/"+service+"/")
+	bucket = blob.PrefixedBucket(bucket, domain.StoragePath+"/"+service+"/")
 
 	ctxR, cancel := context.WithCancel(ctx)
 	defer cancel()
-	return bucket.Delete(ctxR, key)
+	err = bucket.Delete(ctxR, key)
+	if err != nil {
+		if gcerrors.Code(err) == gcerrors.NotFound {
+			return exception.EntityNotFound
+		}
+		return err
+	}
+
+	return nil
 }

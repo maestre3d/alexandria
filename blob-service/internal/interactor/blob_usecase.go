@@ -112,7 +112,13 @@ func (u *Blob) Delete(ctx context.Context, id, service string) error {
 
 	ctxR, cancel := context.WithCancel(ctx)
 	defer cancel()
-	err := u.storage.Delete(ctxR, id, service)
+
+	blob, err := u.repository.FetchByID(ctxR, prefID)
+	if err != nil {
+		return err
+	}
+
+	err = u.storage.Delete(ctxR, blob.Name, blob.Service)
 	if err != nil {
 		return err
 	}

@@ -3,10 +3,12 @@ package infrastructure
 import (
 	"context"
 	"github.com/alexandria-oss/core/config"
+	"github.com/alexandria-oss/core/exception"
 	"github.com/alexandria-oss/core/persistence"
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/blob-service/internal/domain"
 	_ "gocloud.dev/blob/s3blob"
+	"gocloud.dev/gcerrors"
 	"sync"
 )
 
@@ -50,6 +52,9 @@ func (r *BlobDynamoRepository) FetchByID(ctx context.Context, id string) (*domai
 	b := &domain.Blob{ID: id}
 	err = coll.Get(ctx, b)
 	if err != nil {
+		if gcerrors.Code(err) == gcerrors.NotFound {
+			return nil, exception.EntityNotFound
+		}
 		return nil, err
 	}
 

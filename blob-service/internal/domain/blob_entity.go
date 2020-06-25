@@ -57,6 +57,7 @@ func NewBlob(rootID, service, blobType, extension string, size int64) *Blob {
 }
 
 func GetServiceID(service string) string {
+	service = strings.ToLower(service)
 	switch service {
 	case User:
 		return "0001"
