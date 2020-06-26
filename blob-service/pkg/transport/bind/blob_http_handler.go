@@ -59,7 +59,8 @@ func NewBlobHandler(svc usecase.BlobInteractor, logger log.Logger, tracer stdope
 
 	// Inject tracing exporter
 	if zipkinTracer != nil {
-		options = append(options, zipkin.HTTPServerTrace(zipkinTracer))
+		options = append(options, zipkin.HTTPServerTrace(zipkinTracer, zipkin.Logger(logger), zipkin.Name("blob_service"),
+			zipkin.AllowPropagation(true)))
 	}
 
 	return &BlobHandler{
