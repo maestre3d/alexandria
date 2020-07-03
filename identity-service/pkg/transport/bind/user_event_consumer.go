@@ -6,9 +6,14 @@ import (
 	"github.com/alexandria-oss/core/eventbus"
 	"github.com/alexandria-oss/core/httputil"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/maestre3d/alexandria/identity-service/internal/domain"
 	"github.com/maestre3d/alexandria/identity-service/pkg/user/usecase"
 	"github.com/sony/gobreaker"
+	"contrib.go.opencensus.io/exporter/zipkin"
+	"go.opencensus.io/trace"
+	openzipkin "github.com/openzipkin/zipkin-go"
+	zipkinHTTP "github.com/openzipkin/zipkin-go/reporter/http"
 	"time"
 )
 
@@ -19,7 +24,17 @@ type UserEventConsumer struct {
 }
 
 func NewUserEventConsumer(svc usecase.UserSAGAInteractor, logger log.Logger, cfg *config.Kernel) *UserEventConsumer {
-	// TODO: Add instrumentation, Dist tracing with OpenTracing and Zipkin/Jaeger and Metrics with Prometheus w/ Grafana
+	// 1. Configure exporter to export traces to Zipkin.
+	localEndpoint, err := openzipkin.NewEndpoint(cfg.Service, cfg.Tracing.ZipkinEndpoint)
+	if err != nil {
+		_ = level.Error(logger).Log("err", err.Error())
+	}
+	reporter := zipkinHTTP.NewReporter(cfg.Tracing.ZipkinHost)
+	ze := zipkin.NewExporter(reporter, localEndpoint)
+	trace.RegisterExporter(ze)
+
+	// 2. Configure 100% sample rate, otherwise, few traces will be sampled.
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 	return &UserEventConsumer{
 		svc:    svc,
 		logger: logger,
