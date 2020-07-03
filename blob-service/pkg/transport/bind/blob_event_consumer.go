@@ -44,6 +44,13 @@ func (c BlobEventConsumer) defaultCircuitBreaker(action string) *gobreaker.Circu
 }
 
 func (c *BlobEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context, service string) error {
+	ctxC, _ := context.WithCancel(ctx)
+	failedC, err := c.bindBlobFailed(ctxC, service)
+	if err != nil {
+		return err
+	}
+
+	s.AddConsumer(failedC)
 	return nil
 }
 

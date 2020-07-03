@@ -53,8 +53,8 @@ func NewBlobHandler(svc usecase.BlobInteractor, logger log.Logger, tracer stdope
 	// Add error logger
 	options := []httptransport.ServerOption{
 		httptransport.ServerErrorEncoder(httputil.ResponseErrJSON),
-		kitoc.HTTPServerTrace(),
 		httptransport.ServerErrorHandler(transport.NewLogErrorHandler(logger)),
+		kitoc.HTTPServerTrace(),
 	}
 
 	// Inject tracing exporter
@@ -175,7 +175,7 @@ func decodeStoreRequest(_ context.Context, r *http.Request) (interface{}, error)
 	}, nil
 }
 
-func decodeGetRequest(_ context.Context, r *http.Request) (interface{}, error) {
+func decodeGetRequest(ctx context.Context, r *http.Request) (interface{}, error) {
 	return action.GetRequest{
 		ID:      mux.Vars(r)["id"],
 		Service: getServiceFromPath(r.URL.Path),
@@ -201,7 +201,7 @@ func encodeStoreResponse(ctx context.Context, w http.ResponseWriter, res interfa
 		}
 	}
 
-	return json.NewEncoder(w).Encode(r.Blob)
+	return json.NewEncoder(w).Encode(r)
 }
 
 func encodeGetResponse(ctx context.Context, w http.ResponseWriter, res interface{}) error {
@@ -214,7 +214,7 @@ func encodeGetResponse(ctx context.Context, w http.ResponseWriter, res interface
 		}
 	}
 
-	return json.NewEncoder(w).Encode(r.Blob)
+	return json.NewEncoder(w).Encode(r)
 }
 
 func encodeDeleteResponse(ctx context.Context, w http.ResponseWriter, res interface{}) error {
