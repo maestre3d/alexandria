@@ -104,6 +104,28 @@ services:
     networks:
       - alexandria-tier
 
+  prometheus:
+    image: "prom/prometheus"
+    restart: on-failure
+    ports:
+      - 9090:9090
+    volumes:
+      - ./third-party/prometheus:/etc/prometheus
+    networks:
+      - alexandria-tier
+
+  grafana:
+    image: "grafana/grafana"
+    depends_on:
+      - prometheus
+      - zipkin
+      - postgres
+    restart: on-failure
+    ports:
+      - "9413:3000"
+    networks:
+      - alexandria-tier
+
   zookeeper:
     image: "bitnami/zookeeper:latest"
     restart: on-failure
