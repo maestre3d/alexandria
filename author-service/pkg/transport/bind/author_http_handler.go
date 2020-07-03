@@ -58,7 +58,8 @@ func NewAuthorHTTP(svc usecase.AuthorInteractor, logger log.Logger, tracer stdop
 		// without an operation name and fed to each Go kit endpoint as ServerOption.
 		// In the latter case, the operation name will be the endpoint's http method.
 		// We demonstrate a global tracing usecase here.
-		options = append(options, zipkin.HTTPServerTrace(zipkinTracer))
+		options = append(options, zipkin.HTTPServerTrace(zipkinTracer, zipkin.Logger(logger), zipkin.Name("author_service"),
+			zipkin.AllowPropagation(true)))
 	}
 
 	return &AuthorHandler{svc, logger, duration, tracer, zipkinTracer, options}
