@@ -8,8 +8,9 @@ It uses gRPC and HTTP communication protocols to expose its APIs.
 Alexandria is currently licensed under the MIT license.
 
 ## Endpoints
+
 | Method              |     HTTP Mapping                          |  HTTP Request body  |  HTTP Response body        |
-|---------------------|:-----------------------------------------:|:-----------   -----:|:--------------------------:|
+|---------------------|:-----------------------------------------:|:-------------------:|:--------------------------:|
 | **Get**             |  GET /blob/author/{author-id}             |   N/A               |   Blob*                    |
 | **Store**           |  POST /private/blob/author/{author-id}    |   File              |   Blob*                    |
 | **Delete**          |  DELETE /private/blob/author/{author-id}  |   N/A               |   protobuf.empty/{}        |
