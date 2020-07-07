@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/alexandria-oss/core/exception"
+	"github.com/alexandria-oss/core/httputil"
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
 )
@@ -28,6 +29,89 @@ func NewAuthorSAGA(logger log.Logger, repo domain.AuthorRepository, event domain
 
 // Choreography-SAGA actions
 
+func (u *AuthorSAGA) UpdatePicture(ctx context.Context, rootID string, urlJSON []byte) error {
+	ctxR, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	author, err := u.repository.FetchByID(ctxR, rootID, true)
+	if code := httputil.ErrorToCode(err); err != nil && code != 500 {
+		// Rollback if user (e.g. HTTP 404) error
+		errE := u.eventSAGA.BlobFailed(ctxR, err.Error())
+		if errE != nil {
+			// Error during publishing
+			return errE
+		}
+
+		_ = u.logger.Log("method", "author.interactor.saga.update_picture", "msg", domain.BlobFailed+" integration event published")
+		return err
+	}
+
+	urls := []string{}
+	err = json.Unmarshal(urlJSON, &urls)
+	if code := httputil.ErrorToCode(err); err != nil && code != 500 {
+		// Rollback if user (e.g. HTTP 404/409/400) error
+		errE := u.eventSAGA.BlobFailed(ctxR, err.Error())
+		if errE != nil {
+			// Error during publishing
+			return errE
+		}
+
+		_ = u.logger.Log("method", "author.interactor.saga.update_picture", "msg", domain.BlobFailed+" integration event published")
+		return err
+	}
+
+	author.Picture = &urls[0]
+
+	err = u.repository.Replace(ctxR, *author)
+	if code := httputil.ErrorToCode(err); err != nil && code != 500 {
+		// Rollback if user (e.g. HTTP 404/409/400) error
+		errE := u.eventSAGA.BlobFailed(ctxR, err.Error())
+		if errE != nil {
+			// Error during publishing
+			return errE
+		}
+
+		_ = u.logger.Log("method", "author.interactor.saga.update_picture", "msg", domain.BlobFailed+" integration event published")
+	}
+
+	return err
+}
+
+func (u *AuthorSAGA) RemovePicture(ctx context.Context, rootID string) error {
+	ctxR, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	author, err := u.repository.FetchByID(ctxR, rootID, true)
+	if code := httputil.ErrorToCode(err); err != nil && code != 500 {
+		// Rollback if user (e.g. HTTP 404/409/400) error
+		errE := u.eventSAGA.BlobFailed(ctxR, err.Error())
+		if errE != nil {
+			// Error during publishing
+			return errE
+		}
+
+		_ = u.logger.Log("method", "author.interactor.saga.update_picture", "msg", domain.BlobFailed+" integration event published")
+		return err
+	}
+
+	url := ""
+	author.Picture = &url
+
+	err = u.repository.Replace(ctxR, *author)
+	if code := httputil.ErrorToCode(err); err != nil && code != 500 {
+		// Rollback if format error
+		errE := u.eventSAGA.BlobFailed(ctxR, err.Error())
+		if errE != nil {
+			// Error during publishing
+			return errE
+		}
+
+		_ = u.logger.Log("method", "author.interactor.saga.update_picture", "msg", domain.BlobFailed+" integration event published")
+	}
+
+	return err
+}
+
 // Verifier implementation
 
 func (u *AuthorSAGA) Verify(ctx context.Context, authorsJSON []byte) error {
@@ -38,13 +122,11 @@ func (u *AuthorSAGA) Verify(ctx context.Context, authorsJSON []byte) error {
 	var authors []string
 	err := json.Unmarshal(authorsJSON, &authors)
 	if err != nil {
-		_ = u.logger.Log("method", "author.interactor.saga.verify", "err", err.Error())
 
 		// Rollback if format error
-		err = u.eventSAGA.Failed(ctxR)
+		err = u.eventSAGA.Failed(ctxR, err.Error())
 		if err != nil {
 			// Error during publishing
-			_ = u.logger.Log("method", "author.interactor.saga.verify", "err", err.Error())
 			return err
 		}
 
@@ -56,11 +138,8 @@ func (u *AuthorSAGA) Verify(ctx context.Context, authorsJSON []byte) error {
 	for _, id := range authors {
 		_, err := u.repository.FetchByID(ctxR, id, false)
 		if err != nil {
-			_ = u.logger.Log("method", "author.interactor.saga.verify", "err", err.Error())
-
-			err = u.eventSAGA.Failed(ctxR)
+			err = u.eventSAGA.Failed(ctxR, err.Error())
 			if err != nil {
-				_ = u.logger.Log("method", "author.interactor.saga.verify", "err", err.Error())
 				return err
 			}
 
@@ -72,7 +151,6 @@ func (u *AuthorSAGA) Verify(ctx context.Context, authorsJSON []byte) error {
 	// All Authors have been verified
 	err = u.eventSAGA.Verified(ctxR)
 	if err != nil {
-		_ = u.logger.Log("method", "author.interactor.saga.verify", "err", err.Error())
 		return err
 	}
 
@@ -120,13 +198,10 @@ func (u *AuthorSAGA) Done(ctx context.Context, rootID, operation string) error {
 			event = domain.AuthorUpdated
 		}
 		if err != nil {
-			_ = u.logger.Log("method", "author.interactor.saga.done", "err", err.Error())
-
 			// Rollback
 			err = u.repository.ChangeState(ctxE, rootID, domain.StatusPending)
 			if err != nil {
 				// Failed to rollback
-				_ = u.logger.Log("method", "author.interactor.saga.done", "err", err.Error())
 				errC <- err
 				return
 			}
@@ -136,7 +211,6 @@ func (u *AuthorSAGA) Done(ctx context.Context, rootID, operation string) error {
 		}
 
 		_ = u.logger.Log("method", "author.interactor.saga.done", "msg", event+" event published")
-
 		errC <- nil
 	}()
 
@@ -176,7 +250,6 @@ func (u *AuthorSAGA) Failed(ctx context.Context, rootID, operation, backup strin
 
 	// Avoid not found errors to send acknowledgement to broker
 	if err != nil && !errors.Is(err, exception.EntityNotFound) {
-		_ = u.logger.Log("method", "author.interactor.failed", "err", err.Error())
 		return err
 	}
 

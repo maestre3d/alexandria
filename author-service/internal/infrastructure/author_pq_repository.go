@@ -284,10 +284,10 @@ func (r *AuthorPQRepository) Replace(ctx context.Context, author domain.Author) 
 	_ = r.logger.Log("method", "author.infrastructure.postgres.replace", "db_connection", r.db.Stats().OpenConnections)
 
 	statement := `UPDATE alexa1.author SET first_name = $1, last_name = $2, display_name = $3, ownership_type = $4,
-    update_time = $5, total_views = $6, owner_id = $7, status = $8, country = $9 WHERE external_id = $10 AND active = true`
+    update_time = $5, total_views = $6, owner_id = $7, status = $8, country = $9, picture = $10 WHERE external_id = $11 AND active = true`
 
 	res, err := conn.ExecContext(ctx, statement, author.FirstName, author.LastName, author.DisplayName, author.OwnershipType, author.UpdateTime, author.TotalViews,
-		author.OwnerID, author.Status, author.Country, author.ExternalID)
+		author.OwnerID, author.Status, author.Country, author.Picture, author.ExternalID)
 	if err != nil {
 		if customErr, ok := err.(*pq.Error); ok {
 			if customErr.Code == "23505" {

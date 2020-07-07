@@ -40,9 +40,9 @@ func InjectTransportService() (*transport.Transport, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	reporter, cleanup2 := provideZipkinReporter(kernel)
+	reporter := provideZipkinReporter(kernel)
 	endpoint := provideZipkinEndpoint(kernel)
-	zipkinTracer := provideZipkinTracer(kernel, reporter, endpoint)
+	zipkinTracer, cleanup2 := provideZipkinTracer(reporter, endpoint)
 	opentracingTracer := tracer.WrapZipkinOpenTracing(kernel, zipkinTracer)
 	authorRPCServer := bind.NewAuthorRPC(authorInteractor, logLogger, opentracingTracer, zipkinTracer)
 	healthRPCServer := bind.NewHealthRPC()
@@ -83,7 +83,7 @@ func InjectTransportService() (*transport.Transport, func(), error) {
 
 // wire.go:
 
-var Ctx context.Context = context.Background()
+var Ctx = context.Background()
 
 var authorInteractorSet = wire.NewSet(logger.NewZapLogger, provideAuthorInteractor)
 
@@ -148,22 +148,18 @@ func provideEventConsumers(authorHandler *bind.AuthorEventConsumer) []proxy.Cons
 }
 
 // NewZipkin returns a zipkin tracing consumer
-func provideZipkinReporter(cfg *config.Kernel) (reporter.Reporter, func()) {
-	if cfg.Tracing.ZipkinHost != "" && cfg.Tracing.ZipkinEndpoint != "" {
+func provideZipkinReporter(cfg *config.Kernel) reporter.Reporter {
+	if cfg.Tracing.ZipkinHost != "" {
 		zipkinReporter := http.NewReporter(cfg.Tracing.ZipkinHost)
-		cleanup := func() {
-			_ = zipkinReporter.Close()
-		}
-
-		return zipkinReporter, cleanup
+		return zipkinReporter
 	}
 
-	return nil, nil
+	return nil
 }
 
 // NewZipkin returns a zipkin tracing consumer
 func provideZipkinEndpoint(cfg *config.Kernel) *model.Endpoint {
-	if cfg.Tracing.ZipkinHost != "" && cfg.Tracing.ZipkinEndpoint != "" {
+	if cfg.Tracing.ZipkinEndpoint != "" {
 		zipkinEndpoint, err := zipkin.NewEndpoint(cfg.Service, cfg.Tracing.ZipkinEndpoint)
 		if err != nil {
 			return nil
@@ -176,18 +172,21 @@ func provideZipkinEndpoint(cfg *config.Kernel) *model.Endpoint {
 }
 
 // NewZipkin returns a zipkin tracing consumer
-func provideZipkinTracer(cfg *config.Kernel, r reporter.Reporter, ep *model.Endpoint) *zipkin.Tracer {
-	if cfg.Tracing.ZipkinHost != "" && cfg.Tracing.ZipkinEndpoint != "" {
+func provideZipkinTracer(r reporter.Reporter, ep *model.Endpoint) (*zipkin.Tracer, func()) {
+	if r != nil && ep != nil {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 		trace.RegisterExporter(zipkin2.NewExporter(r, ep))
 
 		zipkinTrace, err := zipkin.NewTracer(r, zipkin.WithLocalEndpoint(ep))
 		if err != nil {
-			return nil
+			return nil, nil
+		}
+		cleanup := func() {
+			_ = r.Close()
 		}
 
-		return zipkinTrace
+		return zipkinTrace, cleanup
 	}
 
-	return nil
+	return nil, nil
 }

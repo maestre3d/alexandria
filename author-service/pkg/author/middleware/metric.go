@@ -121,13 +121,35 @@ func (mw MetricAuthorSAGAMiddleware) Done(ctx context.Context, rootID, operation
 	return
 }
 
-func (mw MetricAuthorSAGAMiddleware) Failed(ctx context.Context, rootID, operation, backup string) (err error) {
+func (mw MetricAuthorSAGAMiddleware) Failed(ctx context.Context, rootID, operation, snapshot string) (err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "author.saga.failed", "error", fmt.Sprint(err != nil)}
 		mw.RequestCount.With(lvs...).Add(1)
 		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	err = mw.Next.Failed(ctx, rootID, operation, backup)
+	err = mw.Next.Failed(ctx, rootID, operation, snapshot)
+	return
+}
+
+func (mw MetricAuthorSAGAMiddleware) UpdatePicture(ctx context.Context, rootID string, urlJSON []byte) (err error) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "author.saga.update_picture", "error", fmt.Sprint(err != nil)}
+		mw.RequestCount.With(lvs...).Add(1)
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	err = mw.Next.UpdatePicture(ctx, rootID, urlJSON)
+	return
+}
+
+func (mw MetricAuthorSAGAMiddleware) RemovePicture(ctx context.Context, rootID string) (err error) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "author.saga.remove_picture", "error", fmt.Sprint(err != nil)}
+		mw.RequestCount.With(lvs...).Add(1)
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	err = mw.Next.RemovePicture(ctx, rootID)
 	return
 }

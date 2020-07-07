@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
-	github.com/alexandria-oss/core v0.5.2-beta
+	github.com/alexandria-oss/core v0.5.3-beta
 	github.com/go-kit/kit v0.10.0
 	github.com/go-playground/validator/v10 v10.3.0
 	github.com/go-redis/redis/v7 v7.2.0
@@ -14,7 +14,6 @@ require (
 	github.com/google/wire v0.4.0
 	github.com/gorilla/mux v1.7.3
 	github.com/lib/pq v1.1.1
-	github.com/maestre3d/alexandria/media-service v0.0.0-20200622084343-25bca5313f9f // indirect
 	github.com/matoous/go-nanoid v1.4.1
 	github.com/oklog/run v1.1.0
 	github.com/opentracing/opentracing-go v1.1.0

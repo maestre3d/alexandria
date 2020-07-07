@@ -20,4 +20,6 @@ type AuthorSAGAInteractor interface {
 	Verify(ctx context.Context, authorsJSON []byte) error
 	Done(ctx context.Context, rootID, operation string) error
 	Failed(ctx context.Context, rootID, operation, backup string) error
+	UpdatePicture(ctx context.Context, rootID string, urlJSON []byte) error
+	RemovePicture(ctx context.Context, rootID string) error
 }
