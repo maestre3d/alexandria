@@ -50,10 +50,19 @@ func InjectTransportService() (*transport.Transport, func(), error) {
 	blobHandler := bind.NewBlobHandler(blobInteractor, logLogger, opentracingTracer, zipkinTracer)
 	v2 := provideHTTPHandlers(blobHandler)
 	http, cleanup4 := proxy.NewHTTP(kernel, v2...)
-	blobEventConsumer := bind.NewBlobEventConsumer(blobInteractor, logLogger, kernel)
-	v3 := provideEventConsumers(blobEventConsumer)
-	event, cleanup5, err := proxy.NewEvent(context, kernel, v3...)
+	blobSagaInteractor, cleanup5, err := provideBlobSagaInteractor(logLogger)
 	if err != nil {
+		cleanup4()
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	blobEventConsumer := bind.NewBlobEventConsumer(blobSagaInteractor, logLogger, kernel)
+	v3 := provideEventConsumers(blobEventConsumer)
+	event, cleanup6, err := proxy.NewEvent(context, kernel, v3...)
+	if err != nil {
+		cleanup5()
 		cleanup4()
 		cleanup3()
 		cleanup2()
@@ -62,6 +71,7 @@ func InjectTransportService() (*transport.Transport, func(), error) {
 	}
 	transportTransport := transport.NewTransport(server, http, event, kernel)
 	return transportTransport, func() {
+		cleanup6()
 		cleanup5()
 		cleanup4()
 		cleanup3()
@@ -76,6 +86,7 @@ var Ctx = context.Background()
 
 var interactorSet = wire.NewSet(
 	provideContext, logger.NewZapLogger, provideBlobInteractor,
+	provideBlobSagaInteractor,
 )
 
 var zipkinSet = wire.NewSet(
@@ -99,6 +110,15 @@ func provideBlobInteractor(log2 log.Logger) (usecase.BlobInteractor, func(), err
 
 	interactor, cleanup, err := dependency.InjectBlobUseCase()
 	svc := blob.WrapBlobInstrumentation(interactor, log2)
+
+	return svc, cleanup, err
+}
+
+func provideBlobSagaInteractor(log2 log.Logger) (usecase.BlobSagaInteractor, func(), error) {
+	dependency.Ctx = Ctx
+
+	interactor, cleanup, err := dependency.InjectBlobSagaUseCase()
+	svc := blob.WrapBlobSagaInstrumentation(interactor, log2)
 
 	return svc, cleanup, err
 }

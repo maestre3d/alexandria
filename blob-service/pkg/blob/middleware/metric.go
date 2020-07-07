@@ -47,3 +47,20 @@ func (mw MetricBlobMiddleware) Delete(ctx context.Context, id, service string) (
 	err = mw.Next.Delete(ctx, id, service)
 	return
 }
+
+type MetricBlobSagaMiddleware struct {
+	RequestCount   metrics.Counter
+	RequestLatency metrics.Histogram
+	Next           usecase.BlobSagaInteractor
+}
+
+func (mw MetricBlobSagaMiddleware) Failed(ctx context.Context, rootID, service string, snapshotJSON []byte) (err error) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "blob.saga.failed", "error", fmt.Sprint(err != nil)}
+		mw.RequestCount.With(lvs...).Add(1)
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	err = mw.Next.Failed(ctx, rootID, service, snapshotJSON)
+	return
+}

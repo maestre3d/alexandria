@@ -37,3 +37,12 @@ func InjectBlobUseCase() (*interactor.Blob, func(), error) {
 	)
 	return &interactor.Blob{}, nil, nil
 }
+
+func InjectBlobSagaUseCase() (*interactor.BlobSAGA, func(), error) {
+	wire.Build(
+		persistenceSet,
+		interactor.NewBlobSaga,
+	)
+
+	return &interactor.BlobSAGA{}, nil, nil
+}

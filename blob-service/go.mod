@@ -4,13 +4,13 @@ go 1.14
 
 require (
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
-	github.com/alexandria-oss/core v0.5.2-beta
+	github.com/alexandria-oss/core v0.5.3-beta
 	github.com/go-kit/kit v0.10.0
 	github.com/go-playground/validator/v10 v10.3.0
+	github.com/google/subcommands v1.2.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gorilla/mux v1.7.4
-	github.com/maestre3d/alexandria/author-service v0.0.0-20200622084343-25bca5313f9f // indirect
 	github.com/oklog/run v1.1.0
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/openzipkin/zipkin-go v0.2.2
@@ -19,4 +19,5 @@ require (
 	go.opencensus.io v0.22.3
 	gocloud.dev v0.20.0
 	gocloud.dev/pubsub/kafkapubsub v0.20.0 // indirect
+	golang.org/x/tools v0.0.0-20200702044944-0cc1aa72b347 // indirect
 )

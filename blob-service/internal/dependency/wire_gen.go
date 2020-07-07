@@ -32,6 +32,20 @@ func InjectBlobUseCase() (*interactor.Blob, func(), error) {
 	}, nil
 }
 
+func InjectBlobSagaUseCase() (*interactor.BlobSAGA, func(), error) {
+	logLogger := logger.NewZapLogger()
+	context := provideContext()
+	kernel, err := config.NewKernel(context)
+	if err != nil {
+		return nil, nil, err
+	}
+	blobDynamoRepository := infrastructure.NewBlobDynamoRepository(logLogger, kernel)
+	blobS3Storage := infrastructure.NewBlobS3Storage(logLogger)
+	blobSAGA := interactor.NewBlobSaga(logLogger, blobDynamoRepository, blobS3Storage)
+	return blobSAGA, func() {
+	}, nil
+}
+
 // wire.go:
 
 var Ctx = context.Background()

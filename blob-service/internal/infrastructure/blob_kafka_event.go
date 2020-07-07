@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/maestre3d/alexandria/blob-service/internal/domain"
 	"github.com/sony/gobreaker"
+	"go.opencensus.io/trace"
 	"gocloud.dev/pubsub"
 	"strings"
 	"sync"
@@ -43,33 +44,45 @@ func (e BlobKafkaEvent) defaultCircuitBreaker(action string) *gobreaker.CircuitB
 	return gobreaker.NewCircuitBreaker(st)
 }
 
-func (e *BlobKafkaEvent) Uploaded(ctx context.Context, blob domain.Blob) error {
+func (e *BlobKafkaEvent) Uploaded(ctx context.Context, blob domain.Blob, snapshot *domain.Blob) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	entityPool := make([]string, 0)
-	entityPool = append(entityPool, blob.ID)
-
-	poolJSON, err := json.Marshal(&entityPool)
+	urlPool := []string{blob.Url}
+	urlJSON, err := json.Marshal(&urlPool)
 	if err != nil {
 		return err
 	}
 
-	p, err := eventbus.NewKafkaProducer(ctx,
+	snapshotJSON := []byte("")
+	if snapshot != nil {
+		snapshotJSON, err = json.Marshal(&snapshot)
+		if err != nil {
+			return err
+		}
+	}
+
+	parentSpan := trace.FromContext(ctx)
+	defer parentSpan.End()
+	ctxT, span := trace.StartSpanWithRemoteParent(ctx, "blob: upload", parentSpan.SpanContext())
+	defer span.End()
+
+	p, err := eventbus.NewKafkaProducer(ctxT,
 		fmt.Sprintf("%s_%s", strings.ToUpper(blob.Service), domain.BlobUploaded))
 	if err != nil {
 		return err
 	}
-	defer p.Shutdown(ctx)
+	defer p.Shutdown(ctxT)
 
 	transaction := eventbus.Transaction{
 		ID:        uuid.New().String(),
 		RootID:    blob.ID,
-		SpanID:    "",
-		TraceID:   "",
+		SpanID:    span.SpanContext().SpanID.String(),
+		TraceID:   span.SpanContext().TraceID.String(),
 		Operation: domain.BlobUploaded,
+		Snapshot:  string(snapshotJSON),
 	}
-	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, poolJSON)
+	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, urlJSON)
 
 	m := &pubsub.Message{
 		Body: event.Content,
@@ -79,6 +92,7 @@ func (e *BlobKafkaEvent) Uploaded(ctx context.Context, blob domain.Blob) error {
 			"span_id":        transaction.SpanID,
 			"trace_id":       transaction.TraceID,
 			"operation":      transaction.Operation,
+			"snapshot":       transaction.Snapshot,
 			"service":        event.ServiceName,
 			"event_id":       event.ID,
 			"event_type":     event.EventType,
@@ -90,7 +104,7 @@ func (e *BlobKafkaEvent) Uploaded(ctx context.Context, blob domain.Blob) error {
 	}
 
 	_, err = e.defaultCircuitBreaker("uploaded").Execute(func() (interface{}, error) {
-		return nil, p.Send(ctx, m)
+		return nil, p.Send(ctxT, m)
 	})
 	return err
 }
@@ -99,14 +113,26 @@ func (e *BlobKafkaEvent) Removed(ctx context.Context, rootID, service string) er
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	p, err := eventbus.NewKafkaProducer(ctx,
+	rootPool := []string{rootID}
+	rootJSON, err := json.Marshal(&rootPool)
+	if err != nil {
+		return err
+	}
+
+	parentSpan := trace.FromContext(ctx)
+	defer parentSpan.End()
+
+	ctxT, span := trace.StartSpanWithRemoteParent(ctx, "blob: removed", parentSpan.SpanContext())
+	defer span.End()
+
+	p, err := eventbus.NewKafkaProducer(ctxT,
 		fmt.Sprintf("%s_%s", strings.ToUpper(service), domain.BlobRemoved))
 	if err != nil {
 		return err
 	}
-	defer p.Shutdown(ctx)
+	defer p.Shutdown(ctxT)
 
-	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, []byte(rootID))
+	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, rootJSON)
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
@@ -121,7 +147,7 @@ func (e *BlobKafkaEvent) Removed(ctx context.Context, rootID, service string) er
 	}
 
 	_, err = e.defaultCircuitBreaker("removed").Execute(func() (interface{}, error) {
-		return nil, p.Send(ctx, m)
+		return nil, p.Send(ctxT, m)
 	})
 	return err
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/alexandria-oss/core/exception"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/maestre3d/alexandria/blob-service/internal/domain"
 	"strconv"
 	"strings"
@@ -33,27 +34,46 @@ func (u *Blob) Store(ctx context.Context, ag *domain.BlobAggregate) (*domain.Blo
 			fmt.Sprintf(exception.InvalidFieldFormatString, "size", "int64/bigint"))
 	}
 
-	blob := domain.NewBlob(ag.RootID, ag.Service, ag.BlobType, ag.Extension, size)
-	err = blob.IsValid()
+	ctxR, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	operationKind := "update"
+	prefID := domain.GetServiceID(ag.Service) + ag.RootID
+	blob, err := u.repository.FetchByID(ctxR, prefID)
+	snapshot := blob
 	if err != nil {
-		return nil, err
+		// If not exists, create new blob entity
+		blob = domain.NewBlob(ag.RootID, ag.Service, ag.BlobType, ag.Extension, size)
+		err = blob.IsValid()
+		if err != nil {
+			return nil, err
+		}
+		operationKind = "create"
 	}
 
 	blob.Content = ag.Content
 	defer blob.Content.Close()
 
-	ctxR, cancel := context.WithCancel(ctx)
-	defer cancel()
-	// Storage is our priority, persistence is just for logging/admin tasks
+	// Storage is our priority
 	err = u.storage.Store(ctxR, blob)
 	if err != nil {
 		return nil, err
 	}
+
+	// If any single error, then rollback persistence
 	defer func() {
 		// Rollback
 		if err != nil {
-			if errRoll := u.storage.Delete(ctxR, blob.Name, blob.Service); errRoll != nil {
-				_ = u.logger.Log("method", "blob.interactor.store", "err", errRoll.Error())
+			if operationKind == "create" {
+				if errRoll := u.storage.Delete(ctxR, blob.Name, blob.Service); errRoll != nil {
+					_ = u.logger.Log("method", "blob.interactor.store", "err", errRoll.Error())
+				}
+			} else {
+				err = u.repository.Save(ctxR, *snapshot)
+			}
+
+			if err != nil {
+				_ = u.logger.Log("method", "blob.interactor.store", "err", err.Error())
 			}
 		}
 	}()
@@ -74,12 +94,17 @@ func (u *Blob) Store(ctx context.Context, ag *domain.BlobAggregate) (*domain.Blo
 	go func() {
 		ctxE, cancelE := context.WithCancel(ctx)
 		defer cancelE()
-		errC <- u.eventBus.Uploaded(ctxE, *blob)
+		errC <- u.eventBus.Uploaded(ctxE, *blob, snapshot)
 	}()
 
 	select {
 	case err = <-errC:
 		if err != nil {
+			// Rollback persistence
+			if operationKind == "create" {
+				errR := u.repository.Remove(ctxR, prefID)
+				_ = level.Error(u.logger).Log("err", errR)
+			}
 			_ = u.logger.Log("method", "blob.interactor.store", "msg",
 				fmt.Sprintf("%s_%s event sending failed", strings.ToUpper(blob.Service), domain.BlobUploaded),
 				"err", err.Error())
@@ -113,6 +138,7 @@ func (u *Blob) Delete(ctx context.Context, id, service string) error {
 	ctxR, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// Retrieve blob entity from database to get file extension
 	blob, err := u.repository.FetchByID(ctxR, prefID)
 	if err != nil {
 		return err
@@ -120,14 +146,18 @@ func (u *Blob) Delete(ctx context.Context, id, service string) error {
 
 	err = u.storage.Delete(ctxR, blob.Name, blob.Service)
 	if err != nil {
+		_ = u.logger.Log("method", "blob.interactor.delete", "msg",
+			"blob storage removal failed",
+			"err", err.Error())
 		return err
 	}
 
 	err = u.repository.Remove(ctxR, prefID)
 	if err != nil {
-		u.logger.Log("method", "blob.interactor.store", "msg",
+		_ = u.logger.Log("method", "blob.interactor.delete", "msg",
 			"persistence removal failed",
 			"err", err.Error())
+		return err
 	}
 
 	errC := make(chan error)
@@ -140,7 +170,7 @@ func (u *Blob) Delete(ctx context.Context, id, service string) error {
 	select {
 	case err = <-errC:
 		if err != nil {
-			_ = u.logger.Log("method", "blob.interactor.store", "msg",
+			_ = u.logger.Log("method", "blob.interactor.delete", "msg",
 				fmt.Sprintf("%s_%s event sending failed", strings.ToUpper(service), domain.BlobUploaded),
 				"err", err.Error())
 			return err

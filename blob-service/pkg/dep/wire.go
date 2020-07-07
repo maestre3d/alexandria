@@ -29,6 +29,7 @@ var interactorSet = wire.NewSet(
 	provideContext,
 	logger.NewZapLogger,
 	provideBlobInteractor,
+	provideBlobSagaInteractor,
 )
 
 var zipkinSet = wire.NewSet(
@@ -62,6 +63,15 @@ func provideBlobInteractor(log log.Logger) (usecase.BlobInteractor, func(), erro
 
 	interactor, cleanup, err := dependency.InjectBlobUseCase()
 	svc := blob.WrapBlobInstrumentation(interactor, log)
+
+	return svc, cleanup, err
+}
+
+func provideBlobSagaInteractor(log log.Logger) (usecase.BlobSagaInteractor, func(), error) {
+	dependency.Ctx = Ctx
+
+	interactor, cleanup, err := dependency.InjectBlobSagaUseCase()
+	svc := blob.WrapBlobSagaInstrumentation(interactor, log)
 
 	return svc, cleanup, err
 }

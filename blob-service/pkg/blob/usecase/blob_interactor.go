@@ -10,3 +10,7 @@ type BlobInteractor interface {
 	Get(ctx context.Context, id, service string) (*domain.Blob, error)
 	Delete(ctx context.Context, id, service string) error
 }
+
+type BlobSagaInteractor interface {
+	Failed(ctx context.Context, rootID, service string, snapshotJSON []byte) error
+}

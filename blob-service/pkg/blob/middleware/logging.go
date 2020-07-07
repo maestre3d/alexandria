@@ -58,3 +58,23 @@ func (mw LoggingBlobMiddleware) Delete(ctx context.Context, id, service string) 
 	err = mw.Next.Delete(ctx, id, service)
 	return
 }
+
+type LoggingBlobSagaMiddleware struct {
+	Logger log.Logger
+	Next   usecase.BlobSagaInteractor
+}
+
+func (mw LoggingBlobSagaMiddleware) Failed(ctx context.Context, rootID, service string, snapshotJSON []byte) (err error) {
+	defer func(begin time.Time) {
+		_ = mw.Logger.Log(
+			"method", "blob.saga.failed",
+			"input", fmt.Sprintf("root_id: %s, service: %s, snapshot: %s", rootID, service, string(snapshotJSON)),
+			"output", "",
+			"err", err,
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+
+	err = mw.Next.Failed(ctx, rootID, service, snapshotJSON)
+	return
+}

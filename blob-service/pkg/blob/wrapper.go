@@ -45,3 +45,41 @@ func WrapBlobInstrumentation(blobUseCase usecase.BlobInteractor, logger log.Logg
 
 	return svc
 }
+
+func WrapBlobSagaInstrumentation(blobUseCase usecase.BlobSagaInteractor, logger log.Logger) usecase.BlobSagaInteractor {
+	// Inject Prometheus metrics
+	// Inject logger
+	fieldKeys := []string{"method", "error"}
+	requestCount := kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
+		Namespace:   "alexandria",
+		Subsystem:   "blob_service",
+		Name:        "request_count_saga",
+		Help:        "number of request received",
+		ConstLabels: nil,
+	}, fieldKeys)
+	requestLatency := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
+		Namespace:   "alexandria",
+		Subsystem:   "blob_service",
+		Name:        "request_latency_saga",
+		Help:        "total duration of requests in microseconds",
+		ConstLabels: nil,
+		Objectives:  nil,
+		MaxAge:      0,
+		AgeBuckets:  0,
+		BufCap:      0,
+	}, fieldKeys)
+
+	var svc usecase.BlobSagaInteractor
+	svc = blobUseCase
+	svc = middleware.LoggingBlobSagaMiddleware{
+		Logger: logger,
+		Next:   svc,
+	}
+	svc = middleware.MetricBlobSagaMiddleware{
+		RequestCount:   requestCount,
+		RequestLatency: requestLatency,
+		Next:           svc,
+	}
+
+	return svc
+}
