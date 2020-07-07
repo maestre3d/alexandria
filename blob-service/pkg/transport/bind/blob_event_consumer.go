@@ -2,6 +2,7 @@ package bind
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/eventbus"
 	"github.com/alexandria-oss/core/httputil"
@@ -10,7 +11,7 @@ import (
 	"github.com/maestre3d/alexandria/blob-service/internal/domain"
 	"github.com/maestre3d/alexandria/blob-service/pkg/blob/usecase"
 	"github.com/sony/gobreaker"
-	"gocloud.dev/pubsub"
+	"go.opencensus.io/trace"
 	"time"
 )
 
@@ -78,35 +79,57 @@ func (c *BlobEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context, 
 }
 
 func (c *BlobEventConsumer) bindBlobFailed(ctx context.Context, service string) (*eventbus.Consumer, error) {
-	sub, err := c.defaultCircuitBreaker("blob_failed").Execute(func() (interface{}, error) {
-		return eventbus.NewKafkaConsumer(ctx, service, domain.BlobFailed)
+	consumer, err := c.defaultCircuitBreaker("blob_failed").Execute(func() (interface{}, error) {
+		sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.BlobFailed)
+		if err != nil {
+			return nil, err
+		}
+
+		return &eventbus.Consumer{
+			MaxHandler: 10,
+			Consumer:   sub,
+			Handler:    c.onBlobFailed,
+		}, nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &eventbus.Consumer{
-		MaxHandler: 10,
-		Consumer:   sub.(*pubsub.Subscription),
-		Handler:    nil,
-	}, nil
+	return consumer.(*eventbus.Consumer), nil
 }
 
 func (c *BlobEventConsumer) onBlobFailed(r *eventbus.Request) {
 	eC := injectEventContext(r)
 
-	ctxU := context.WithValue(r.Context, eventbus.EventContextKey("event"), eC)
-	err := c.svc.Failed(ctxU, eC.Transaction.RootID, eC.Event.ServiceName, eC.Event.Content)
+	// Get span context from message
+	var traceCtx trace.SpanContext
+	err := json.Unmarshal([]byte(r.Message.Metadata["tracing_context"]), &traceCtx)
 	if err != nil {
+		// If span is not valid, then create one from our current context
+		rootSpan := trace.FromContext(r.Context)
+		defer rootSpan.End()
+		traceCtx = rootSpan.SpanContext()
+	}
+
+	// Start a new span with the parent span
+	ctxT, span := trace.StartSpanWithRemoteParent(r.Context, "blob: failed", traceCtx)
+	defer span.End()
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeInvalidArgument,
+		Message: string(eC.Event.Content),
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.BlobFailed))
+
+	ctxU := context.WithValue(ctxT, eventbus.EventContextKey("event"), eC)
+	err = c.svc.Failed(ctxU, eC.Transaction.RootID, eC.Event.ServiceName, []byte(eC.Transaction.Snapshot))
+	if err != nil {
+		_ = level.Error(c.logger).Log("err", err)
 		// If internal error, do nack
-		code := httputil.ErrorToCode(err)
-		if code == 500 {
+		if code := httputil.ErrorToCode(err); code == 500 {
 			if r.Message.Nackable() {
 				r.Message.Nack()
+				return
 			}
-
-			_ = level.Error(c.logger).Log("err", err)
-			return
 		}
 	}
 

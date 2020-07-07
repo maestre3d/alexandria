@@ -61,6 +61,8 @@ func GetServiceID(service string) string {
 	switch service {
 	case User:
 		return "0001"
+	case "identity":
+		return "0001"
 	case Author:
 		return "0002"
 	case Media:

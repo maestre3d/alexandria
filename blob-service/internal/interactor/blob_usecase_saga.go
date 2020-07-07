@@ -27,21 +27,19 @@ func (u *BlobSAGA) Failed(ctx context.Context, rootID, service string, snapshotJ
 	defer cancel()
 
 	var snapshot *domain.Blob
-	prefID := domain.GetServiceID(service) + rootID
-	blob, err := u.repo.FetchByID(ctxR, prefID)
-	defer func() {
-		if err != nil {
-			_ = level.Error(u.logger).Log("err", err)
-		}
-	}()
-	if err != nil {
-		return err
-	}
 
-	err = json.Unmarshal(snapshotJSON, &snapshot)
+	err := json.Unmarshal(snapshotJSON, &snapshot)
 	if err != nil {
 		// If not a valid snapshot, then rollback create operation
-		err = u.storage.Delete(ctxR, blob.Name, service)
+		prefID := domain.GetServiceID(service) + rootID
+		_ = level.Info(u.logger).Log("prefix_id", prefID)
+
+		blob, err := u.repo.FetchByID(ctxR, prefID)
+		if err != nil {
+			return err
+		}
+
+		err = u.storage.Delete(ctxR, blob.Name, blob.Service)
 		if err != nil {
 			return err
 		}

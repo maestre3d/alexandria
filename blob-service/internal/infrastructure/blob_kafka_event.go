@@ -67,6 +67,17 @@ func (e *BlobKafkaEvent) Uploaded(ctx context.Context, blob domain.Blob, snapsho
 	ctxT, span := trace.StartSpanWithRemoteParent(ctx, "blob: upload", parentSpan.SpanContext())
 	defer span.End()
 
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.BlobUploaded))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return err
+	}
+
 	p, err := eventbus.NewKafkaProducer(ctxT,
 		fmt.Sprintf("%s_%s", strings.ToUpper(blob.Service), domain.BlobUploaded))
 	if err != nil {
@@ -83,22 +94,22 @@ func (e *BlobKafkaEvent) Uploaded(ctx context.Context, blob domain.Blob, snapsho
 		Snapshot:  string(snapshotJSON),
 	}
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, urlJSON)
-
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
-			"transaction_id": transaction.ID,
-			"root_id":        transaction.RootID,
-			"span_id":        transaction.SpanID,
-			"trace_id":       transaction.TraceID,
-			"operation":      transaction.Operation,
-			"snapshot":       transaction.Snapshot,
-			"service":        event.ServiceName,
-			"event_id":       event.ID,
-			"event_type":     event.EventType,
-			"priority":       event.Priority,
-			"provider":       event.Provider,
-			"dispatch_time":  event.DispatchTime,
+			"transaction_id":  transaction.ID,
+			"root_id":         transaction.RootID,
+			"span_id":         transaction.SpanID,
+			"trace_id":        transaction.TraceID,
+			"operation":       transaction.Operation,
+			"snapshot":        transaction.Snapshot,
+			"tracing_context": string(spanJSON),
+			"service":         event.ServiceName,
+			"event_id":        event.ID,
+			"event_type":      event.EventType,
+			"priority":        event.Priority,
+			"provider":        event.Provider,
+			"dispatch_time":   event.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
@@ -125,6 +136,17 @@ func (e *BlobKafkaEvent) Removed(ctx context.Context, rootID, service string) er
 	ctxT, span := trace.StartSpanWithRemoteParent(ctx, "blob: removed", parentSpan.SpanContext())
 	defer span.End()
 
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.BlobRemoved))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return err
+	}
+
 	p, err := eventbus.NewKafkaProducer(ctxT,
 		fmt.Sprintf("%s_%s", strings.ToUpper(service), domain.BlobRemoved))
 	if err != nil {
@@ -136,12 +158,13 @@ func (e *BlobKafkaEvent) Removed(ctx context.Context, rootID, service string) er
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
-			"service":       event.ServiceName,
-			"event_id":      event.ID,
-			"event_type":    event.EventType,
-			"priority":      event.Priority,
-			"provider":      event.Provider,
-			"dispatch_time": event.DispatchTime,
+			"tracing_context": string(spanJSON),
+			"service":         event.ServiceName,
+			"event_id":        event.ID,
+			"event_type":      event.EventType,
+			"priority":        event.Priority,
+			"provider":        event.Provider,
+			"dispatch_time":   event.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
