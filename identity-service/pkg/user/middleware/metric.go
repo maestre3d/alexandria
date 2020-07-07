@@ -42,3 +42,25 @@ func (mw MetricUserSAGAMiddleware) Verify(ctx context.Context, usersJSON []byte)
 	err = mw.Next.Verify(ctx, usersJSON)
 	return
 }
+
+func (mw MetricUserSAGAMiddleware) UpdatePicture(ctx context.Context, id string, urlJSON []byte) (err error) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "user.saga.update_picture", "error", fmt.Sprint(err != nil)}
+		mw.RequestCount.With(lvs...).Add(1)
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	err = mw.Next.UpdatePicture(ctx, id, urlJSON)
+	return
+}
+
+func (mw MetricUserSAGAMiddleware) RemovePicture(ctx context.Context, rootJSON []byte) (err error) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "user.saga.remove_picture", "error", fmt.Sprint(err != nil)}
+		mw.RequestCount.With(lvs...).Add(1)
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	err = mw.Next.RemovePicture(ctx, rootJSON)
+	return
+}

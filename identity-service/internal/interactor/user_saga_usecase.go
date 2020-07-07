@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/alexandria-oss/core/exception"
+	"github.com/alexandria-oss/core/httputil"
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/identity-service/internal/domain"
 )
@@ -23,6 +24,74 @@ func NewUserSAGA(logger log.Logger, repo domain.UserRepository, event domain.Use
 	}
 }
 
+func (u *UserSAGA) UpdatePicture(ctx context.Context, id string, urlJSON []byte) error {
+	ctxR, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var urls []string
+	err := json.Unmarshal(urlJSON, &urls)
+
+	// If parsing error, throw rollback event
+	if err != nil {
+		err = u.event.BlobFailed(ctxR, err.Error())
+		if err != nil {
+			return err
+		}
+		_ = u.logger.Log("msg", "event "+domain.BlobFailed+" produced")
+	}
+
+	user, err := u.repository.FetchByID(ctxR, id)
+	// If user-provoked error, then rollback
+	defer func() {
+		if err != nil {
+			if code := httputil.ErrorToCode(err); code != 500 {
+				err = u.event.BlobFailed(ctxR, err.Error())
+				if err == nil {
+					_ = u.logger.Log("msg", "event "+domain.BlobFailed+" produced")
+				}
+			}
+		}
+	}()
+	if err != nil {
+		return err
+	}
+
+	err = u.repository.ReplacePicture(ctxR, user.Username, urls[0])
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (u *UserSAGA) RemovePicture(ctx context.Context, rootJSON []byte) error {
+	ctxR, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var rooIDPool []string
+	err := json.Unmarshal(rootJSON, &rooIDPool)
+	if err != nil {
+		return err
+	}
+
+	user, err := u.repository.FetchByID(ctxR, rooIDPool[0])
+	if err != nil {
+		return err
+	}
+
+	err = u.repository.ReplacePicture(ctxR, user.Username, "")
+	if err != nil {
+		errE := u.event.BlobFailed(ctxR, err.Error())
+		if errE != nil {
+			return errE
+		}
+		_ = u.logger.Log("msg", "event "+domain.BlobFailed+" produced")
+		return err
+	}
+
+	return nil
+}
+
 // Verifier implementation
 
 func (u *UserSAGA) Verify(ctx context.Context, usersJSON []byte) error {
@@ -36,7 +105,7 @@ func (u *UserSAGA) Verify(ctx context.Context, usersJSON []byte) error {
 		_ = u.logger.Log("method", "identity.interactor.saga.verify", "err", err.Error())
 
 		// Rollback if format error
-		err = u.event.Failed(ctxR)
+		err = u.event.Failed(ctxR, err.Error())
 		if err != nil {
 			// Error during publishing
 			_ = u.logger.Log("method", "identity.interactor.saga.verify", "err", err.Error())
@@ -53,7 +122,7 @@ func (u *UserSAGA) Verify(ctx context.Context, usersJSON []byte) error {
 		if err != nil {
 			_ = u.logger.Log("method", "identity.interactor.saga.verify", "err", err.Error())
 
-			err = u.event.Failed(ctxR)
+			err = u.event.Failed(ctxR, err.Error())
 			if err != nil {
 				_ = u.logger.Log("method", "identity.interactor.saga.verify", "err", err.Error())
 				return err

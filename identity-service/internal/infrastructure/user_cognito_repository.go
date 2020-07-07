@@ -10,6 +10,8 @@ import (
 	cognito "github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/identity-service/internal/domain"
+	"go.opencensus.io/trace"
+	"strings"
 	"sync"
 )
 
@@ -18,7 +20,7 @@ type UserCognitoRepository struct {
 	client *cognito.CognitoIdentityProvider
 	cfg    *config.Kernel
 	logger log.Logger
-	mu    *sync.Mutex
+	mu     *sync.Mutex
 }
 
 func NewUserCognitoRepository(logger log.Logger, cfg *config.Kernel) *UserCognitoRepository {
@@ -26,7 +28,7 @@ func NewUserCognitoRepository(logger log.Logger, cfg *config.Kernel) *UserCognit
 		client: newCognitoClient(),
 		cfg:    cfg,
 		logger: logger,
-		mu:    new(sync.Mutex),
+		mu:     new(sync.Mutex),
 	}
 }
 
@@ -51,7 +53,11 @@ func (r *UserCognitoRepository) FetchByID(ctx context.Context, id string) (*doma
 		UserPoolId:      aws.String(r.cfg.AWS.CognitoPoolID),
 	}
 
-	userC, err := r.client.ListUsersWithContext(ctx, i)
+	// Add OpenCensus to AWS_SDK action
+	ctxT, span := trace.StartSpan(ctx, "aws_sdk/cognito.list_users")
+	defer span.End()
+
+	userC, err := r.client.ListUsersWithContext(ctxT, i)
 	if err != nil {
 		return nil, err
 	}
@@ -82,4 +88,35 @@ func (r *UserCognitoRepository) FetchByID(ctx context.Context, id string) (*doma
 	}
 
 	return user, nil
+}
+
+func (r *UserCognitoRepository) ReplacePicture(ctx context.Context, id, pictureURL string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	i := &cognito.AdminUpdateUserAttributesInput{
+		ClientMetadata: nil,
+		UserAttributes: []*cognito.AttributeType{{
+			Name:  aws.String("picture"),
+			Value: aws.String(pictureURL),
+		}},
+		UserPoolId: aws.String(r.cfg.AWS.CognitoPoolID),
+		Username:   aws.String(id),
+	}
+
+	// Add OpenCensus to AWS_SDK action
+	ctxT, span := trace.StartSpan(ctx, "aws_sdk/cognito.update_user_attributes")
+	defer span.End()
+
+	_, err := r.client.AdminUpdateUserAttributesWithContext(ctxT, i)
+	if err != nil {
+		cgErr := strings.Split(err.Error(), ": ")[0]
+		if len(cgErr) >= 1 && cgErr == cognito.ErrCodeUserNotFoundException {
+			return exception.EntityNotFound
+		}
+
+		return err
+	}
+
+	return nil
 }

@@ -48,3 +48,33 @@ func (mw LoggingUserSAGAMiddleware) Verify(ctx context.Context, usersJSON []byte
 	err = mw.Next.Verify(ctx, usersJSON)
 	return
 }
+
+func (mw LoggingUserSAGAMiddleware) UpdatePicture(ctx context.Context, id string, urlJSON []byte) (err error) {
+	defer func(begin time.Time) {
+		mw.Logger.Log(
+			"method", "user.saga.update_picture",
+			"input", fmt.Sprintf("user_id: %s, picture_url: %s", id, string(urlJSON)),
+			"output", "",
+			"err", err,
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+
+	err = mw.Next.UpdatePicture(ctx, id, urlJSON)
+	return
+}
+
+func (mw LoggingUserSAGAMiddleware) RemovePicture(ctx context.Context, rootJSON []byte) (err error) {
+	defer func(begin time.Time) {
+		mw.Logger.Log(
+			"method", "user.saga.update_picture",
+			"input", fmt.Sprintf("user_id: %s", string(rootJSON)),
+			"output", "",
+			"err", err,
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+
+	err = mw.Next.RemovePicture(ctx, rootJSON)
+	return
+}
