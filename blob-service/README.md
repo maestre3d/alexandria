@@ -11,15 +11,28 @@ Alexandria is currently licensed under the MIT license.
 
 | Method              |     HTTP Mapping                          |  HTTP Request body  |  HTTP Response body        |
 |---------------------|:-----------------------------------------:|:-------------------:|:--------------------------:|
-| **Get**             |  GET /blob/author/{author-id}             |   N/A               |   Blob*                    |
-| **Store**           |  POST /private/blob/author/{author-id}    |   File              |   Blob*                    |
-| **Delete**          |  DELETE /private/blob/author/{author-id}  |   N/A               |   protobuf.empty/{}        |
-| **Get**             |  GET /blob/media/{media-id}               |   N/A               |   Blob*                    |
-| **Store**           |  POST /private/blob/media/{media-id}      |   File              |   Blob*                    |
-| **Delete**          |  DELETE /private/blob/media/{media-id}    |   N/A               |   protobuf.empty/{}        |
+| **List**            |  GET /admin/blob/                         |   N/A               |   Blob* List               |
+
+### Identity/User
+| Method              |     HTTP Mapping                          |  HTTP Request body  |  HTTP Response body        |
+|---------------------|:-----------------------------------------:|:-------------------:|:--------------------------:|
 | **Get**             |  GET /blob/user/{user-id}                 |   N/A               |   Blob*                    |
 | **Store**           |  POST /private/blob/user/{user-id}        |   File              |   Blob*                    |
 | **Delete**          |  DELETE /private/blob/user/{user-id}      |   N/A               |   protobuf.empty/{}        |
+
+### Author
+| Method              |     HTTP Mapping                          |  HTTP Request body  |  HTTP Response body        |
+|---------------------|:-----------------------------------------:|:-------------------:|:--------------------------:|
+| **Get**             |  GET /blob/author/{author-id}             |   N/A               |   Blob*                    |
+| **Store**           |  POST /private/blob/author/{author-id}    |   File              |   Blob*                    |
+| **Delete**          |  DELETE /private/blob/author/{author-id}  |   N/A               |   protobuf.empty/{}        |
+
+### Media
+| Method              |     HTTP Mapping                          |  HTTP Request body  |  HTTP Response body        |
+|---------------------|:-----------------------------------------:|:-------------------:|:--------------------------:|
+| **Get**             |  GET /blob/media/{media-id}               |   N/A               |   Blob*                    |
+| **Store**           |  POST /private/blob/media/{media-id}      |   File              |   Blob*                    |
+| **Delete**          |  DELETE /private/blob/media/{media-id}    |   N/A               |   protobuf.empty/{}        |
 
 ### Accepted Queries
 The list method accepts multiple queries to make data fetching easier for everyone.
