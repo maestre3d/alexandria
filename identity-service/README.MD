@@ -12,7 +12,7 @@ Alexandria is currently licensed under the MIT license.
 ## Endpoints
 | Method              |     HTTP Mapping                        |  HTTP Request body  |  HTTP Response body |
 |---------------------|:---------------------------------------:|:-------------------:|:-------------------:|
-| **List**            |  GET /user                              |   N/A               |   User* list        |
+| **List**            |  GET /admin/user                        |   N/A               |   User* list        |
 | **Get**             |  GET /user/{author-id}                  |   N/A               |   User*             |
 | **Update**          |  PUT or PATCH /private/user/{user-id}   |   User              |   User*             |
 | **Delete**          |  DELETE /private/user/{user-id}         |   N/A               |   protobuf.empty/{} |
