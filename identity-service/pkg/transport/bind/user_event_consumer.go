@@ -64,7 +64,7 @@ func (c UserEventConsumer) defaultCircuitBreaker(action string) *gobreaker.Circu
 	return gobreaker.NewCircuitBreaker(st)
 }
 
-func injectContext(r *eventbus.Request) *eventbus.EventContext {
+func extractContext(r *eventbus.Request) *eventbus.EventContext {
 	return &eventbus.EventContext{
 		Transaction: &eventbus.Transaction{
 			ID:        r.Message.Metadata["transaction_id"],
@@ -172,7 +172,7 @@ func (c *UserEventConsumer) bindBlobRemoved(ctx context.Context, service string)
 // Hooks / Handlers
 func (c *UserEventConsumer) onOwnerVerify(r *eventbus.Request) {
 	// Wrap whole event for context propagation / OpenTracing-like
-	eC := injectContext(r)
+	eC := extractContext(r)
 	// Get span context from message
 	var traceCtx trace.SpanContext
 	err := json.Unmarshal([]byte(r.Message.Metadata["tracing_context"]), &traceCtx)
@@ -209,7 +209,7 @@ func (c *UserEventConsumer) onOwnerVerify(r *eventbus.Request) {
 }
 
 func (c *UserEventConsumer) onBlobUploaded(r *eventbus.Request) {
-	eC := injectContext(r)
+	eC := extractContext(r)
 	// Get span context from message
 	var traceCtx trace.SpanContext
 	err := json.Unmarshal([]byte(r.Message.Metadata["tracing_context"]), &traceCtx)
@@ -246,7 +246,7 @@ func (c *UserEventConsumer) onBlobUploaded(r *eventbus.Request) {
 }
 
 func (c *UserEventConsumer) onBlobRemoved(r *eventbus.Request) {
-	eC := injectContext(r)
+	eC := extractContext(r)
 	// Get span context from message
 	var traceCtx trace.SpanContext
 	err := json.Unmarshal([]byte(r.Message.Metadata["tracing_context"]), &traceCtx)

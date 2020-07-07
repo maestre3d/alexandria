@@ -60,11 +60,8 @@ func (e *UserSAGAKafkaEvent) Verified(ctx context.Context) error {
 		return exception.NewErrorDescription(exception.RequiredField, fmt.Sprintf(exception.RequiredFieldString, "service_name"))
 	}
 
-	// Get parent context
-	parentSpan := trace.FromContext(ctx)
-	defer parentSpan.End()
-
-	ctxT, span := trace.StartSpanWithRemoteParent(ctx, "identity: verified", parentSpan.SpanContext())
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "identity: verified")
 	defer span.End()
 
 	span.SetStatus(trace.Status{
@@ -125,7 +122,8 @@ func (e *UserSAGAKafkaEvent) Failed(ctx context.Context, msg string) error {
 	// Owner/User verified, publish SERVICE_OWNER_VERIFIED
 	eC, err := eventbus.ExtractContext(ctx)
 	if err != nil {
-		return err
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"event", "event context"))
 	}
 
 	// Avoid non-service naming, it would be impossible to respond to event
@@ -133,10 +131,8 @@ func (e *UserSAGAKafkaEvent) Failed(ctx context.Context, msg string) error {
 		return exception.NewErrorDescription(exception.RequiredField, fmt.Sprintf(exception.RequiredFieldString, "service_name"))
 	}
 
-	parentSpan := trace.FromContext(ctx)
-	defer parentSpan.End()
-
-	ctxT, span := trace.StartSpanWithRemoteParent(ctx, "identity: failed", parentSpan.SpanContext())
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "identity: failed")
 	defer span.End()
 
 	span.SetStatus(trace.Status{
@@ -197,12 +193,12 @@ func (e *UserSAGAKafkaEvent) BlobFailed(ctx context.Context, msg string) error {
 	// User failed to update, publish BLOB_FAILED
 	eC, err := eventbus.ExtractContext(ctx)
 	if err != nil {
-		return err
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"event", "event context"))
 	}
 
-	parentSpan := trace.FromContext(ctx)
-	defer parentSpan.End()
-	ctxT, span := trace.StartSpanWithRemoteParent(ctx, "identity: blob_failed", parentSpan.SpanContext())
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "identity: blob_failed")
 	defer span.End()
 
 	span.SetStatus(trace.Status{

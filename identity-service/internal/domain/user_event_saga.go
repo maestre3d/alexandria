@@ -10,7 +10,7 @@ const (
 
 	// External helper services
 	BlobUploaded = "USER_BLOB_UPLOADED" // Consumed
-	BlobRemoved  = "BLOB_REMOVED"       // Consumed
+	BlobRemoved  = "USER_BLOB_REMOVED"  // Consumed
 	BlobFailed   = "BLOB_FAILED"        // Produced
 )
 
