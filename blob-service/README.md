@@ -11,7 +11,7 @@ Alexandria is currently licensed under the MIT license.
 
 | Method              |     HTTP Mapping                          |  HTTP Request body  |  HTTP Response body        |
 |---------------------|:-----------------------------------------:|:-------------------:|:--------------------------:|
-| **List**            |  GET /admin/blob/                         |   N/A               |   Blob* List               |
+| **List**            |  GET /admin/blob                          |   N/A               |   Blob* List               |
 
 ### Identity/User
 | Method              |     HTTP Mapping                          |  HTTP Request body  |  HTTP Response body        |
