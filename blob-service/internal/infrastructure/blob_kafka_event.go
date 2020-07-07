@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/eventbus"
+	"github.com/alexandria-oss/core/exception"
 	"github.com/google/uuid"
 	"github.com/maestre3d/alexandria/blob-service/internal/domain"
 	"github.com/sony/gobreaker"
@@ -51,20 +52,21 @@ func (e *BlobKafkaEvent) Uploaded(ctx context.Context, blob domain.Blob, snapsho
 	urlPool := []string{blob.Url}
 	urlJSON, err := json.Marshal(&urlPool)
 	if err != nil {
-		return err
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"url", "valid url"))
 	}
 
 	snapshotJSON := []byte("")
 	if snapshot != nil {
 		snapshotJSON, err = json.Marshal(&snapshot)
 		if err != nil {
-			return err
+			return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+				"snapshot", "valid struct"))
 		}
 	}
 
-	parentSpan := trace.FromContext(ctx)
-	defer parentSpan.End()
-	ctxT, span := trace.StartSpanWithRemoteParent(ctx, "blob: upload", parentSpan.SpanContext())
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "blob: upload")
 	defer span.End()
 
 	span.SetStatus(trace.Status{
@@ -75,7 +77,8 @@ func (e *BlobKafkaEvent) Uploaded(ctx context.Context, blob domain.Blob, snapsho
 
 	spanJSON, err := json.Marshal(span.SpanContext())
 	if err != nil {
-		return err
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
 	}
 
 	p, err := eventbus.NewKafkaProducer(ctxT,
@@ -127,24 +130,24 @@ func (e *BlobKafkaEvent) Removed(ctx context.Context, rootID, service string) er
 	rootPool := []string{rootID}
 	rootJSON, err := json.Marshal(&rootPool)
 	if err != nil {
-		return err
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"root_id", "blob id"))
 	}
 
-	parentSpan := trace.FromContext(ctx)
-	defer parentSpan.End()
-
-	ctxT, span := trace.StartSpanWithRemoteParent(ctx, "blob: removed", parentSpan.SpanContext())
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "blob: removed")
 	defer span.End()
 
 	span.SetStatus(trace.Status{
 		Code:    trace.StatusCodeOK,
 		Message: "send event",
 	})
-	span.AddAttributes(trace.StringAttribute("event.name", domain.BlobRemoved))
+	span.AddAttributes(trace.StringAttribute("event.name", strings.ToUpper(service)+"_"+domain.BlobRemoved))
 
 	spanJSON, err := json.Marshal(span.SpanContext())
 	if err != nil {
-		return err
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
 	}
 
 	p, err := eventbus.NewKafkaProducer(ctxT,

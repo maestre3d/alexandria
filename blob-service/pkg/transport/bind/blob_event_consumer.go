@@ -45,7 +45,7 @@ func (c BlobEventConsumer) defaultCircuitBreaker(action string) *gobreaker.Circu
 	return gobreaker.NewCircuitBreaker(st)
 }
 
-func injectEventContext(r *eventbus.Request) *eventbus.EventContext {
+func extractContext(r *eventbus.Request) *eventbus.EventContext {
 	return &eventbus.EventContext{
 		Transaction: &eventbus.Transaction{
 			ID:        r.Message.Metadata["transaction_id"],
@@ -99,7 +99,7 @@ func (c *BlobEventConsumer) bindBlobFailed(ctx context.Context, service string) 
 }
 
 func (c *BlobEventConsumer) onBlobFailed(r *eventbus.Request) {
-	eC := injectEventContext(r)
+	eC := extractContext(r)
 
 	// Get span context from message
 	var traceCtx trace.SpanContext
