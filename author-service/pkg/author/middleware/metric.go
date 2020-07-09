@@ -143,7 +143,7 @@ func (mw MetricAuthorSAGAMiddleware) UpdatePicture(ctx context.Context, rootID s
 	return
 }
 
-func (mw MetricAuthorSAGAMiddleware) RemovePicture(ctx context.Context, rootID string) (err error) {
+func (mw MetricAuthorSAGAMiddleware) RemovePicture(ctx context.Context, rootID []byte) (err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "author.saga.remove_picture", "error", fmt.Sprint(err != nil)}
 		mw.RequestCount.With(lvs...).Add(1)

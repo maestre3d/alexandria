@@ -126,18 +126,18 @@ type LoggingAuthorSAGAMiddleware struct {
 	Next   usecase.AuthorSAGAInteractor
 }
 
-func (mw LoggingAuthorSAGAMiddleware) Verify(ctx context.Context, authorsJSON []byte) (err error) {
+func (mw LoggingAuthorSAGAMiddleware) Verify(ctx context.Context, service string, authorsJSON []byte) (err error) {
 	defer func(begin time.Time) {
 		_ = mw.Logger.Log(
 			"method", "author.saga.verify",
-			"input", fmt.Sprintf("author_pool: %s", string(authorsJSON)),
+			"input", fmt.Sprintf("service: %s, author_pool: %s", service, string(authorsJSON)),
 			"output", err,
 			"err", err,
 			"took", time.Since(begin),
 		)
 	}(time.Now())
 
-	err = mw.Next.Verify(ctx, authorsJSON)
+	err = mw.Next.Verify(ctx, service, authorsJSON)
 	return
 }
 
@@ -186,11 +186,11 @@ func (mw LoggingAuthorSAGAMiddleware) UpdatePicture(ctx context.Context, rootID 
 	return
 }
 
-func (mw LoggingAuthorSAGAMiddleware) RemovePicture(ctx context.Context, rootID string) (err error) {
+func (mw LoggingAuthorSAGAMiddleware) RemovePicture(ctx context.Context, rootID []byte) (err error) {
 	defer func(begin time.Time) {
 		_ = mw.Logger.Log(
 			"method", "author.saga.remove_picture",
-			"input", fmt.Sprintf("root_id: %s", rootID),
+			"input", fmt.Sprintf("root_id: %s", string(rootID)),
 			"output", err,
 			"err", err,
 			"took", time.Since(begin),

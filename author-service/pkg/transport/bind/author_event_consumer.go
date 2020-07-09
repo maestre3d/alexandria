@@ -186,7 +186,7 @@ func (c *AuthorEventConsumer) bindBlobUploaded(ctx context.Context, service stri
 }
 
 func (c *AuthorEventConsumer) bindBlobRemoved(ctx context.Context, service string) (*eventbus.Consumer, error) {
-	sub, err := c.defaultCircuitBreaker("author_failed").Execute(func() (interface{}, error) {
+	sub, err := c.defaultCircuitBreaker("blob_removed").Execute(func() (interface{}, error) {
 		sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.BlobRemoved)
 		if err != nil {
 			return nil, err
@@ -231,7 +231,7 @@ func (c *AuthorEventConsumer) onAuthorVerify(r *eventbus.Request) {
 	span.AddAttributes(trace.StringAttribute("event.name", domain.AuthorVerify))
 
 	ctxU := context.WithValue(ctxT, eventbus.EventContextKey("event"), eC)
-	err = c.svc.Verify(ctxU, eC.Event.Content)
+	err = c.svc.Verify(ctxU, eC.Event.ServiceName, eC.Event.Content)
 	if err != nil {
 		_ = level.Error(c.logger).Log("err", err)
 		// If internal error, do nack
@@ -388,7 +388,7 @@ func (c *AuthorEventConsumer) onBlobRemoved(r *eventbus.Request) {
 	span.AddAttributes(trace.StringAttribute("event.name", domain.BlobUploaded))
 
 	ctxU := context.WithValue(ctxT, eventbus.EventContextKey("event"), eC)
-	err = c.svc.RemovePicture(ctxU, eC.Transaction.RootID)
+	err = c.svc.RemovePicture(ctxU, eC.Event.Content)
 	if err != nil {
 		_ = level.Error(c.logger).Log("err", err)
 		// If internal error, do nack

@@ -22,8 +22,8 @@ const (
 )
 
 type AuthorSAGAEventBus interface {
-	Verified(ctx context.Context) error
-	Failed(ctx context.Context, msg string) error
+	Verified(ctx context.Context, service string) error
+	Failed(ctx context.Context, service, msg string) error
 	Created(ctx context.Context, author Author) error
 	BlobFailed(ctx context.Context, msg string) error
 }
