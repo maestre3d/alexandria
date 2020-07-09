@@ -99,14 +99,14 @@ type MetricAuthorSAGAMiddleware struct {
 	Next           usecase.AuthorSAGAInteractor
 }
 
-func (mw MetricAuthorSAGAMiddleware) Verify(ctx context.Context, authorsJSON []byte) (err error) {
+func (mw MetricAuthorSAGAMiddleware) Verify(ctx context.Context, service string, authorsJSON []byte) (err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "author.saga.verify", "error", fmt.Sprint(err != nil)}
 		mw.RequestCount.With(lvs...).Add(1)
 		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	err = mw.Next.Verify(ctx, authorsJSON)
+	err = mw.Next.Verify(ctx, service, authorsJSON)
 	return
 }
 
