@@ -18,23 +18,21 @@ alexandria:
         host: "0.0.0.0"
         port: 31337
   tracing:
-    # OpenTracing consumers
+    # OpenTracing/OpenCensus consumers
     zipkin:
-      host: "http://localhost:9411/api/v2/spans"
+      host: "http://zipkin:9411/api/v2/spans"
       endpoint: "0.0.0.0:8080"
       bridge: true
   eventbus:
     kafka:
-      cluster:
+      brokers:
         # Kafka Brokers nodes
-        leader:
-          host: "kafka"
-          port: 9092
+        - "kafka:9092"
   cloud:
     aws:
       cognito:
-        pool: "AWS_COGNITO_POOL_ID"
-        client: "AWS_COGNITO_CLIENT_ID"
+        pool: "cognito_pool_id"
+        client: "cognito_pool_secret_key"
   security:
     auth:
       jwt:

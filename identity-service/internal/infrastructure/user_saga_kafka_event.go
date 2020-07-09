@@ -87,6 +87,7 @@ func (e *UserSAGAKafkaEvent) Verified(ctx context.Context, service string) error
 	eC.Transaction.TraceID = span.SpanContext().TraceID.String()
 
 	event := eventbus.NewEvent(e.cfg.Service, eC.Event.EventType, eC.Event.Priority, eventbus.ProviderKafka, []byte("user verified"))
+	event.TracingContext = string(spanJSON)
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
@@ -96,7 +97,7 @@ func (e *UserSAGAKafkaEvent) Verified(ctx context.Context, service string) error
 			"trace_id":        eC.Transaction.TraceID,
 			"operation":       eC.Transaction.Operation,
 			"snapshot":        eC.Transaction.Snapshot,
-			"tracing_context": string(spanJSON),
+			"tracing_context": event.TracingContext,
 			"service":         event.ServiceName,
 			"event_id":        event.ID,
 			"event_type":      event.EventType,
@@ -158,6 +159,7 @@ func (e *UserSAGAKafkaEvent) Failed(ctx context.Context, service, msg string) er
 	eC.Transaction.TraceID = span.SpanContext().TraceID.String()
 
 	event := eventbus.NewEvent(e.cfg.Service, eC.Event.EventType, eC.Event.Priority, eventbus.ProviderKafka, []byte(msg))
+	event.TracingContext = string(spanJSON)
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
@@ -167,7 +169,7 @@ func (e *UserSAGAKafkaEvent) Failed(ctx context.Context, service, msg string) er
 			"trace_id":        eC.Transaction.TraceID,
 			"operation":       eC.Transaction.Operation,
 			"snapshot":        eC.Transaction.Snapshot,
-			"tracing_context": string(spanJSON),
+			"tracing_context": event.TracingContext,
 			"service":         event.ServiceName,
 			"event_id":        event.ID,
 			"event_type":      event.EventType,
@@ -223,6 +225,7 @@ func (e *UserSAGAKafkaEvent) BlobFailed(ctx context.Context, msg string) error {
 	eC.Transaction.TraceID = span.SpanContext().TraceID.String()
 
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, []byte(msg))
+	event.TracingContext = string(spanJSON)
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
@@ -232,7 +235,7 @@ func (e *UserSAGAKafkaEvent) BlobFailed(ctx context.Context, msg string) error {
 			"trace_id":        eC.Transaction.TraceID,
 			"operation":       eC.Transaction.Operation,
 			"snapshot":        eC.Transaction.Snapshot,
-			"tracing_context": string(spanJSON),
+			"tracing_context": event.TracingContext,
 			"service":         event.ServiceName,
 			"event_id":        event.ID,
 			"event_type":      event.EventType,
