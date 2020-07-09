@@ -1,5 +1,5 @@
 # Blob Service API
-The Blob service API handles all the author's domain operations.
+The Blob service API handles all the blob's domain operations.
 
 It contains multi-layered APIs such as Public, Private and Admin API. 
 
