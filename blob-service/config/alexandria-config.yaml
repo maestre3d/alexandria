@@ -22,15 +22,12 @@ alexandria:
         host: "0.0.0.0"
         port: 31337
   tracing:
-    # OpenTracing consumers
+    # OpenTracing/OpenCensus consumers
     zipkin:
       host: "http://zipkin:9411/api/v2/spans"
       endpoint: "0.0.0.0:8080"
       bridge: true
   eventbus:
     kafka:
-      cluster:
-        # Kafka Brokers nodes
-        leader:
-          host: "kafka"
-          port: 9092
+      brokers:
+        - "kafka:9092"

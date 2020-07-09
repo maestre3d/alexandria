@@ -97,6 +97,7 @@ func (e *BlobKafkaEvent) Uploaded(ctx context.Context, blob domain.Blob, snapsho
 		Snapshot:  string(snapshotJSON),
 	}
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, urlJSON)
+	event.TracingContext = string(spanJSON)
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
@@ -106,7 +107,7 @@ func (e *BlobKafkaEvent) Uploaded(ctx context.Context, blob domain.Blob, snapsho
 			"trace_id":        transaction.TraceID,
 			"operation":       transaction.Operation,
 			"snapshot":        transaction.Snapshot,
-			"tracing_context": string(spanJSON),
+			"tracing_context": event.TracingContext,
 			"service":         event.ServiceName,
 			"event_id":        event.ID,
 			"event_type":      event.EventType,
@@ -158,10 +159,11 @@ func (e *BlobKafkaEvent) Removed(ctx context.Context, rootID, service string) er
 	defer p.Shutdown(ctxT)
 
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, rootJSON)
+	event.TracingContext = string(spanJSON)
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
-			"tracing_context": string(spanJSON),
+			"tracing_context": event.TracingContext,
 			"service":         event.ServiceName,
 			"event_id":        event.ID,
 			"event_type":      event.EventType,
