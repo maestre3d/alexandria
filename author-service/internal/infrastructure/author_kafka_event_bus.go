@@ -70,6 +70,7 @@ func (b *AuthorKafkaEventBus) StartCreate(ctx context.Context, author domain.Aut
 	}
 
 	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, ownerJSON)
+	e.TracingContext = string(spanJSON)
 	t := eventbus.Transaction{
 		ID:        uuid.New().String(),
 		RootID:    author.ExternalID,
@@ -92,7 +93,7 @@ func (b *AuthorKafkaEventBus) StartCreate(ctx context.Context, author domain.Aut
 			"span_id":         t.SpanID,
 			"trace_id":        t.TraceID,
 			"operation":       t.Operation,
-			"tracing_context": string(spanJSON),
+			"tracing_context": e.TracingContext,
 			"service":         e.ServiceName,
 			"event_id":        e.ID,
 			"event_type":      e.EventType,
@@ -153,8 +154,9 @@ func (b *AuthorKafkaEventBus) StartUpdate(ctx context.Context, author domain.Aut
 		Operation: domain.AuthorUpdated,
 		Snapshot:  string(snapshotJSON),
 	}
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, ownerJSON)
 
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, ownerJSON)
+	e.TracingContext = string(spanJSON)
 	topic, err := eventbus.NewKafkaProducer(ctxT, domain.OwnerVerify)
 	if err != nil {
 		return err
@@ -170,7 +172,7 @@ func (b *AuthorKafkaEventBus) StartUpdate(ctx context.Context, author domain.Aut
 			"trace_id":        t.TraceID,
 			"operation":       t.Operation,
 			"snapshot":        t.Snapshot,
-			"tracing_context": string(spanJSON),
+			"tracing_context": e.TracingContext,
 			"service":         e.ServiceName,
 			"event_id":        e.ID,
 			"event_type":      e.EventType,
@@ -222,10 +224,11 @@ func (b *AuthorKafkaEventBus) Updated(ctx context.Context, author domain.Author)
 	defer topic.Shutdown(ctxT)
 
 	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, authorJSON)
+	e.TracingContext = string(spanJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
-			"tracing_context": string(spanJSON),
+			"tracing_context": e.TracingContext,
 			"service":         e.ServiceName,
 			"event_id":        e.ID,
 			"event_type":      e.EventType,
@@ -266,7 +269,7 @@ func (b *AuthorKafkaEventBus) Removed(ctx context.Context, id string) error {
 
 	// Send domain event, Spread side-effects to all required services
 	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, []byte(id))
-
+	e.TracingContext = string(spanJSON)
 	topic, err := eventbus.NewKafkaProducer(ctxT, domain.AuthorRemoved)
 	if err != nil {
 		return err
@@ -276,7 +279,7 @@ func (b *AuthorKafkaEventBus) Removed(ctx context.Context, id string) error {
 	m := &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{
-			"tracing_context": string(spanJSON),
+			"tracing_context": e.TracingContext,
 			"service":         e.ServiceName,
 			"event_id":        e.ID,
 			"event_type":      e.EventType,
@@ -317,6 +320,7 @@ func (b *AuthorKafkaEventBus) Restored(ctx context.Context, id string) error {
 
 	// Send domain event, Spread side-effects to all required services
 	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, []byte(id))
+	e.TracingContext = string(spanJSON)
 	topic, err := eventbus.NewKafkaProducer(ctxT, domain.AuthorRestored)
 	if err != nil {
 		return err
@@ -326,7 +330,7 @@ func (b *AuthorKafkaEventBus) Restored(ctx context.Context, id string) error {
 	m := &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{
-			"tracing_context": string(spanJSON),
+			"tracing_context": e.TracingContext,
 			"service":         e.ServiceName,
 			"event_id":        e.ID,
 			"event_type":      e.EventType,
@@ -367,6 +371,7 @@ func (b *AuthorKafkaEventBus) HardRemoved(ctx context.Context, id string) error 
 
 	// Send domain event, Spread side-effects to all required services
 	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, []byte(id))
+	e.TracingContext = string(spanJSON)
 	topic, err := eventbus.NewKafkaProducer(ctxT, domain.AuthorHardRemoved)
 	if err != nil {
 		return err
@@ -376,7 +381,7 @@ func (b *AuthorKafkaEventBus) HardRemoved(ctx context.Context, id string) error 
 	m := &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{
-			"tracing_context": string(spanJSON),
+			"tracing_context": e.TracingContext,
 			"service":         e.ServiceName,
 			"event_id":        e.ID,
 			"event_type":      e.EventType,
