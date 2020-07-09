@@ -7,7 +7,6 @@ require (
 	github.com/alexandria-oss/core v0.5.4-beta
 	github.com/go-kit/kit v0.10.0
 	github.com/go-playground/validator/v10 v10.3.0
-	github.com/google/subcommands v1.2.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gorilla/mux v1.7.4
@@ -19,5 +18,4 @@ require (
 	go.opencensus.io v0.22.3
 	gocloud.dev v0.20.0
 	gocloud.dev/pubsub/kafkapubsub v0.20.0 // indirect
-	golang.org/x/tools v0.0.0-20200702044944-0cc1aa72b347 // indirect
 )

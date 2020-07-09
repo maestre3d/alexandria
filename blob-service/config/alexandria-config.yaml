@@ -30,4 +30,5 @@ alexandria:
   eventbus:
     kafka:
       brokers:
+        # Kafka Brokers nodes
         - "kafka:9092"
