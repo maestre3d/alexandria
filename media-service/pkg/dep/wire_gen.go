@@ -7,6 +7,7 @@ package dep
 
 import (
 	"context"
+	zipkin2 "contrib.go.opencensus.io/exporter/zipkin"
 	"github.com/alexandria-oss/core/config"
 	"github.com/alexandria-oss/core/logger"
 	"github.com/alexandria-oss/core/tracer"
@@ -18,6 +19,11 @@ import (
 	"github.com/maestre3d/alexandria/media-service/pkg/media"
 	"github.com/maestre3d/alexandria/media-service/pkg/media/usecase"
 	"github.com/maestre3d/alexandria/media-service/pkg/transport/bind"
+	"github.com/openzipkin/zipkin-go"
+	"github.com/openzipkin/zipkin-go/model"
+	"github.com/openzipkin/zipkin-go/reporter"
+	"github.com/openzipkin/zipkin-go/reporter/http"
+	"go.opencensus.io/trace"
 )
 
 // Injectors from wire.go:
@@ -34,7 +40,9 @@ func InjectTransportService() (*transport.Transport, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	zipkinTracer, cleanup2 := tracer.NewZipkin(kernel)
+	reporter := provideZipkinReporter(kernel)
+	endpoint := provideZipkinEndpoint(kernel)
+	zipkinTracer, cleanup2 := provideZipkinTracer(reporter, endpoint)
 	opentracingTracer := tracer.WrapZipkinOpenTracing(kernel, zipkinTracer)
 	mediaRPCServer := bind.NewMediaRPC(mediaInteractor, logLogger, opentracingTracer, zipkinTracer)
 	healthRPCServer := bind.NewHealthRPC()
@@ -81,8 +89,14 @@ var interactorSet = wire.NewSet(
 	provideContext, logger.NewZapLogger, provideMediaInteractor,
 )
 
+var zipkinSet = wire.NewSet(
+	provideZipkinReporter,
+	provideZipkinEndpoint,
+	provideZipkinTracer,
+)
+
 var httpProxySet = wire.NewSet(
-	interactorSet, config.NewKernel, tracer.NewZipkin, tracer.WrapZipkinOpenTracing, bind.NewMediaHTTP, provideHTTPHandlers, proxy.NewHTTP,
+	interactorSet, config.NewKernel, zipkinSet, tracer.WrapZipkinOpenTracing, bind.NewMediaHTTP, provideHTTPHandlers, proxy.NewHTTP,
 )
 
 var rpcProxySet = wire.NewSet(bind.NewMediaRPC, bind.NewHealthRPC, provideRPCServers, proxy.NewRPC)
@@ -132,4 +146,49 @@ func provideEventConsumers(mediaConsumer *bind.MediaEventConsumer) []proxy.Consu
 	consumers := make([]proxy.Consumer, 0)
 	consumers = append(consumers, mediaConsumer)
 	return consumers
+}
+
+// NewZipkin returns a zipkin tracing consumer
+func provideZipkinReporter(cfg *config.Kernel) reporter.Reporter {
+	if cfg.Tracing.ZipkinHost != "" {
+		zipkinReporter := http.NewReporter(cfg.Tracing.ZipkinHost)
+
+		return zipkinReporter
+	}
+
+	return nil
+}
+
+// NewZipkin returns a zipkin tracing consumer
+func provideZipkinEndpoint(cfg *config.Kernel) *model.Endpoint {
+	if cfg.Tracing.ZipkinEndpoint != "" {
+		zipkinEndpoint, err := zipkin.NewEndpoint(cfg.Service, cfg.Tracing.ZipkinEndpoint)
+		if err != nil {
+			return nil
+		}
+
+		return zipkinEndpoint
+	}
+
+	return nil
+}
+
+// NewZipkin returns a zipkin tracing consumer
+func provideZipkinTracer(r reporter.Reporter, ep *model.Endpoint) (*zipkin.Tracer, func()) {
+	if r != nil && ep != nil {
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+		trace.RegisterExporter(zipkin2.NewExporter(r, ep))
+
+		zipkinTrace, err := zipkin.NewTracer(r, zipkin.WithLocalEndpoint(ep))
+		if err != nil {
+			return nil, nil
+		}
+		cleanup := func() {
+			_ = r.Close()
+		}
+
+		return zipkinTrace, cleanup
+	}
+
+	return nil, nil
 }

@@ -7,7 +7,7 @@ services:
     build: ./identity-service
     hostname: identity.alexandria.com
     image: alexandria-identity
-    restart: on-failure
+    restart: always
     volumes:
       - api:/usr/src/identity/
     ports:
@@ -23,7 +23,7 @@ services:
     build: ./author-service
     hostname: author.alexandria.com
     image: alexandria-author
-    restart: on-failure
+    restart: always
     volumes:
       - api:/usr/src/author/
     ports:
@@ -41,7 +41,7 @@ services:
     build: ./media-service
     hostname: media.alexandria.com
     image: alexandria-media
-    restart: on-failure
+    restart: always
     volumes:
       - api:/usr/src/media/
     ports:
@@ -50,6 +50,21 @@ services:
     depends_on:
       - postgres
       - redis
+      - kafka
+      - zipkin
+    networks:
+      - alexandria-tier
+
+  blob:
+    build: ./blob-service
+    hostname: blob.alexandria.com
+    image: alexandria-blob
+    restart: always
+    volumes:
+      - api:/usr/src/blob/
+    ports:
+      - "3003:8080"
+    depends_on:
       - kafka
       - zipkin
     networks:
@@ -86,6 +101,28 @@ services:
     restart: on-failure
     ports:
       - "9412:9411"
+    networks:
+      - alexandria-tier
+
+  prometheus:
+    image: "prom/prometheus"
+    restart: on-failure
+    ports:
+      - 9090:9090
+    volumes:
+      - ./third-party/prometheus:/etc/prometheus
+    networks:
+      - alexandria-tier
+
+  grafana:
+    image: "grafana/grafana"
+    depends_on:
+      - prometheus
+      - zipkin
+      - postgres
+    restart: on-failure
+    ports:
+      - "9413:3000"
     networks:
       - alexandria-tier
 

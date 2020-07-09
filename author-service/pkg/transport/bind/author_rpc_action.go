@@ -59,7 +59,8 @@ func NewAuthorRPC(svc usecase.AuthorInteractor, logger log.Logger, tracer stdope
 		// without an operation name and fed to each Go kit endpoint as ServerOption.
 		// In the latter case, the operation name will be the endpoint's http method.
 		// We demonstrate a global tracing usecase here.
-		options = append(options, zipkin.GRPCServerTrace(zipkinTracer))
+		options = append(options, zipkin.GRPCServerTrace(zipkinTracer, zipkin.Logger(logger), zipkin.Name("author_service"),
+			zipkin.AllowPropagation(true)))
 	}
 
 	srv := authorRPCImp{

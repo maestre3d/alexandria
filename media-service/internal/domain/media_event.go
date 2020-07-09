@@ -11,7 +11,7 @@ const (
 
 type MediaEvent interface {
 	StartCreate(ctx context.Context, media Media) error
-	StartUpdate(ctx context.Context, media Media, backup Media) error
+	StartUpdate(ctx context.Context, media Media, snapshot Media) error
 	Updated(ctx context.Context, media Media) error
 	Removed(ctx context.Context, id string) error
 	Restored(ctx context.Context, id string) error

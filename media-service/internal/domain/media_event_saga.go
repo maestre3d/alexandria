@@ -15,9 +15,13 @@ const (
 	AuthorVerify   = "AUTHOR_VERIFY"         // Produced
 	AuthorVerified = "MEDIA_AUTHOR_VERIFIED" // Consumed
 	AuthorFailed   = "MEDIA_AUTHOR_FAILED"   // Consumed
+	BlobUploaded   = "MEDIA_BLOB_UPLOADED"   // Consumed
+	BlobRemoved    = "MEDIA_BLOB_REMOVED"    // Consumed
+	BlobFailed     = "BLOB_FAILED"           // Produced
 )
 
 type MediaEventSAGA interface {
 	VerifyAuthor(ctx context.Context, authors []string) error
 	Created(ctx context.Context, media Media) error
+	BlobFailed(ctx context.Context, msg string) error
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/alexandria-oss/core/exception"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
 	"github.com/sony/gobreaker"
+	"go.opencensus.io/trace"
 	"gocloud.dev/pubsub"
 	"strings"
 	"sync"
@@ -43,7 +44,7 @@ func (e AuthorSAGAKafkaEventBus) defaultCircuitBreaker(action string) *gobreaker
 	return gobreaker.NewCircuitBreaker(st)
 }
 
-func (e *AuthorSAGAKafkaEventBus) Verified(ctx context.Context) error {
+func (e *AuthorSAGAKafkaEventBus) Verified(ctx context.Context, service string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -55,45 +56,66 @@ func (e *AuthorSAGAKafkaEventBus) Verified(ctx context.Context) error {
 	}
 
 	// Avoid non-service naming, it would be impossible to respond to event
-	if eC.Event.ServiceName == "" {
+	if service == "" {
 		return exception.NewErrorDescription(exception.RequiredField, fmt.Sprintf(exception.RequiredFieldString, "service_name"))
 	}
 
-	p, err := eventbus.NewKafkaProducer(ctx, strings.ToUpper(eC.Event.ServiceName)+"_"+domain.AuthorVerified)
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "author: verified")
+	defer span.End()
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", strings.ToUpper(service)+"_"+domain.AuthorVerified))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
+	}
+
+	p, err := eventbus.NewKafkaProducer(ctxT, strings.ToUpper(service)+"_"+domain.AuthorVerified)
 	if err != nil {
 		return err
 	}
-	defer p.Shutdown(ctx)
+	defer p.Shutdown(ctxT)
+
+	eC.Transaction.SpanID = span.SpanContext().SpanID.String()
+	eC.Transaction.TraceID = span.SpanContext().TraceID.String()
 
 	event := eventbus.NewEvent(e.cfg.Service, eC.Event.EventType, eC.Event.Priority, eventbus.ProviderKafka, []byte(""))
+	event.TracingContext = string(spanJSON)
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
-			"transaction_id": eC.Transaction.ID,
-			"root_id":        eC.Transaction.RootID,
-			"span_id":        eC.Transaction.SpanID,
-			"trace_id":       eC.Transaction.TraceID,
-			"operation":      eC.Transaction.Operation,
-			"backup":         eC.Transaction.Backup,
-			"service":        event.ServiceName,
-			"event_id":       event.ID,
-			"event_type":     event.EventType,
-			"priority":       event.Priority,
-			"provider":       event.Provider,
-			"dispatch_time":  event.DispatchTime,
+			"transaction_id":  eC.Transaction.ID,
+			"root_id":         eC.Transaction.RootID,
+			"span_id":         eC.Transaction.SpanID,
+			"trace_id":        eC.Transaction.TraceID,
+			"operation":       eC.Transaction.Operation,
+			"snapshot":        eC.Transaction.Snapshot,
+			"tracing_context": event.TracingContext,
+			"service":         event.ServiceName,
+			"event_id":        event.ID,
+			"event_type":      event.EventType,
+			"priority":        event.Priority,
+			"provider":        event.Provider,
+			"dispatch_time":   event.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
 
 	// Safe-call with circuit breaker pattern
 	_, err = e.defaultCircuitBreaker("author_verified").Execute(func() (interface{}, error) {
-		return nil, p.Send(ctx, m)
+		return nil, p.Send(ctxT, m)
 	})
 
 	return err
 }
 
-func (e *AuthorSAGAKafkaEventBus) Failed(ctx context.Context) error {
+func (e *AuthorSAGAKafkaEventBus) Failed(ctx context.Context, service, msg string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -105,32 +127,54 @@ func (e *AuthorSAGAKafkaEventBus) Failed(ctx context.Context) error {
 	}
 
 	// Avoid non-service naming, it would be impossible to respond to event
-	if eC.Event.ServiceName == "" {
+	if service == "" {
 		return exception.NewErrorDescription(exception.RequiredField, fmt.Sprintf(exception.RequiredFieldString, "service_name"))
 	}
 
-	p, err := eventbus.NewKafkaProducer(ctx, strings.ToUpper(eC.Event.ServiceName)+"_"+domain.AuthorFailed)
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "author: failed")
+	defer span.End()
+	ctx = ctxT
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", strings.ToUpper(service)+""+domain.AuthorFailed))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
+	}
+
+	p, err := eventbus.NewKafkaProducer(ctx, strings.ToUpper(service)+"_"+domain.AuthorFailed)
 	if err != nil {
 		return err
 	}
 	defer p.Shutdown(ctx)
 
-	event := eventbus.NewEvent(e.cfg.Service, eC.Event.EventType, eC.Event.Priority, eventbus.ProviderKafka, []byte(""))
+	eC.Transaction.SpanID = span.SpanContext().SpanID.String()
+	eC.Transaction.TraceID = span.SpanContext().TraceID.String()
+
+	event := eventbus.NewEvent(e.cfg.Service, eC.Event.EventType, eC.Event.Priority, eventbus.ProviderKafka, []byte(msg))
+	event.TracingContext = string(spanJSON)
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
-			"transaction_id": eC.Transaction.ID,
-			"root_id":        eC.Transaction.RootID,
-			"span_id":        eC.Transaction.SpanID,
-			"trace_id":       eC.Transaction.TraceID,
-			"operation":      eC.Transaction.Operation,
-			"backup":         eC.Transaction.Backup,
-			"service":        event.ServiceName,
-			"event_id":       event.ID,
-			"event_type":     event.EventType,
-			"priority":       event.Priority,
-			"provider":       event.Provider,
-			"dispatch_time":  event.DispatchTime,
+			"transaction_id":  eC.Transaction.ID,
+			"root_id":         eC.Transaction.RootID,
+			"span_id":         eC.Transaction.SpanID,
+			"trace_id":        eC.Transaction.TraceID,
+			"operation":       eC.Transaction.Operation,
+			"snapshot":        eC.Transaction.Snapshot,
+			"tracing_context": event.TracingContext,
+			"service":         event.ServiceName,
+			"event_id":        event.ID,
+			"event_type":      event.EventType,
+			"priority":        event.Priority,
+			"provider":        event.Provider,
+			"dispatch_time":   event.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
@@ -154,17 +198,36 @@ func (e *AuthorSAGAKafkaEventBus) Created(ctx context.Context, author domain.Aut
 			"author", "author entity"))
 	}
 
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "author: created")
+	defer span.End()
+	ctx = ctxT
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.AuthorCreated))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
+	}
+
 	// Send domain event, spread aggregation side-effects to all required services
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, authorJSON)
+	event.TracingContext = string(spanJSON)
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
-			"service":       event.ServiceName,
-			"event_id":      event.ID,
-			"event_type":    event.EventType,
-			"priority":      event.Priority,
-			"provider":      event.Provider,
-			"dispatch_time": event.DispatchTime,
+			"tracing_context": event.TracingContext,
+			"service":         event.ServiceName,
+			"event_id":        event.ID,
+			"event_type":      event.EventType,
+			"priority":        event.Priority,
+			"provider":        event.Provider,
+			"dispatch_time":   event.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
@@ -178,6 +241,72 @@ func (e *AuthorSAGAKafkaEventBus) Created(ctx context.Context, author domain.Aut
 	// Safe-call with circuit breaker pattern
 	_, err = e.defaultCircuitBreaker("created").Execute(func() (interface{}, error) {
 		return nil, topic.Send(ctx, m)
+	})
+
+	return err
+}
+
+func (e *AuthorSAGAKafkaEventBus) BlobFailed(ctx context.Context, msg string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	// Owner/User verified, publish SERVICE_OWNER_VERIFIED
+	ec, err := eventbus.ExtractContext(ctx)
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"event", "event context"))
+	}
+
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "author: blob_failed")
+	defer span.End()
+	ctx = ctxT
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.BlobFailed))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
+	}
+
+	p, err := eventbus.NewKafkaProducer(ctx, domain.BlobFailed)
+	if err != nil {
+		return err
+	}
+	defer p.Shutdown(ctx)
+
+	ec.Transaction.SpanID = span.SpanContext().SpanID.String()
+	ec.Transaction.TraceID = span.SpanContext().TraceID.String()
+
+	ev := eventbus.NewEvent(e.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, []byte(msg))
+	ev.TracingContext = string(spanJSON)
+	m := &pubsub.Message{
+		Body: ev.Content,
+		Metadata: map[string]string{
+			"transaction_id":  ec.Transaction.ID,
+			"root_id":         ec.Transaction.RootID,
+			"span_id":         ec.Transaction.SpanID,
+			"trace_id":        ec.Transaction.TraceID,
+			"operation":       ec.Transaction.Operation,
+			"snapshot":        ec.Transaction.Snapshot,
+			"tracing_context": ev.TracingContext,
+			"service":         ev.ServiceName,
+			"event_id":        ev.ID,
+			"event_type":      ev.EventType,
+			"priority":        ev.Priority,
+			"provider":        ev.Provider,
+			"dispatch_time":   ev.DispatchTime,
+		},
+		BeforeSend: nil,
+	}
+
+	_, err = e.defaultCircuitBreaker("blob_failed").Execute(func() (interface{}, error) {
+		return nil, p.Send(ctx, m)
 	})
 
 	return err

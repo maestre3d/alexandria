@@ -1,0 +1,34 @@
+alexandria:
+  info:
+    service: "blob"
+    version: 0.1.0
+  persistence:
+    doc:
+      collection: "alexandria_blob"
+      partition_key: "id"
+      allow_scan: false
+    mem:
+      network: ""
+      host: "redis"
+      port: 6379
+      password: ""
+      database: 0
+  service:
+    transport:
+      http:
+        host: "0.0.0.0"
+        port: 8080
+      rpc:
+        host: "0.0.0.0"
+        port: 31337
+  tracing:
+    # OpenTracing/OpenCensus consumers
+    zipkin:
+      host: "http://zipkin:9411/api/v2/spans"
+      endpoint: "0.0.0.0:8080"
+      bridge: true
+  eventbus:
+    kafka:
+      brokers:
+        # Kafka Brokers nodes
+        - "kafka:9092"

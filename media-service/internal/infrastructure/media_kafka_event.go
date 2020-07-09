@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/maestre3d/alexandria/media-service/internal/domain"
 	"github.com/sony/gobreaker"
+	"go.opencensus.io/trace"
 	"gocloud.dev/pubsub"
 	"sync"
 	"time"
@@ -53,12 +54,30 @@ func (e *MediaKafkaEvent) StartCreate(ctx context.Context, media domain.Media) e
 			"owner_pool", "[]string"))
 	}
 
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "media: start_create")
+	defer span.End()
+	ctx = ctxT
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.OwnerVerify))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
+	}
+
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, ownerJSON)
+	event.TracingContext = string(spanJSON)
 	t := eventbus.Transaction{
 		ID:        uuid.New().String(),
 		RootID:    media.ExternalID,
-		SpanID:    "",
-		TraceID:   "",
+		SpanID:    span.SpanContext().SpanID.String(),
+		TraceID:   span.SpanContext().TraceID.String(),
 		Operation: domain.MediaCreated,
 	}
 	p, err := eventbus.NewKafkaProducer(ctx, domain.OwnerVerify)
@@ -70,17 +89,18 @@ func (e *MediaKafkaEvent) StartCreate(ctx context.Context, media domain.Media) e
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
-			"transaction_id": t.ID,
-			"root_id":        t.RootID,
-			"span_id":        t.SpanID,
-			"trace_id":       t.TraceID,
-			"operation":      t.Operation,
-			"service":        event.ServiceName,
-			"event_id":       event.ID,
-			"event_type":     event.EventType,
-			"priority":       event.Priority,
-			"provider":       event.Provider,
-			"dispatch_time":  event.DispatchTime,
+			"transaction_id":  t.ID,
+			"root_id":         t.RootID,
+			"span_id":         t.SpanID,
+			"trace_id":        t.TraceID,
+			"operation":       t.Operation,
+			"tracing_context": event.TracingContext,
+			"service":         event.ServiceName,
+			"event_id":        event.ID,
+			"event_type":      event.EventType,
+			"priority":        event.Priority,
+			"provider":        event.Provider,
+			"dispatch_time":   event.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
@@ -93,7 +113,7 @@ func (e *MediaKafkaEvent) StartCreate(ctx context.Context, media domain.Media) e
 	return err
 }
 
-func (e *MediaKafkaEvent) StartUpdate(ctx context.Context, media domain.Media, backup domain.Media) error {
+func (e *MediaKafkaEvent) StartUpdate(ctx context.Context, media domain.Media, snapshot domain.Media) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -105,22 +125,40 @@ func (e *MediaKafkaEvent) StartUpdate(ctx context.Context, media domain.Media, b
 			"owner_pool", "[]string"))
 	}
 
-	backupJSON, err := json.Marshal(backup)
+	snapshotJSON, err := json.Marshal(snapshot)
 	if err != nil {
 		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
-			"backup", "media entity"))
+			"snapshot", "media entity"))
+	}
+
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "media: start_update")
+	defer span.End()
+	ctx = ctxT
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.OwnerVerify))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
 	}
 
 	t := &eventbus.Transaction{
 		ID:        uuid.New().String(),
 		RootID:    media.ExternalID,
-		SpanID:    "",
-		TraceID:   "",
+		SpanID:    span.SpanContext().SpanID.String(),
+		TraceID:   span.SpanContext().TraceID.String(),
 		Operation: domain.MediaUpdated,
-		Backup:    string(backupJSON),
+		Snapshot:  string(snapshotJSON),
 	}
 
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, ownerJSON)
+	event.TracingContext = string(spanJSON)
 
 	p, err := eventbus.NewKafkaProducer(ctx, domain.OwnerVerify)
 	if err != nil {
@@ -131,18 +169,19 @@ func (e *MediaKafkaEvent) StartUpdate(ctx context.Context, media domain.Media, b
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
-			"transaction_id": t.ID,
-			"root_id":        t.RootID,
-			"span_id":        t.SpanID,
-			"trace_id":       t.TraceID,
-			"operation":      t.Operation,
-			"backup":         t.Backup,
-			"service":        event.ServiceName,
-			"event_id":       event.ID,
-			"event_type":     event.EventType,
-			"priority":       event.Priority,
-			"provider":       event.Provider,
-			"dispatch_time":  event.DispatchTime,
+			"transaction_id":  t.ID,
+			"root_id":         t.RootID,
+			"span_id":         t.SpanID,
+			"trace_id":        t.TraceID,
+			"operation":       t.Operation,
+			"snapshot":        t.Snapshot,
+			"tracing_context": event.TracingContext,
+			"service":         event.ServiceName,
+			"event_id":        event.ID,
+			"event_type":      event.EventType,
+			"priority":        event.Priority,
+			"provider":        event.Provider,
+			"dispatch_time":   event.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
@@ -165,7 +204,25 @@ func (e *MediaKafkaEvent) Updated(ctx context.Context, media domain.Media) error
 			"media", "media entity"))
 	}
 
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "media: updated")
+	defer span.End()
+	ctx = ctxT
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.MediaUpdated))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
+	}
+
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, mediaJSON)
+	event.TracingContext = string(spanJSON)
 
 	p, err := eventbus.NewKafkaProducer(ctx, domain.MediaUpdated)
 	if err != nil {
@@ -176,12 +233,13 @@ func (e *MediaKafkaEvent) Updated(ctx context.Context, media domain.Media) error
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
-			"service":       event.ServiceName,
-			"event_id":      event.ID,
-			"event_type":    event.EventType,
-			"priority":      event.Priority,
-			"provider":      event.Provider,
-			"dispatch_time": event.DispatchTime,
+			"tracing_context": event.TracingContext,
+			"service":         event.ServiceName,
+			"event_id":        event.ID,
+			"event_type":      event.EventType,
+			"priority":        event.Priority,
+			"provider":        event.Provider,
+			"dispatch_time":   event.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
@@ -198,7 +256,25 @@ func (e *MediaKafkaEvent) Removed(ctx context.Context, id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "media: removed")
+	defer span.End()
+	ctx = ctxT
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.MediaRemoved))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
+	}
+
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, []byte(id))
+	event.TracingContext = string(spanJSON)
 
 	p, err := eventbus.NewKafkaProducer(ctx, domain.MediaRemoved)
 	if err != nil {
@@ -209,12 +285,13 @@ func (e *MediaKafkaEvent) Removed(ctx context.Context, id string) error {
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
-			"service":       event.ServiceName,
-			"event_id":      event.ID,
-			"event_type":    event.EventType,
-			"priority":      event.Priority,
-			"provider":      event.Provider,
-			"dispatch_time": event.DispatchTime,
+			"tracing_context": event.TracingContext,
+			"service":         event.ServiceName,
+			"event_id":        event.ID,
+			"event_type":      event.EventType,
+			"priority":        event.Priority,
+			"provider":        event.Provider,
+			"dispatch_time":   event.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
@@ -231,7 +308,26 @@ func (e *MediaKafkaEvent) Restored(ctx context.Context, id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "media: restored")
+	defer span.End()
+	ctx = ctxT
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.MediaRestored))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
+	}
+
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, []byte(id))
+	event.TracingContext = string(spanJSON)
+
 	p, err := eventbus.NewKafkaProducer(ctx, domain.MediaRestored)
 	if err != nil {
 		return err
@@ -241,12 +337,13 @@ func (e *MediaKafkaEvent) Restored(ctx context.Context, id string) error {
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
-			"service":       event.ServiceName,
-			"event_id":      event.ID,
-			"event_type":    event.EventType,
-			"priority":      event.Priority,
-			"provider":      event.Provider,
-			"dispatch_time": event.DispatchTime,
+			"tracing_context": event.TracingContext,
+			"service":         event.ServiceName,
+			"event_id":        event.ID,
+			"event_type":      event.EventType,
+			"priority":        event.Priority,
+			"provider":        event.Provider,
+			"dispatch_time":   event.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
@@ -263,7 +360,26 @@ func (e *MediaKafkaEvent) HardRemoved(ctx context.Context, id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "media: hard_removed")
+	defer span.End()
+	ctx = ctxT
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.MediaHardRemoved))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
+	}
+
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, []byte(id))
+	event.TracingContext = string(spanJSON)
+
 	p, err := eventbus.NewKafkaProducer(ctx, domain.MediaHardRemoved)
 	if err != nil {
 		return err
@@ -273,12 +389,13 @@ func (e *MediaKafkaEvent) HardRemoved(ctx context.Context, id string) error {
 	m := &pubsub.Message{
 		Body: event.Content,
 		Metadata: map[string]string{
-			"service":       event.ServiceName,
-			"event_id":      event.ID,
-			"event_type":    event.EventType,
-			"priority":      event.Priority,
-			"provider":      event.Provider,
-			"dispatch_time": event.DispatchTime,
+			"tracing_context": event.TracingContext,
+			"service":         event.ServiceName,
+			"event_id":        event.ID,
+			"event_type":      event.EventType,
+			"priority":        event.Priority,
+			"provider":        event.Provider,
+			"dispatch_time":   event.DispatchTime,
 		},
 		BeforeSend: nil,
 	}

@@ -2,12 +2,15 @@ package bind
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/alexandria-oss/core/eventbus"
 	"github.com/alexandria-oss/core/httputil"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
 	"github.com/maestre3d/alexandria/author-service/pkg/author/usecase"
 	"github.com/sony/gobreaker"
+	"go.opencensus.io/trace"
 	"gocloud.dev/pubsub"
 	"time"
 )
@@ -18,7 +21,6 @@ type AuthorEventConsumer struct {
 }
 
 func NewAuthorEventConsumer(svc usecase.AuthorSAGAInteractor, logger log.Logger) *AuthorEventConsumer {
-	// TODO: Add instrumentation, Dist tracing with OpenTracing and Zipkin/Jaeger and Metrics with Prometheus w/ Grafana
 	return &AuthorEventConsumer{
 		svc:    svc,
 		logger: logger,
@@ -41,8 +43,33 @@ func (c AuthorEventConsumer) defaultCircuitBreaker(action string) *gobreaker.Cir
 	return gobreaker.NewCircuitBreaker(st)
 }
 
+func extractContext(r *eventbus.Request) *eventbus.EventContext {
+	return &eventbus.EventContext{
+		Transaction: &eventbus.Transaction{
+			ID:        r.Message.Metadata["transaction_id"],
+			RootID:    r.Message.Metadata["root_id"],
+			SpanID:    r.Message.Metadata["span_id"],
+			TraceID:   r.Message.Metadata["trace_id"],
+			Operation: r.Message.Metadata["operation"],
+			Snapshot:  r.Message.Metadata["snapshot"],
+		},
+		Event: &eventbus.Event{
+			Content:      r.Message.Body,
+			ID:           r.Message.Metadata["event_id"],
+			ServiceName:  r.Message.Metadata["service"],
+			EventType:    r.Message.Metadata["event_type"],
+			Priority:     r.Message.Metadata["priority"],
+			Provider:     r.Message.Metadata["provider"],
+			DispatchTime: r.Message.Metadata["dispatch_time"],
+		},
+	}
+}
+
 func (c *AuthorEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context, service string) error {
 	aVerify, err := c.bindAuthorVerify(ctx, service)
+	if err != nil {
+		return err
+	}
 
 	verifyBind, err := c.bindAuthorVerified(ctx, service)
 	if err != nil {
@@ -54,9 +81,21 @@ func (c *AuthorEventConsumer) SetBinders(s *eventbus.Server, ctx context.Context
 		return err
 	}
 
+	blobU, err := c.bindBlobUploaded(ctx, service)
+	if err != nil {
+		return err
+	}
+
+	blobF, err := c.bindAuthorFailed(ctx, service)
+	if err != nil {
+		return err
+	}
+
 	s.AddConsumer(aVerify)
 	s.AddConsumer(verifyBind)
 	s.AddConsumer(failedBind)
+	s.AddConsumer(blobU)
+	s.AddConsumer(blobF)
 
 	return nil
 }
@@ -126,41 +165,81 @@ func (c *AuthorEventConsumer) bindAuthorFailed(ctx context.Context, service stri
 	}, nil
 }
 
+func (c *AuthorEventConsumer) bindBlobUploaded(ctx context.Context, service string) (*eventbus.Consumer, error) {
+	sub, err := c.defaultCircuitBreaker("blob_uploaded").Execute(func() (interface{}, error) {
+		sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.BlobUploaded)
+		if err != nil {
+			return nil, err
+		}
+
+		return sub, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &eventbus.Consumer{
+		MaxHandler: 10,
+		Consumer:   sub.(*pubsub.Subscription),
+		Handler:    c.onBlobUploaded,
+	}, nil
+}
+
+func (c *AuthorEventConsumer) bindBlobRemoved(ctx context.Context, service string) (*eventbus.Consumer, error) {
+	sub, err := c.defaultCircuitBreaker("blob_removed").Execute(func() (interface{}, error) {
+		sub, err := eventbus.NewKafkaConsumer(ctx, service, domain.BlobRemoved)
+		if err != nil {
+			return nil, err
+		}
+
+		return sub, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &eventbus.Consumer{
+		MaxHandler: 10,
+		Consumer:   sub.(*pubsub.Subscription),
+		Handler:    c.onBlobRemoved,
+	}, nil
+}
+
 // Hooks / Handlers
 
 func (c *AuthorEventConsumer) onAuthorVerify(r *eventbus.Request) {
 	// Wrap whole event for context propagation / OpenTracing-like
-	eC := &eventbus.EventContext{
-		Transaction: &eventbus.Transaction{
-			ID:        r.Message.Metadata["transaction_id"],
-			RootID:    r.Message.Metadata["root_id"],
-			SpanID:    r.Message.Metadata["span_id"],
-			TraceID:   r.Message.Metadata["trace_id"],
-			Operation: r.Message.Metadata["operation"],
-			Backup:    r.Message.Metadata["backup"],
-		},
-		Event: &eventbus.Event{
-			Content:      r.Message.Body,
-			ID:           r.Message.Metadata["event_id"],
-			ServiceName:  r.Message.Metadata["service"],
-			EventType:    r.Message.Metadata["event_type"],
-			Priority:     r.Message.Metadata["priority"],
-			Provider:     r.Message.Metadata["provider"],
-			DispatchTime: r.Message.Metadata["dispatch_time"],
-		},
+	eC := extractContext(r)
+
+	// Get span context from message
+	var traceCtx trace.SpanContext
+	err := json.Unmarshal([]byte(r.Message.Metadata["tracing_context"]), &traceCtx)
+	if err != nil {
+		// If span is not valid, then create one from our current context
+		rootSpan := trace.FromContext(r.Context)
+		defer rootSpan.End()
+		traceCtx = rootSpan.SpanContext()
 	}
 
-	ctxU := context.WithValue(r.Context, eventbus.EventContextKey("event"), eC)
-	err := c.svc.Verify(ctxU, eC.Event.Content)
+	// Start a new span with the parent span
+	ctxT, span := trace.StartSpanWithRemoteParent(r.Context, "author: verify", traceCtx)
+	defer span.End()
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "received event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.AuthorVerify))
+
+	ctxU := context.WithValue(ctxT, eventbus.EventContextKey("event"), eC)
+	err = c.svc.Verify(ctxU, eC.Event.ServiceName, eC.Event.Content)
 	if err != nil {
+		_ = level.Error(c.logger).Log("err", err)
 		// If internal error, do nack
-		code := httputil.ErrorToCode(err)
-		if code == 500 {
+		if code := httputil.ErrorToCode(err); code == 500 {
 			if r.Message.Nackable() {
 				r.Message.Nack()
+				return
 			}
-			_ = c.logger.Log("method", "author.transport.event", "msg", "err", err.Error())
-			return
 		}
 	}
 
@@ -169,35 +248,37 @@ func (c *AuthorEventConsumer) onAuthorVerify(r *eventbus.Request) {
 
 func (c *AuthorEventConsumer) onAuthorVerified(r *eventbus.Request) {
 	// Wrap whole event for context propagation / OpenTracing-like
-	eC := &eventbus.EventContext{
-		Transaction: &eventbus.Transaction{
-			ID:        r.Message.Metadata["transaction_id"],
-			RootID:    r.Message.Metadata["root_id"],
-			SpanID:    r.Message.Metadata["span_id"],
-			TraceID:   r.Message.Metadata["trace_id"],
-			Operation: r.Message.Metadata["operation"],
-		},
-		Event: &eventbus.Event{
-			Content:      r.Message.Body,
-			ID:           r.Message.Metadata["event_id"],
-			ServiceName:  r.Message.Metadata["service"],
-			EventType:    r.Message.Metadata["event_type"],
-			Priority:     r.Message.Metadata["priority"],
-			Provider:     r.Message.Metadata["provider"],
-			DispatchTime: r.Message.Metadata["dispatch_time"],
-		},
+	eC := extractContext(r)
+
+	// Get span context from message
+	var traceCtx trace.SpanContext
+	err := json.Unmarshal([]byte(r.Message.Metadata["tracing_context"]), &traceCtx)
+	if err != nil {
+		// If span is not valid, then create one from our current context
+		rootSpan := trace.FromContext(r.Context)
+		defer rootSpan.End()
+		traceCtx = rootSpan.SpanContext()
 	}
 
-	ctxU := context.WithValue(r.Context, eventbus.EventContextKey("event"), eC)
-	err := c.svc.Done(ctxU, eC.Transaction.RootID, eC.Transaction.Operation)
+	// Start a new span with the parent span
+	ctxT, span := trace.StartSpanWithRemoteParent(r.Context, "author: verified", traceCtx)
+	defer span.End()
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "event received",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.OwnerVerified))
+
+	ctxU := context.WithValue(ctxT, eventbus.EventContextKey("event"), eC)
+	err = c.svc.Done(ctxU, eC.Transaction.RootID, eC.Transaction.Operation)
 	if err != nil {
+		_ = level.Error(c.logger).Log("err", err)
 		// If internal error, do nack
-		code := httputil.ErrorToCode(err)
-		if code == 500 {
+		if code := httputil.ErrorToCode(err); code == 500 {
 			if r.Message.Nackable() {
 				r.Message.Nack()
+				return
 			}
-			return
 		}
 	}
 
@@ -207,36 +288,115 @@ func (c *AuthorEventConsumer) onAuthorVerified(r *eventbus.Request) {
 
 func (c *AuthorEventConsumer) onAuthorFailed(r *eventbus.Request) {
 	// Wrap whole event for context propagation / OpenTracing-like
-	eC := &eventbus.EventContext{
-		Transaction: &eventbus.Transaction{
-			ID:        r.Message.Metadata["transaction_id"],
-			RootID:    r.Message.Metadata["root_id"],
-			SpanID:    r.Message.Metadata["span_id"],
-			TraceID:   r.Message.Metadata["trace_id"],
-			Operation: r.Message.Metadata["operation"],
-			Backup:    r.Message.Metadata["backup"],
-		},
-		Event: &eventbus.Event{
-			Content:      r.Message.Body,
-			ID:           r.Message.Metadata["event_id"],
-			ServiceName:  r.Message.Metadata["service"],
-			EventType:    r.Message.Metadata["event_type"],
-			Priority:     r.Message.Metadata["priority"],
-			Provider:     r.Message.Metadata["provider"],
-			DispatchTime: r.Message.Metadata["dispatch_time"],
-		},
+	eC := extractContext(r)
+
+	// Get span context from message
+	var traceCtx trace.SpanContext
+	err := json.Unmarshal([]byte(r.Message.Metadata["tracing_context"]), &traceCtx)
+	if err != nil {
+		// If span is not valid, then create one from our current context
+		rootSpan := trace.FromContext(r.Context)
+		defer rootSpan.End()
+		traceCtx = rootSpan.SpanContext()
 	}
 
-	ctxU := context.WithValue(r.Context, eventbus.EventContextKey("event"), eC)
-	err := c.svc.Failed(ctxU, eC.Transaction.RootID, eC.Transaction.Operation, eC.Transaction.Backup)
+	// Start a new span with the parent span
+	ctxT, span := trace.StartSpanWithRemoteParent(r.Context, "author: failed", traceCtx)
+	defer span.End()
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeInvalidArgument,
+		Message: string(eC.Event.Content),
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.OwnerFailed))
+
+	ctxU := context.WithValue(ctxT, eventbus.EventContextKey("event"), eC)
+	err = c.svc.Failed(ctxU, eC.Transaction.RootID, eC.Transaction.Operation, eC.Transaction.Snapshot)
 	if err != nil {
+		_ = level.Error(c.logger).Log("err", err)
 		// If internal error, do nack
-		code := httputil.ErrorToCode(err)
-		if code == 500 {
+		if code := httputil.ErrorToCode(err); code == 500 {
 			if r.Message.Nackable() {
 				r.Message.Nack()
+				return
 			}
-			return
+		}
+	}
+
+	r.Message.Ack()
+}
+
+func (c *AuthorEventConsumer) onBlobUploaded(r *eventbus.Request) {
+	// Wrap whole event for context propagation / OpenTracing-like
+	eC := extractContext(r)
+
+	// Get span context from message
+	var traceCtx trace.SpanContext
+	err := json.Unmarshal([]byte(r.Message.Metadata["tracing_context"]), &traceCtx)
+	if err != nil {
+		// If span is not valid, then create one from our current context
+		rootSpan := trace.FromContext(r.Context)
+		defer rootSpan.End()
+		traceCtx = rootSpan.SpanContext()
+	}
+
+	// Start a new span with the parent span
+	ctxT, span := trace.StartSpanWithRemoteParent(r.Context, "author: blob_uploaded", traceCtx)
+	defer span.End()
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "event received",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.BlobUploaded))
+
+	ctxU := context.WithValue(ctxT, eventbus.EventContextKey("event"), eC)
+	err = c.svc.UpdatePicture(ctxU, eC.Transaction.RootID, eC.Event.Content)
+	if err != nil {
+		_ = level.Error(c.logger).Log("err", err)
+		// If internal error, do nack
+		if code := httputil.ErrorToCode(err); code == 500 {
+			if r.Message.Nackable() {
+				r.Message.Nack()
+				return
+			}
+		}
+	}
+
+	r.Message.Ack()
+}
+
+func (c *AuthorEventConsumer) onBlobRemoved(r *eventbus.Request) {
+	// Wrap whole event for context propagation / OpenTracing-like
+	eC := extractContext(r)
+
+	// Get span context from message
+	var traceCtx trace.SpanContext
+	err := json.Unmarshal([]byte(r.Message.Metadata["tracing_context"]), &traceCtx)
+	if err != nil {
+		// If span is not valid, then create one from our current context
+		rootSpan := trace.FromContext(r.Context)
+		defer rootSpan.End()
+		traceCtx = rootSpan.SpanContext()
+	}
+
+	// Start a new span with the parent span
+	ctxT, span := trace.StartSpanWithRemoteParent(r.Context, "author: blob_removed", traceCtx)
+	defer span.End()
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeInvalidArgument,
+		Message: string(eC.Event.Content),
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.BlobUploaded))
+
+	ctxU := context.WithValue(ctxT, eventbus.EventContextKey("event"), eC)
+	err = c.svc.RemovePicture(ctxU, eC.Event.Content)
+	if err != nil {
+		_ = level.Error(c.logger).Log("err", err)
+		// If internal error, do nack
+		if code := httputil.ErrorToCode(err); code == 500 {
+			if r.Message.Nackable() {
+				r.Message.Nack()
+				return
+			}
 		}
 	}
 

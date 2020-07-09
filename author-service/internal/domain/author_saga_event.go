@@ -11,6 +11,10 @@ const (
 	OwnerVerified = "AUTHOR_OWNER_VERIFIED" // Consumed
 	OwnerFailed   = "AUTHOR_OWNER_FAILED"   // Consumed
 
+	BlobFailed   = "BLOB_FAILED"          // Produced
+	BlobUploaded = "AUTHOR_BLOB_UPLOADED" // Consumed
+	BlobRemoved  = "AUTHOR_BLOB_REMOVED"  // Consumed
+
 	// Bounded context validation events
 	AuthorVerify   = "AUTHOR_VERIFY"   // Consumed
 	AuthorVerified = "AUTHOR_VERIFIED" // Produced (service_name+"_"+event)
@@ -18,7 +22,8 @@ const (
 )
 
 type AuthorSAGAEventBus interface {
-	Verified(ctx context.Context) error
-	Failed(ctx context.Context) error
+	Verified(ctx context.Context, service string) error
+	Failed(ctx context.Context, service, msg string) error
 	Created(ctx context.Context, author Author) error
+	BlobFailed(ctx context.Context, msg string) error
 }

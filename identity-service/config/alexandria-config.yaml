@@ -3,14 +3,6 @@ alexandria:
     service: "identity"
     version: 0.1.0
   persistence:
-    dbms:
-      url: "postgres://postgres:root@postgres:5432/alexandria_identity?sslmode=disable"
-      driver: "postgres"
-      user: "postgres"
-      password: "root"
-      host: "postgres"
-      port: 5432
-      database: "alexandria_identity"
     mem:
       network: ""
       host: "redis"
@@ -26,26 +18,21 @@ alexandria:
         host: "0.0.0.0"
         port: 31337
   tracing:
-    # OpenTracing consumers
+    # OpenTracing/OpenCensus consumers
     zipkin:
       host: "http://zipkin:9411/api/v2/spans"
       endpoint: "0.0.0.0:8080"
       bridge: true
   eventbus:
     kafka:
-      cluster:
+      brokers:
         # Kafka Brokers nodes
-        leader:
-          host: "kafka"
-          port: 9092
-        1:
-          host: "kafka1"
-          port: 9092
+        - "kafka:9092"
   cloud:
     aws:
       cognito:
-        pool: "AWS_COGNITO_POOL_ID"
-        client: "AWS_COGNITO_CLIENT_ID"
+        pool: "cognito_pool_id"
+        client: "cognito_pool_secret_key"
   security:
     auth:
       jwt:

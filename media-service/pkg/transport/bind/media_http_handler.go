@@ -57,7 +57,8 @@ func NewMediaHTTP(svc usecase.MediaInteractor, logger log.Logger, tracer stdopen
 		// without an operation name and fed to each Go kit endpoint as ServerOption.
 		// In the latter case, the operation name will be the endpoint's http method.
 		// We demonstrate a global tracing usecase here.
-		options = append(options, zipkin.HTTPServerTrace(zipkinTracer))
+		options = append(options, zipkin.HTTPServerTrace(zipkinTracer, zipkin.Logger(logger), zipkin.Name("media_service"),
+			zipkin.AllowPropagation(true)))
 	}
 
 	return &MediaHandler{svc, logger, duration, tracer, zipkinTracer, options}

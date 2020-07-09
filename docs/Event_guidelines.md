@@ -30,6 +30,7 @@ to propagate effects in our distributed environment. Any service _could_ be list
 Besides of these types, you _should_ follow the next rules:
 - Every event **must** have inside its metadata the fields: 
     - ID: Event unique identifier.
+    - Tracing Context: Distributed tracing struct parsed to JSON.
     - Service: Service who sends the event in upper case (could be using the server config file).
     - Event type: Integration or Domain event.
     - Priority: High, Mid or Low.
@@ -48,7 +49,7 @@ Transactions **must** use the following body:
   - Span ID: OpenTracing/OpenCensus root span ID.
   - Trace ID: OpenTracing/OpenCensus trace ID.
   - Operation: Kind of operation to perform. (e.g. FOO_CREATED, FOO_UPDATED)
-  - Backup: Aggregate/Entity's backup for update-like operations. This _could_ be skipped.
+  - Snapshot: Aggregate/Entity's backup for update-like operations. This _could_ be skipped.
   
 If a transaction fails, you _should_ replace the event body with a generic response like this:
   - Code: HTTP status-like code.
@@ -89,6 +90,9 @@ This is mostly recommended for every integration event (transaction).
 Since almost any service will perform transactions, context propagation is a nice way to handle transaction chaining.
 We recommend following the OpenCensus/OpenTracing approaches.
 
+To propagate remote context, you **must** add the _"tracing_context"_ field with OpenCensus/OpenTracing span context to event's message metadata.
+Once you have injected the remote span context, you **must** extract it on the event receiver/consumer and start a new span from the extracted span context.
+
 To keep transactions and events intact, you **must** use context propagation.
 
 An event context **must** have the following fields:
@@ -105,7 +109,7 @@ An event context **must** have the following fields:
 - Segregate organic business cases (normal use case) from SAGA use cases, create a new interactor class/struct for SAGA-only operations.
   - Write Done() and Failed() functions for SAGA commit/rollback transactions. (Keep your main functions organic)
 - For producer calling, add a new function in your Organic/SAGA interactor and trigger the producer from the event bus at the infrastructure layer.
-- For replace operations, attach the old entity in the event's metadata as a 'backup' field in case of a rollback.
+- For replace operations, attach the old entity in the event's metadata as a 'snapshot' field in case of a rollback.
 - For create operation's rollback, execute hard delete.
 - Log whenever a new event was produced.
 - Inject metrics from Prometheus or OpenMetrics.
@@ -123,4 +127,5 @@ and they _could_ be represented like this:
   - Failed: Client calls to API with /GET, receives a 404/NotFound error.
 - Wrap topics with resiliency patterns like circuit breaker(hystrix, gobreaker, etc) to avoid common communication errors.
 - Propagate the event context like OpenTracing/OpenCensus to keep the transaction and event entities intact.
+- Add a message error for failed/rollback events as event's body to keep error tracking.
 

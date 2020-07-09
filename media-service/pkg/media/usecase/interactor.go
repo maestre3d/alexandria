@@ -18,6 +18,8 @@ type MediaInteractor interface {
 
 type MediaSAGAInteractor interface {
 	VerifyAuthor(ctx context.Context, rootID string) error
+	UpdateStatic(ctx context.Context, rootID string, urlJSON []byte) error
+	RemoveStatic(ctx context.Context, rootID []byte) error
 	Done(ctx context.Context, rootID, operation string) error
-	Failed(ctx context.Context, rootID, operation, backup string) error
+	Failed(ctx context.Context, rootID, operation, snapshot string) error
 }

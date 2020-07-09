@@ -113,6 +113,28 @@ func (mw MetricMediaSAGAMiddleware) VerifyAuthor(ctx context.Context, rootID str
 	return
 }
 
+func (mw MetricMediaSAGAMiddleware) UpdateStatic(ctx context.Context, rootID string, urlJSON []byte) (err error) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "media.saga.update_static", "error", fmt.Sprint(err != nil)}
+		mw.RequestCount.With(lvs...).Add(1)
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	err = mw.Next.UpdateStatic(ctx, rootID, urlJSON)
+	return
+}
+
+func (mw MetricMediaSAGAMiddleware) RemoveStatic(ctx context.Context, rootID []byte) (err error) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "media.saga.remove_static", "error", fmt.Sprint(err != nil)}
+		mw.RequestCount.With(lvs...).Add(1)
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	err = mw.Next.RemoveStatic(ctx, rootID)
+	return
+}
+
 func (mw MetricMediaSAGAMiddleware) Done(ctx context.Context, rootID, operation string) (err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "media.saga.done", "error", fmt.Sprint(err != nil)}

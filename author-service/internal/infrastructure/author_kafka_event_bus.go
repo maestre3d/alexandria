@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/maestre3d/alexandria/author-service/internal/domain"
 	"github.com/sony/gobreaker"
+	"go.opencensus.io/trace"
 	"gocloud.dev/pubsub"
 	"sync"
 	"time"
@@ -52,48 +53,66 @@ func (b *AuthorKafkaEventBus) StartCreate(ctx context.Context, author domain.Aut
 			"owner_pool", "[]string"))
 	}
 
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "author: create")
+	defer span.End()
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.OwnerVerify))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
+	}
+
 	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, ownerJSON)
+	e.TracingContext = string(spanJSON)
 	t := eventbus.Transaction{
 		ID:        uuid.New().String(),
 		RootID:    author.ExternalID,
-		SpanID:    "",
-		TraceID:   "",
+		SpanID:    span.SpanContext().SpanID.String(),
+		TraceID:   span.SpanContext().TraceID.String(),
 		Operation: domain.AuthorCreated,
 	}
 
-	topic, err := eventbus.NewKafkaProducer(ctx, domain.OwnerVerify)
+	topic, err := eventbus.NewKafkaProducer(ctxT, domain.OwnerVerify)
 	if err != nil {
 		return err
 	}
-	defer topic.Shutdown(ctx)
+	defer topic.Shutdown(ctxT)
 
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
-			"transaction_id": t.ID,
-			"root_id":        t.RootID,
-			"span_id":        t.SpanID,
-			"trace_id":       t.TraceID,
-			"operation":      t.Operation,
-			"service":        e.ServiceName,
-			"event_id":       e.ID,
-			"event_type":     e.EventType,
-			"priority":       e.Priority,
-			"provider":       e.Provider,
-			"dispatch_time":  e.DispatchTime,
+			"transaction_id":  t.ID,
+			"root_id":         t.RootID,
+			"span_id":         t.SpanID,
+			"trace_id":        t.TraceID,
+			"operation":       t.Operation,
+			"tracing_context": e.TracingContext,
+			"service":         e.ServiceName,
+			"event_id":        e.ID,
+			"event_type":      e.EventType,
+			"priority":        e.Priority,
+			"provider":        e.Provider,
+			"dispatch_time":   e.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
 
 	// Safe-call with circuit breaker pattern
 	_, err = b.defaultCircuitBreaker("start_create").Execute(func() (interface{}, error) {
-		return nil, topic.Send(ctx, m)
+		return nil, topic.Send(ctxT, m)
 	})
 
 	return err
 }
 
-func (b *AuthorKafkaEventBus) StartUpdate(ctx context.Context, author domain.Author, backup domain.Author) error {
+func (b *AuthorKafkaEventBus) StartUpdate(ctx context.Context, author domain.Author, snapshot domain.Author) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -105,50 +124,68 @@ func (b *AuthorKafkaEventBus) StartUpdate(ctx context.Context, author domain.Aut
 			"owner_pool", "[]string"))
 	}
 
-	backupJSON, err := json.Marshal(backup)
+	snapshotJSON, err := json.Marshal(snapshot)
 	if err != nil {
 		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
-			"backup", "author entity"))
+			"snapshot", "author entity"))
+	}
+
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "author: update")
+	defer span.End()
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.OwnerVerify))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
 	}
 
 	t := &eventbus.Transaction{
 		ID:        uuid.New().String(),
 		RootID:    author.ExternalID,
-		SpanID:    "",
-		TraceID:   "",
+		SpanID:    span.SpanContext().SpanID.String(),
+		TraceID:   span.SpanContext().TraceID.String(),
 		Operation: domain.AuthorUpdated,
-		Backup:    string(backupJSON),
+		Snapshot:  string(snapshotJSON),
 	}
-	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, ownerJSON)
 
-	topic, err := eventbus.NewKafkaProducer(ctx, domain.OwnerVerify)
+	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventIntegration, eventbus.PriorityHigh, eventbus.ProviderKafka, ownerJSON)
+	e.TracingContext = string(spanJSON)
+	topic, err := eventbus.NewKafkaProducer(ctxT, domain.OwnerVerify)
 	if err != nil {
 		return err
 	}
-	defer topic.Shutdown(ctx)
+	defer topic.Shutdown(ctxT)
 
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
-			"transaction_id": t.ID,
-			"root_id":        t.RootID,
-			"span_id":        t.SpanID,
-			"trace_id":       t.TraceID,
-			"operation":      t.Operation,
-			"backup":         t.Backup,
-			"service":        e.ServiceName,
-			"event_id":       e.ID,
-			"event_type":     e.EventType,
-			"priority":       e.Priority,
-			"provider":       e.Provider,
-			"dispatch_time":  e.DispatchTime,
+			"transaction_id":  t.ID,
+			"root_id":         t.RootID,
+			"span_id":         t.SpanID,
+			"trace_id":        t.TraceID,
+			"operation":       t.Operation,
+			"snapshot":        t.Snapshot,
+			"tracing_context": e.TracingContext,
+			"service":         e.ServiceName,
+			"event_id":        e.ID,
+			"event_type":      e.EventType,
+			"priority":        e.Priority,
+			"provider":        e.Provider,
+			"dispatch_time":   e.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
 
 	// Safe-call with circuit breaker pattern
 	_, err = b.defaultCircuitBreaker("start_update").Execute(func() (interface{}, error) {
-		return nil, topic.Send(ctx, m)
+		return nil, topic.Send(ctxT, m)
 	})
 
 	return err
@@ -164,29 +201,47 @@ func (b *AuthorKafkaEventBus) Updated(ctx context.Context, author domain.Author)
 			"author", "author entity"))
 	}
 
-	topic, err := eventbus.NewKafkaProducer(ctx, domain.AuthorUpdated)
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "author: update")
+	defer span.End()
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.AuthorUpdated))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
+	}
+
+	topic, err := eventbus.NewKafkaProducer(ctxT, domain.AuthorUpdated)
 	if err != nil {
 		return err
 	}
-	defer topic.Shutdown(ctx)
+	defer topic.Shutdown(ctxT)
 
 	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, authorJSON)
+	e.TracingContext = string(spanJSON)
 	m := &pubsub.Message{
 		Body: e.Content,
 		Metadata: map[string]string{
-			"service":       e.ServiceName,
-			"event_id":      e.ID,
-			"event_type":    e.EventType,
-			"priority":      e.Priority,
-			"provider":      e.Provider,
-			"dispatch_time": e.DispatchTime,
+			"tracing_context": e.TracingContext,
+			"service":         e.ServiceName,
+			"event_id":        e.ID,
+			"event_type":      e.EventType,
+			"priority":        e.Priority,
+			"provider":        e.Provider,
+			"dispatch_time":   e.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
 
 	// Safe-call with circuit breaker pattern
 	_, err = b.defaultCircuitBreaker("updated").Execute(func() (interface{}, error) {
-		return nil, topic.Send(ctx, m)
+		return nil, topic.Send(ctxT, m)
 	})
 
 	return err
@@ -196,31 +251,48 @@ func (b *AuthorKafkaEventBus) Removed(ctx context.Context, id string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "author: removed")
+	defer span.End()
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.AuthorRemoved))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
+	}
+
 	// Send domain event, Spread side-effects to all required services
 	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, []byte(id))
-
-	topic, err := eventbus.NewKafkaProducer(ctx, domain.AuthorRemoved)
+	e.TracingContext = string(spanJSON)
+	topic, err := eventbus.NewKafkaProducer(ctxT, domain.AuthorRemoved)
 	if err != nil {
 		return err
 	}
-	defer topic.Shutdown(ctx)
+	defer topic.Shutdown(ctxT)
 
 	m := &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{
-			"service":       e.ServiceName,
-			"event_id":      e.ID,
-			"event_type":    e.EventType,
-			"priority":      e.Priority,
-			"provider":      e.Provider,
-			"dispatch_time": e.DispatchTime,
+			"tracing_context": e.TracingContext,
+			"service":         e.ServiceName,
+			"event_id":        e.ID,
+			"event_type":      e.EventType,
+			"priority":        e.Priority,
+			"provider":        e.Provider,
+			"dispatch_time":   e.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
 
 	// Safe-call with circuit breaker pattern
 	_, err = b.defaultCircuitBreaker("removed").Execute(func() (interface{}, error) {
-		return nil, topic.Send(ctx, m)
+		return nil, topic.Send(ctxT, m)
 	})
 
 	return err
@@ -230,30 +302,48 @@ func (b *AuthorKafkaEventBus) Restored(ctx context.Context, id string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "author: restored")
+	defer span.End()
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.AuthorRestored))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
+	}
+
 	// Send domain event, Spread side-effects to all required services
 	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, []byte(id))
-	topic, err := eventbus.NewKafkaProducer(ctx, domain.AuthorRestored)
+	e.TracingContext = string(spanJSON)
+	topic, err := eventbus.NewKafkaProducer(ctxT, domain.AuthorRestored)
 	if err != nil {
 		return err
 	}
-	defer topic.Shutdown(ctx)
+	defer topic.Shutdown(ctxT)
 
 	m := &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{
-			"service":       e.ServiceName,
-			"event_id":      e.ID,
-			"event_type":    e.EventType,
-			"priority":      e.Priority,
-			"provider":      e.Provider,
-			"dispatch_time": e.DispatchTime,
+			"tracing_context": e.TracingContext,
+			"service":         e.ServiceName,
+			"event_id":        e.ID,
+			"event_type":      e.EventType,
+			"priority":        e.Priority,
+			"provider":        e.Provider,
+			"dispatch_time":   e.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
 
 	// Safe-call with circuit breaker pattern
 	_, err = b.defaultCircuitBreaker("restored").Execute(func() (interface{}, error) {
-		return nil, topic.Send(ctx, m)
+		return nil, topic.Send(ctxT, m)
 	})
 
 	return err
@@ -263,30 +353,48 @@ func (b *AuthorKafkaEventBus) HardRemoved(ctx context.Context, id string) error 
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	// Add tracing
+	ctxT, span := trace.StartSpan(ctx, "author: hard_removed")
+	defer span.End()
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.AuthorHardRemoved))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context"))
+	}
+
 	// Send domain event, Spread side-effects to all required services
 	e := eventbus.NewEvent(b.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, []byte(id))
-	topic, err := eventbus.NewKafkaProducer(ctx, domain.AuthorHardRemoved)
+	e.TracingContext = string(spanJSON)
+	topic, err := eventbus.NewKafkaProducer(ctxT, domain.AuthorHardRemoved)
 	if err != nil {
 		return err
 	}
-	defer topic.Shutdown(ctx)
+	defer topic.Shutdown(ctxT)
 
 	m := &pubsub.Message{
 		Body: []byte(id),
 		Metadata: map[string]string{
-			"service":       e.ServiceName,
-			"event_id":      e.ID,
-			"event_type":    e.EventType,
-			"priority":      e.Priority,
-			"provider":      e.Provider,
-			"dispatch_time": e.DispatchTime,
+			"tracing_context": e.TracingContext,
+			"service":         e.ServiceName,
+			"event_id":        e.ID,
+			"event_type":      e.EventType,
+			"priority":        e.Priority,
+			"provider":        e.Provider,
+			"dispatch_time":   e.DispatchTime,
 		},
 		BeforeSend: nil,
 	}
 
 	// Safe-call with circuit breaker pattern
 	_, err = b.defaultCircuitBreaker("removed").Execute(func() (interface{}, error) {
-		return nil, topic.Send(ctx, m)
+		return nil, topic.Send(ctxT, m)
 	})
 
 	return err
