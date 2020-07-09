@@ -225,8 +225,8 @@ func (c *AuthorEventConsumer) onAuthorVerify(r *eventbus.Request) {
 	ctxT, span := trace.StartSpanWithRemoteParent(r.Context, "author: verify", traceCtx)
 	defer span.End()
 	span.SetStatus(trace.Status{
-		Code:    trace.StatusCodeInvalidArgument,
-		Message: string(eC.Event.Content),
+		Code:    trace.StatusCodeOK,
+		Message: "received event",
 	})
 	span.AddAttributes(trace.StringAttribute("event.name", domain.AuthorVerify))
 
