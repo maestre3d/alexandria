@@ -7,7 +7,7 @@ services:
     build: ./identity-service
     hostname: identity.alexandria.com
     image: alexandria-identity
-    restart: on-failure
+    restart: always
     volumes:
       - api:/usr/src/identity/
     ports:
@@ -23,7 +23,7 @@ services:
     build: ./author-service
     hostname: author.alexandria.com
     image: alexandria-author
-    restart: on-failure
+    restart: always
     volumes:
       - api:/usr/src/author/
     ports:
@@ -41,7 +41,7 @@ services:
     build: ./media-service
     hostname: media.alexandria.com
     image: alexandria-media
-    restart: on-failure
+    restart: always
     volumes:
       - api:/usr/src/media/
     ports:
@@ -59,7 +59,7 @@ services:
     build: ./blob-service
     hostname: blob.alexandria.com
     image: alexandria-blob
-    restart: on-failure
+    restart: always
     volumes:
       - api:/usr/src/blob/
     ports:
