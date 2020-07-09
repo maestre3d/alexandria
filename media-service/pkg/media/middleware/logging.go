@@ -128,7 +128,7 @@ type LoggingMediaSAGAMiddleware struct {
 
 func (mw LoggingMediaSAGAMiddleware) VerifyAuthor(ctx context.Context, rootID string) (err error) {
 	defer func(begin time.Time) {
-		mw.Logger.Log(
+		_ = mw.Logger.Log(
 			"method", "media.saga.verify_author",
 			"input", fmt.Sprintf("root_id: %s", rootID),
 			"output", err,
@@ -138,6 +138,35 @@ func (mw LoggingMediaSAGAMiddleware) VerifyAuthor(ctx context.Context, rootID st
 	}(time.Now())
 
 	err = mw.Next.VerifyAuthor(ctx, rootID)
+	return
+}
+
+func (mw LoggingMediaSAGAMiddleware) UpdateStatic(ctx context.Context, rootID string, urlJSON []byte) (err error) {
+	defer func(begin time.Time) {
+		_ = mw.Logger.Log(
+			"method", "media.saga.update_static",
+			"input", fmt.Sprintf("root_id: %s, url_pool: %s", rootID, string(urlJSON)),
+			"output", err,
+			"err", err,
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+	err = mw.Next.UpdateStatic(ctx, rootID, urlJSON)
+	return
+}
+
+func (mw LoggingMediaSAGAMiddleware) RemoveStatic(ctx context.Context, rootID []byte) (err error) {
+	defer func(begin time.Time) {
+		mw.Logger.Log(
+			"method", "media.saga.remove_static",
+			"input", fmt.Sprintf("root_id: %s", string(rootID)),
+			"output", err,
+			"err", err,
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+
+	err = mw.Next.RemoveStatic(ctx, rootID)
 	return
 }
 

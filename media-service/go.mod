@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
-	github.com/alexandria-oss/core v0.5.2-beta
+	github.com/alexandria-oss/core v0.5.4-beta
 	github.com/go-kit/kit v0.10.0
 	github.com/go-playground/validator/v10 v10.3.0
 	github.com/go-redis/redis/v7 v7.2.0

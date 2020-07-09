@@ -10,7 +10,7 @@ alexandria:
       password: "root"
       host: "postgres"
       port: 5432
-      database: "author"
+      database: "alexandria_media"
     mem:
       network: ""
       host: "redis"
@@ -33,11 +33,6 @@ alexandria:
       bridge: true
   eventbus:
     kafka:
-      cluster:
+      brokers:
         # Kafka Brokers nodes
-        leader:
-          host: "kafka"
-          port: 9092
-        1:
-          host: "kafka1"
-          port: 9092
+        - "kafka:9092"
