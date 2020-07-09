@@ -15,7 +15,7 @@ const (
 )
 
 type UserEventSAGA interface {
-	Verified(ctx context.Context) error
-	Failed(ctx context.Context, msg string) error
+	Verified(ctx context.Context, service string) error
+	Failed(ctx context.Context, service, msg string) error
 	BlobFailed(ctx context.Context, msg string) error
 }

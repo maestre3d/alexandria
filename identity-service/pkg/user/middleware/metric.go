@@ -32,14 +32,14 @@ type MetricUserSAGAMiddleware struct {
 	Next           usecase.UserSAGAInteractor
 }
 
-func (mw MetricUserSAGAMiddleware) Verify(ctx context.Context, usersJSON []byte) (err error) {
+func (mw MetricUserSAGAMiddleware) Verify(ctx context.Context, service string, usersJSON []byte) (err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "user.saga.verify", "error", fmt.Sprint(err != nil)}
 		mw.RequestCount.With(lvs...).Add(1)
 		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	err = mw.Next.Verify(ctx, usersJSON)
+	err = mw.Next.Verify(ctx, service, usersJSON)
 	return
 }
 

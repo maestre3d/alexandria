@@ -10,7 +10,7 @@ type UserInteractor interface {
 }
 
 type UserSAGAInteractor interface {
-	Verify(ctx context.Context, usersJSON []byte) error
+	Verify(ctx context.Context, service string, usersJSON []byte) error
 	UpdatePicture(ctx context.Context, id string, urlJSON []byte) error
 	RemovePicture(ctx context.Context, rootJSON []byte) error
 }

@@ -44,7 +44,7 @@ func (e UserSAGAKafkaEvent) defaultCircuitBreaker(action string) *gobreaker.Circ
 	return gobreaker.NewCircuitBreaker(st)
 }
 
-func (e *UserSAGAKafkaEvent) Verified(ctx context.Context) error {
+func (e *UserSAGAKafkaEvent) Verified(ctx context.Context, service string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -56,7 +56,7 @@ func (e *UserSAGAKafkaEvent) Verified(ctx context.Context) error {
 	}
 
 	// Avoid non-service naming, it would be impossible to respond to event
-	if eC.Event.ServiceName == "" {
+	if service == "" {
 		return exception.NewErrorDescription(exception.RequiredField, fmt.Sprintf(exception.RequiredFieldString, "service_name"))
 	}
 
@@ -68,7 +68,7 @@ func (e *UserSAGAKafkaEvent) Verified(ctx context.Context) error {
 		Code:    trace.StatusCodeOK,
 		Message: "send event",
 	})
-	span.AddAttributes(trace.StringAttribute("event.name", strings.ToUpper(eC.Event.ServiceName)+"_"+domain.OwnerVerified))
+	span.AddAttributes(trace.StringAttribute("event.name", strings.ToUpper(service)+"_"+domain.OwnerVerified))
 
 	// Prepare our span context to message metadata
 	spanJSON, err := json.Marshal(span.SpanContext())
@@ -77,7 +77,7 @@ func (e *UserSAGAKafkaEvent) Verified(ctx context.Context) error {
 			"tracing_context", "span context"))
 	}
 
-	p, err := eventbus.NewKafkaProducer(ctxT, strings.ToUpper(eC.Event.ServiceName)+"_"+domain.OwnerVerified)
+	p, err := eventbus.NewKafkaProducer(ctxT, strings.ToUpper(service)+"_"+domain.OwnerVerified)
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (e *UserSAGAKafkaEvent) Verified(ctx context.Context) error {
 	return err
 }
 
-func (e *UserSAGAKafkaEvent) Failed(ctx context.Context, msg string) error {
+func (e *UserSAGAKafkaEvent) Failed(ctx context.Context, service, msg string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -127,7 +127,7 @@ func (e *UserSAGAKafkaEvent) Failed(ctx context.Context, msg string) error {
 	}
 
 	// Avoid non-service naming, it would be impossible to respond to event
-	if eC.Event.ServiceName == "" {
+	if service == "" {
 		return exception.NewErrorDescription(exception.RequiredField, fmt.Sprintf(exception.RequiredFieldString, "service_name"))
 	}
 
@@ -139,7 +139,7 @@ func (e *UserSAGAKafkaEvent) Failed(ctx context.Context, msg string) error {
 		Code:    trace.StatusCodeOK,
 		Message: "send event",
 	})
-	span.AddAttributes(trace.StringAttribute("event.name", strings.ToUpper(eC.Event.ServiceName)+"_"+domain.OwnerFailed))
+	span.AddAttributes(trace.StringAttribute("event.name", strings.ToUpper(service)+"_"+domain.OwnerFailed))
 
 	// Prepare our span context to message metadata
 	spanJSON, err := json.Marshal(span.SpanContext())
@@ -148,7 +148,7 @@ func (e *UserSAGAKafkaEvent) Failed(ctx context.Context, msg string) error {
 			"tracing_context", "span context"))
 	}
 
-	p, err := eventbus.NewKafkaProducer(ctxT, strings.ToUpper(eC.Event.ServiceName)+"_"+domain.OwnerFailed)
+	p, err := eventbus.NewKafkaProducer(ctxT, strings.ToUpper(service)+"_"+domain.OwnerFailed)
 	if err != nil {
 		return err
 	}

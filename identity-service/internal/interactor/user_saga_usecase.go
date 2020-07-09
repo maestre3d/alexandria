@@ -30,34 +30,42 @@ func (u *UserSAGA) UpdatePicture(ctx context.Context, id string, urlJSON []byte)
 
 	var urls []string
 	err := json.Unmarshal(urlJSON, &urls)
-
-	// If parsing error, throw rollback event
 	if err != nil {
-		err = u.event.BlobFailed(ctxR, err.Error())
-		if err != nil {
-			return err
+		// Rollback if user (e.g. HTTP 404) error
+		errE := u.event.BlobFailed(ctxR, err.Error())
+		if errE != nil {
+			// Error during publishing
+			return errE
 		}
-		_ = u.logger.Log("msg", "event "+domain.BlobFailed+" produced")
+
+		_ = u.logger.Log("method", "identity.interactor.saga.update_picture", "msg", domain.BlobFailed+" integration event published")
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"url", "[]string"))
 	}
 
 	user, err := u.repository.FetchByID(ctxR, id)
-	// If user-provoked error, then rollback
-	defer func() {
-		if err != nil {
-			if code := httputil.ErrorToCode(err); code != 500 {
-				err = u.event.BlobFailed(ctxR, err.Error())
-				if err == nil {
-					_ = u.logger.Log("msg", "event "+domain.BlobFailed+" produced")
-				}
-			}
+	if code := httputil.ErrorToCode(err); err != nil && code != 500 {
+		// Rollback if user (e.g. HTTP 404) error
+		errE := u.event.BlobFailed(ctxR, err.Error())
+		if errE != nil {
+			// Error during publishing
+			return errE
 		}
-	}()
-	if err != nil {
+
+		_ = u.logger.Log("method", "identity.interactor.saga.update_picture", "msg", domain.BlobFailed+" integration event published")
 		return err
 	}
 
 	err = u.repository.ReplacePicture(ctxR, user.Username, urls[0])
-	if err != nil {
+	if code := httputil.ErrorToCode(err); err != nil && code != 500 {
+		// Rollback if user (e.g. HTTP 404) error
+		errE := u.event.BlobFailed(ctxR, err.Error())
+		if errE != nil {
+			// Error during publishing
+			return errE
+		}
+
+		_ = u.logger.Log("method", "identity.interactor.saga.update_picture", "msg", domain.BlobFailed+" integration event published")
 		return err
 	}
 
@@ -68,10 +76,12 @@ func (u *UserSAGA) RemovePicture(ctx context.Context, rootJSON []byte) error {
 	ctxR, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// Domain event, no remote rollbacks
 	var rooIDPool []string
 	err := json.Unmarshal(rootJSON, &rooIDPool)
 	if err != nil {
-		return err
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"url", "[]string"))
 	}
 
 	user, err := u.repository.FetchByID(ctxR, rooIDPool[0])
@@ -81,11 +91,6 @@ func (u *UserSAGA) RemovePicture(ctx context.Context, rootJSON []byte) error {
 
 	err = u.repository.ReplacePicture(ctxR, user.Username, "")
 	if err != nil {
-		errE := u.event.BlobFailed(ctxR, err.Error())
-		if errE != nil {
-			return errE
-		}
-		_ = u.logger.Log("msg", "event "+domain.BlobFailed+" produced")
 		return err
 	}
 
@@ -94,7 +99,7 @@ func (u *UserSAGA) RemovePicture(ctx context.Context, rootJSON []byte) error {
 
 // Verifier implementation
 
-func (u *UserSAGA) Verify(ctx context.Context, usersJSON []byte) error {
+func (u *UserSAGA) Verify(ctx context.Context, service string, usersJSON []byte) error {
 	ctxR, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -102,13 +107,10 @@ func (u *UserSAGA) Verify(ctx context.Context, usersJSON []byte) error {
 	var owners []string
 	err := json.Unmarshal(usersJSON, &owners)
 	if err != nil {
-		_ = u.logger.Log("method", "identity.interactor.saga.verify", "err", err.Error())
-
 		// Rollback if format error
-		err = u.event.Failed(ctxR, err.Error())
+		err = u.event.Failed(ctxR, service, err.Error())
 		if err != nil {
 			// Error during publishing
-			_ = u.logger.Log("method", "identity.interactor.saga.verify", "err", err.Error())
 			return err
 		}
 
@@ -119,24 +121,22 @@ func (u *UserSAGA) Verify(ctx context.Context, usersJSON []byte) error {
 
 	for _, id := range owners {
 		_, err := u.repository.FetchByID(ctxR, id)
-		if err != nil {
-			_ = u.logger.Log("method", "identity.interactor.saga.verify", "err", err.Error())
-
-			err = u.event.Failed(ctxR, err.Error())
-			if err != nil {
-				_ = u.logger.Log("method", "identity.interactor.saga.verify", "err", err.Error())
-				return err
+		if code := httputil.ErrorToCode(err); err != nil && code != 500 {
+			// Rollback if user (e.g. HTTP 404/409/400) error
+			errE := u.event.Failed(ctxR, service, err.Error())
+			if errE != nil {
+				// Error during publishing
+				return errE
 			}
 
 			_ = u.logger.Log("method", "identity.interactor.saga.verify", "msg", domain.OwnerFailed+" integration event published")
-			return nil
+			return err
 		}
 	}
 
 	// All users have been verified
-	err = u.event.Verified(ctxR)
+	err = u.event.Verified(ctxR, service)
 	if err != nil {
-		_ = u.logger.Log("method", "identity.interactor.saga.verify", "err", err.Error())
 		return err
 	}
 

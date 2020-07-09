@@ -193,7 +193,7 @@ func (c *UserEventConsumer) onOwnerVerify(r *eventbus.Request) {
 	span.AddAttributes(trace.StringAttribute("event.name", domain.OwnerVerify))
 
 	ctxU := context.WithValue(ctxT, eventbus.EventContextKey("event"), eC)
-	err = c.svc.Verify(ctxU, eC.Event.Content)
+	err = c.svc.Verify(ctxU, eC.Event.ServiceName, eC.Event.Content)
 	if err != nil {
 		_ = level.Error(c.logger).Log("err", err)
 		// If internal error, do nack
