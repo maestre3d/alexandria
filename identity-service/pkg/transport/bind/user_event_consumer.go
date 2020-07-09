@@ -76,7 +76,7 @@ func extractContext(r *eventbus.Request) *eventbus.EventContext {
 		},
 		Event: &eventbus.Event{
 			ID:           r.Message.Metadata["event_id"],
-			ServiceName:  r.Message.Metadata["service_name"],
+			ServiceName:  r.Message.Metadata["service"],
 			EventType:    r.Message.Metadata["event_type"],
 			Content:      r.Message.Body,
 			Priority:     r.Message.Metadata["priority"],
