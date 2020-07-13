@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  ImageBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: cdn.damascus-engineering.com
+      PolicyDocument:
+        Statement:
+            - Action:
+                - s3:GetObject
+              Effect: Allow
+              Principal: "*"
+              Resource: !Sub arn:aws:s3:::cdn.damascus-engineering.com/*
+            - Action:
+                - s3:PutObject
+              Effect: Allow
+              Principal:
+                AWS: !GetAtt EdgeLambdaRole.Arn
+              Resource: !Sub arn:aws:s3:::cdn.damascus-engineering.com/alexandria/*
+            - Action:
+                - s3:GetObject
+              Effect: Allow
+              Principal:
+                AWS: !GetAtt EdgeLambdaRole.Arn
+              Resource: !Sub arn:aws:s3:::cdn.damascus-engineering.com/alexandria/*
+
+  EdgeLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+                - "edgelambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/service-role/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+
+  ViewerRequestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://serverless.damascus-engineering.com/viewer-request-function.zip
+      Handler: index.handler
+      Runtime: nodejs12.x
+      MemorySize: 128
+      Timeout: 1
+      Role: !GetAtt EdgeLambdaRole.Arn
+
+  ViewerRequestFunctionVersion:
+    Type: "AWS::Lambda::Version"
+    Properties:
+      FunctionName: !Ref ViewerRequestFunction
+      Description: "A version of ViewerRequestFunction"
+
+  OriginResponseFunction:
+   Type: AWS::Serverless::Function
+   Properties:
+     CodeUri: s3://serverless.damascus-engineering.com/origin-response-function.zip
+     Handler: index.handler
+     Runtime: nodejs12.x
+     MemorySize: 512
+     Timeout: 5
+     Role: !GetAtt EdgeLambdaRole.Arn
+
+  OriginResponseFunctionVersion:
+    Type: "AWS::Lambda::Version"
+    Properties:
+      FunctionName: !Ref OriginResponseFunction
+      Description: "A version of OriginResponseFunction"
+
+
