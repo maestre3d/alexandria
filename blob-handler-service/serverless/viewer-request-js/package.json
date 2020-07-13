@@ -1,0 +1,17 @@
+{
+  "name": "viewer-request",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "A Ruiz",
+  "license": "MIT",
+  "dependencies": {
+    "querystring": "^0.2.0"
+  },
+  "devDependencies": {},
+  "keywords": [],
+  "description": ""
+}
