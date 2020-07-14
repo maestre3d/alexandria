@@ -22,9 +22,6 @@ exports.handler = async (event, context, callback) => {
             return
         }
 
-        // read the dimension parameter value = width x height and split it by 'x'
-        let dimensionMatch = params.d.split('x');
-
         // read the required path. Ex: uri /alexandria/user/100x100/webp/image.jpg
         let path = request.uri
 
@@ -35,7 +32,6 @@ exports.handler = async (event, context, callback) => {
         // parse the prefix, width, height and image name
         // Ex: key=alexandria/user/200x200/webp/image.jpg
         let prefix, originalKey, match, width, height, requiredFormat, imageName
-        let startIndex
 
         try {
             match = key.match(/(.*)\/(\d+)x(\d+)\/(.*)\/(.*)/)
@@ -90,6 +86,7 @@ exports.handler = async (event, context, callback) => {
         } catch (error) {
             // If error, export it to AWS CloudWatch and send default response
             console.log(error)
+            return
         }
     }
 

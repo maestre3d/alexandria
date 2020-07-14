@@ -1,14 +1,14 @@
-import querystring from 'querystring'
+const querystring = require('querystring')
 
 // defines the allowed dimensions, default dimensions and how much variance from allowed
 // dimension is allowed.
 
 const variables = {
-        allowedDimension : [ {w:100,h:100}, {w:200,h:200}, {w:300,h:300}, {w:400,h:400} ],
-        defaultDimension : {w:200,h:200},
-        variance: 20,
-        webpExtension: 'webp'
-  };
+    allowedDimension : [ {w:100,h:100}, {w:200,h:200}, {w:300,h:300}, {w:400,h:400} ],
+    defaultDimension : {w:200,h:200},
+    variance: 20,
+    webpExtension: 'webp'
+}
 
 exports.handler = (event, context, callback) => {
     const request = event.Records[0].cf.request
@@ -66,7 +66,7 @@ exports.handler = (event, context, callback) => {
     }
 
     // read the accept header to determine if webP is supported.
-    const accept = headers['accept'] ? headers['accept'][0].value: ""
+    const accept = headers['accept'] ? headers['accept'][0].value : ""
 
     const url = []
     // build the new uri to be forwarded upstream
@@ -77,9 +77,7 @@ exports.handler = (event, context, callback) => {
     if (accept.includes(variables.webpExtension)) {
         url.push(variables.webpExtension)
     }
-    else{
-        url.push(extension)
-    }
+    
     url.push(imageName+"."+extension)
 
     fwdUri = url.join("/")
