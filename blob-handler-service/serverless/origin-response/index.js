@@ -1,6 +1,5 @@
 const http = require('http')
 const https = require('https')
-const querystring = require('querystring')
 const sharp = require('sharp')
 const AWS = require('aws-sdk')
 
@@ -12,15 +11,10 @@ const BUCKET = 'cdn.damascus-engineering.com'
 
 exports.handler = async (event, context, callback) => {
     let response = event.Records[0].cf.response
+    console.info("EVENT\n" + JSON.stringify(event, null, 2))
 
-    if (response.status === 404) {
+    if (response.status === "404" || response.status === "403") {
         const request = event.Records[0].cf.request
-        const params = querystring.parse(request.querystring)
-
-        if (!params.d) {
-            callback(null, response)
-            return
-        }
 
         // read the required path. Ex: uri /alexandria/user/100x100/webp/image.jpg
         let path = request.uri
@@ -62,10 +56,14 @@ exports.handler = async (event, context, callback) => {
             const sourceImg = await S3.getObject({ Bucket: BUCKET, Key: originalKey }).promise()
             
             // perform the resize operation
-            const imgBuf = await sharp(sourceImg.Body).resize(width, height).toFormat(requiredFormat).toBuffer()
+            const bufImg = await sharp(sourceImg.Body).resize(width, height).toFormat(requiredFormat).toBuffer().then(buffer => {
+                return buffer
+            }).catch(err => {
+                console.log(err)
+            })
 
             const x = await S3.putObject({
-                Body: imgBuf,
+                Body: bufImg,
                 Bucket: BUCKET,
                 ContentType: 'image/'+ requiredFormat,
                 CacheControl: 'max-age=31536000',
@@ -75,18 +73,19 @@ exports.handler = async (event, context, callback) => {
 
             // generate a binary response with resized image
             response.status = 200
-            response.body = buffer.toString('base64')
+            response.statusDescription = 'ok'
+            response.body = bufImg.toString('base64')
             response.bodyEncoding = 'base64'
             response.headers['content-type'] = [{ 
                 key: 'Content-Type', 
                 value: "image/" + requiredFormat 
             }]
+
             callback(null, response)
             return
         } catch (error) {
             // If error, export it to AWS CloudWatch and send default response
             console.log(error)
-            return
         }
     }
 
