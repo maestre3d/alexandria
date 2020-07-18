@@ -10,11 +10,6 @@ import (
 	"time"
 )
 
-const (
-	StatusPending   = "STATUS_PENDING"
-	StatusCompleted = "STATUS_COMPLETED"
-)
-
 // Root/Default entity
 
 type Category struct {
@@ -23,7 +18,7 @@ type Category struct {
 	Name       string    `json:"name" validate:"required,min=1,max=255"`
 	CreateTime time.Time `json:"create_time"`
 	UpdateTime time.Time `json:"update_time"`
-	Status     string    `json:"status"`
+	Active     bool      `json:"-"`
 }
 
 func NewCategory(name string) *Category {
@@ -39,7 +34,7 @@ func NewCategory(name string) *Category {
 		Name:       strings.Title(name),
 		CreateTime: time.Now(),
 		UpdateTime: time.Now(),
-		Status:     StatusPending,
+		Active:     true,
 	}
 }
 

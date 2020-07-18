@@ -13,8 +13,8 @@ const (
 )
 
 type CategoryEventBus interface {
-	StartCreate(ctx context.Context, category Category) error
-	Update(ctx context.Context, category Category) error
+	Created(ctx context.Context, category Category) error
+	Updated(ctx context.Context, category Category) error
 	Removed(ctx context.Context, id string) error
 	HardRemoved(ctx context.Context, id string) error
 }
