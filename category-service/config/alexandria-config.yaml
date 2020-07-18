@@ -3,14 +3,13 @@ alexandria:
     service: "category"
     version: 0.1.0
   persistence:
-    dbms:
-      url: "postgres://postgres:root@postgres:5432/alexandria_category?sslmode=disable"
-      driver: "postgres"
-      user: "postgres"
-      password: "root"
-      host: "postgres"
-      port: 5432
-      database: "alexandria_category"
+    cassandra:
+      username: ""
+      password: ""
+      keyspace: "alexa1"
+      cluster:
+        ## Cassandra distributed nodes hosts
+        - "localhost"
     mem:
       network: ""
       host: "redis"
@@ -35,4 +34,4 @@ alexandria:
     kafka:
       brokers:
         # Kafka Brokers nodes
-        - "kafka:9092"
+        - "localhost:9092"
