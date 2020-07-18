@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/alexandria-oss/core"
+	"github.com/alexandria-oss/core/exception"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/maestre3d/alexandria/category-service/internal/domain"
+	"strings"
 )
 
 type CategoryUseCase struct {
@@ -23,32 +25,42 @@ func NewCategoryUseCase(logger log.Logger, repo domain.CategoryRepository, event
 	}
 }
 
-func (u *CategoryUseCase) Create(ctx context.Context, name, service string) (*domain.Category, error) {
+func (u *CategoryUseCase) Create(ctx context.Context, name string) (*domain.Category, error) {
 	ctxI, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	// Avoid duplicate rows
+	_, _, err := u.List(ctxI, "", "1", core.FilterParams{"query": name})
+	if err == nil {
+		return nil, exception.EntityExists
+	}
 
 	category := domain.NewCategory(name)
 	if err := category.IsValid(); err != nil {
 		return nil, err
 	}
 
-	err := u.repo.Save(ctxI, *category)
+	err = u.repo.Save(ctxI, *category)
 	if err != nil {
 		return nil, err
 	}
 
 	errC := make(chan error)
 	go func() {
-		err = u.event.StartCreate(ctxI, *category)
+		err = u.event.Created(ctxI, *category)
 		if err != nil {
-			_ = level.Error(u.logger).Log(err)
+			_ = level.Error(u.logger).Log("err", err)
+			// Rollback
 			err = u.event.HardRemoved(ctx, category.ExternalID)
 			if err != nil {
-				_ = level.Error(u.logger).Log(err)
+				_ = level.Error(u.logger).Log("err", err)
 			}
+			errC <- err
+			return
 		}
 
-		_ = level.Info(u.logger).Log(fmt.Sprintf("event %s sent", domain.EntityVerify(service)))
+		_ = level.Info(u.logger).Log("msg", fmt.Sprintf("event %s sent", domain.CategoryCreated))
+		errC <- nil
 	}()
 
 	select {
@@ -71,20 +83,156 @@ func (u *CategoryUseCase) Get(ctx context.Context, id string) (*domain.Category,
 }
 
 func (u *CategoryUseCase) List(ctx context.Context, token, limit string, filter core.FilterParams) ([]*domain.Category, string, error) {
+	ctxI, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	params := core.NewPaginationParams(token, limit)
 	nextToken := ""
 
 	// Increment to get nextToken
 	params.Size++
-	categories, err := u.repo.Fetch(ctx, *params, filter)
+	categories, err := u.repo.Fetch(ctxI, *params, filter)
 	if err != nil {
 		return nil, "", err
 	}
 
-	if len(categories) > 1 {
+	if len(categories) >= params.Size {
 		nextToken = categories[len(categories)-1].ExternalID
-		categories = categories[:len(categories)-2]
+		categories = categories[0 : len(categories)-1]
 	}
 
 	return categories, nextToken, nil
+}
+
+func (u *CategoryUseCase) Update(ctx context.Context, id, name string) (*domain.Category, error) {
+	ctxI, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Avoid duplicate rows
+	_, _, err := u.List(ctxI, "", "1", core.FilterParams{"name": name})
+	if err == nil {
+		return nil, exception.EntityExists
+	}
+
+	// Non-atomic update
+	category, err := u.Get(ctxI, id)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := category
+
+	if name != "" {
+		category.Name = strings.Title(name)
+	}
+
+	err = u.repo.Replace(ctxI, *category)
+	if err != nil {
+		return nil, err
+	}
+
+	errC := make(chan error)
+	go func() {
+		err = u.event.Updated(ctxI, *category)
+		if err != nil {
+			_ = level.Error(u.logger).Log("err", err)
+			// Rollback
+			err = u.repo.Replace(ctxI, *snapshot)
+			if err != nil {
+				_ = level.Error(u.logger).Log("err", err)
+			}
+			errC <- err
+			return
+		}
+
+		_ = level.Info(u.logger).Log("msg", fmt.Sprintf("event %s sent", domain.CategoryUpdated))
+		errC <- nil
+	}()
+
+	select {
+	case err = <-errC:
+		if err != nil {
+			return nil, err
+		}
+		break
+	}
+
+	return category, nil
+}
+
+func (u *CategoryUseCase) Delete(ctx context.Context, id string) error {
+	ctxI, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	err := u.repo.Remove(ctxI, id)
+	if err != nil {
+		return err
+	}
+
+	errC := make(chan error)
+	go func() {
+		err = u.event.Removed(ctxI, id)
+		if err != nil {
+			// Rollback
+			_ = level.Error(u.logger).Log("err", err)
+			err = u.repo.Restore(ctxI, id)
+			if err != nil {
+				_ = level.Error(u.logger).Log("err", err)
+			}
+			errC <- err
+		}
+
+		_ = level.Info(u.logger).Log("msg", fmt.Sprintf("event %s sent", domain.CategoryRemoved))
+		errC <- nil
+	}()
+
+	select {
+	case err = <-errC:
+		if err != nil {
+			return err
+		}
+		break
+	}
+
+	return nil
+}
+
+func (u *CategoryUseCase) HardRemove(ctx context.Context, id string) error {
+	ctxI, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	snapshot, err := u.repo.FetchByID(ctxI, id)
+	if err != nil {
+		return err
+	}
+
+	err = u.repo.HardRemove(ctxI, id)
+	if err != nil {
+		return err
+	}
+
+	errC := make(chan error)
+	go func() {
+		err = u.event.HardRemoved(ctxI, id)
+		if err != nil {
+			_ = level.Error(u.logger).Log("err", err)
+			// Rollback
+			err = u.repo.Save(ctxI, *snapshot)
+			if err != nil {
+				_ = level.Error(u.logger).Log("err", err)
+			}
+			errC <- err
+		}
+
+		_ = level.Info(u.logger).Log("msg", fmt.Sprintf("event %s sent", domain.CategoryHardRemoved))
+	}()
+
+	select {
+	case err = <-errC:
+		if err != nil {
+			return err
+		}
+		break
+	}
+
+	return nil
 }
