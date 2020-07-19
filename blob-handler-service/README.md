@@ -6,7 +6,7 @@ It uses HTTP communication protocol to receive and respond edge's hits.
 
 Further information can be found [here](https://aws.amazon.com/es/blogs/networking-and-content-delivery/resizing-images-with-amazon-cloudfront-lambdaedge-aws-cdn-blog).
 
-In the following image, you may appreciate the architecture using Amazon Web Services.
+In the following image, you may appreciate the process flow using Amazon Web Services.
 
 ![AWS Resizing image architecture](https://d2908q01vomqb2.cloudfront.net/5b384ce32d8cdef02bc3a139d4cac0a22bb029e8/2018/02/20/Social-Media-Image-Resize-Images.png "AWS Resizing architecture")
 
