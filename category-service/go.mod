@@ -9,6 +9,7 @@ require (
 	github.com/go-redis/redis/v7 v7.2.0
 	github.com/gocql/gocql v0.0.0-20200624222514-34081eda590e
 	github.com/google/uuid v1.1.1
+	github.com/google/wire v0.3.0
 	github.com/matoous/go-nanoid v1.4.1
 	github.com/sony/gobreaker v0.4.1
 	github.com/spf13/viper v1.6.3
