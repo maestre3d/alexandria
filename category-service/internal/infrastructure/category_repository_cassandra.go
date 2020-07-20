@@ -22,14 +22,14 @@ var (
 )
 
 type CategoryRepositoryCassandra struct {
-	mu      *sync.Mutex
+	mu      *sync.RWMutex
 	pool    *gocql.ClusterConfig
 	memPool *redis.Client
 }
 
 func NewCategoryRepositoryCassandra(pool *gocql.ClusterConfig, memPool *redis.Client) *CategoryRepositoryCassandra {
 	return &CategoryRepositoryCassandra{
-		mu:      new(sync.Mutex),
+		mu:      new(sync.RWMutex),
 		pool:    pool,
 		memPool: memPool,
 	}
@@ -53,7 +53,7 @@ func (r *CategoryRepositoryCassandra) Save(ctx context.Context, category domain.
 
 	span.SetStatus(trace.Status{
 		Code:    trace.StatusCodeOK,
-		Message: "store row in cassandra",
+		Message: "write row in cassandra",
 	})
 	span.AddAttributes(trace.StringAttribute("operation", "save"), trace.StringAttribute("db.driver", "cassandra"))
 
@@ -78,10 +78,12 @@ func (r *CategoryRepositoryCassandra) Save(ctx context.Context, category domain.
 	return err
 }
 
-func (r *CategoryRepositoryCassandra) FetchByID(ctx context.Context, id string) (*domain.Category, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *CategoryRepositoryCassandra) FetchByID(ctx context.Context, id string, activeOnly bool) (*domain.Category, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	startTime := time.Now()
+
+	// _, id = DecodeCassandraID(id)
 
 	// TODO: Redis cache-aside pattern impl. before Cassandra read op.
 
@@ -116,8 +118,13 @@ func (r *CategoryRepositoryCassandra) FetchByID(ctx context.Context, id string) 
 		stats.Record(ctx, latencyMs.M(float64(time.Since(startTime).Nanoseconds())/1e6))
 	}()
 
+	statement := `SELECT * FROM alexa1.category WHERE TOKEN(external_id) = TOKEN(?)`
+	if activeOnly {
+		statement += ` AND active = true `
+	}
+	statement += ` LIMIT 1 ALLOW FILTERING`
 	category := new(domain.Category)
-	err = s.Query(`SELECT * FROM alexa1.category WHERE external_id = ? AND active = TRUE LIMIT 1 ALLOW FILTERING`,
+	err = s.Query(statement,
 		id).Consistency(gocql.One).WithContext(ctx).
 		Scan(&category.ExternalID, &category.ID, &category.Active, &category.Name, &category.CreateTime, &category.UpdateTime)
 	if err != nil {
@@ -126,13 +133,15 @@ func (r *CategoryRepositoryCassandra) FetchByID(ctx context.Context, id string) 
 		}
 		return nil, err
 	}
+	// Encode internal URL
+	// category.ExternalID = EncodeCassandraID(category.ID, category.ExternalID)
 
 	return category, nil
 }
 
 func (r *CategoryRepositoryCassandra) Fetch(ctx context.Context, params core.PaginationParams, filter core.FilterParams) ([]*domain.Category, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	startTime := time.Now()
 
 	s, err := r.pool.CreateSession()
@@ -176,7 +185,8 @@ func (r *CategoryRepositoryCassandra) Fetch(ctx context.Context, params core.Pag
 	}
 
 	if params.Token != "" {
-		builder.Statement += `external_id = ` + params.Token
+		// _, extID := DecodeCassandraID(params.Token)
+		builder.Statement += `TOKEN(external_id) >= TOKEN('` + params.Token + `')`
 		builder.And()
 	}
 
@@ -194,10 +204,12 @@ func (r *CategoryRepositoryCassandra) Fetch(ctx context.Context, params core.Pag
 		return nil, exception.EntitiesNotFound
 	}
 
-	category := new(domain.Category)
+	category := domain.Category{}
 	categories := make([]*domain.Category, 0)
 	for iter.Scan(&category.ExternalID, &category.ID, &category.Active, &category.Name, &category.CreateTime, &category.UpdateTime) {
-		categories = append(categories, category)
+		// category.ExternalID = EncodeCassandraID(category.ID, category.ExternalID)
+		catMemento := category
+		categories = append(categories, &catMemento)
 	}
 
 	if err := iter.Close(); err != nil {
@@ -210,27 +222,187 @@ func (r *CategoryRepositoryCassandra) Fetch(ctx context.Context, params core.Pag
 func (r *CategoryRepositoryCassandra) Replace(ctx context.Context, category domain.Category) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	startTime := time.Now()
 
-	return nil
+	s, err := r.pool.CreateSession()
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+
+	// Enable dist. tracing
+	ctxT, span := trace.StartSpan(ctx, "category_replace")
+	defer span.End()
+	ctx = ctxT
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "write row in cassandra",
+	})
+	span.AddAttributes(trace.StringAttribute("operation", "replace"), trace.StringAttribute("db.driver", "cassandra"))
+
+	// Enable census metrics
+	ctxM, err := tag.New(ctx, tag.Insert(keyMethod, "category.replace"), tag.Insert(keyStatus, "OK"))
+	if err != nil {
+		return err
+	}
+	ctx = ctxM
+	defer func() {
+		if err != nil {
+			ctx, _ = tag.New(ctx, tag.Upsert(keyStatus, "ERROR"), tag.Insert(keyError, err.Error()))
+		}
+
+		stats.Record(ctx, latencyMs.M(float64(time.Since(startTime).Nanoseconds())/1e6))
+	}()
+
+	err = s.Query(`UPDATE alexa1.category SET category_name = ?, update_time = ? WHERE external_id = ? AND id = ?`, category.Name,
+		category.UpdateTime, category.ExternalID, category.ID).WithContext(ctx).Exec()
+
+	return err
 }
 
 func (r *CategoryRepositoryCassandra) Remove(ctx context.Context, id string) error {
+	startTime := time.Now()
+
+	s, err := r.pool.CreateSession()
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+
+	// Enable dist. tracing
+	ctxT, span := trace.StartSpan(ctx, "category_remove")
+	defer span.End()
+	ctx = ctxT
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "write row in cassandra",
+	})
+	span.AddAttributes(trace.StringAttribute("operation", "remove"), trace.StringAttribute("db.driver", "cassandra"))
+
+	// Enable census metrics
+	ctxM, err := tag.New(ctx, tag.Insert(keyMethod, "category.remove"), tag.Insert(keyStatus, "OK"))
+	if err != nil {
+		return err
+	}
+	ctx = ctxM
+	defer func() {
+		if err != nil {
+			ctx, _ = tag.New(ctx, tag.Upsert(keyStatus, "ERROR"), tag.Insert(keyError, err.Error()))
+		}
+
+		stats.Record(ctx, latencyMs.M(float64(time.Since(startTime).Nanoseconds())/1e6))
+	}()
+	ctxI, _ := context.WithCancel(ctx)
+	category, err := r.FetchByID(ctxI, id, true)
+	if err != nil {
+		return err
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	return nil
+	err = s.Query(`UPDATE alexa1.category SET active = ? WHERE external_id = ? AND id = ?`, false,
+		category.ExternalID, category.ID).WithContext(ctx).Exec()
+	if err != nil && err == gocql.ErrNotFound {
+		return exception.EntityNotFound
+	}
+
+	return err
 }
 
 func (r *CategoryRepositoryCassandra) Restore(ctx context.Context, id string) error {
+	startTime := time.Now()
+
+	s, err := r.pool.CreateSession()
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+
+	// Enable dist. tracing
+	ctxT, span := trace.StartSpan(ctx, "category_restore")
+	defer span.End()
+	ctx = ctxT
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "write row in cassandra",
+	})
+	span.AddAttributes(trace.StringAttribute("operation", "restore"), trace.StringAttribute("db.driver", "cassandra"))
+
+	// Enable census metrics
+	ctxM, err := tag.New(ctx, tag.Insert(keyMethod, "category.restore"), tag.Insert(keyStatus, "OK"))
+	if err != nil {
+		return err
+	}
+	ctx = ctxM
+	defer func() {
+		if err != nil {
+			ctx, _ = tag.New(ctx, tag.Upsert(keyStatus, "ERROR"), tag.Insert(keyError, err.Error()))
+		}
+
+		stats.Record(ctx, latencyMs.M(float64(time.Since(startTime).Nanoseconds())/1e6))
+	}()
+	ctxI, _ := context.WithCancel(ctx)
+	category, err := r.FetchByID(ctxI, id, false)
+	if err != nil {
+		return err
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	return nil
+	err = s.Query(`UPDATE alexa1.category SET active = ? WHERE external_id = ? AND id = ?`, true,
+		category.ExternalID, category.ID).WithContext(ctx).Exec()
+
+	return err
 }
 
 func (r *CategoryRepositoryCassandra) HardRemove(ctx context.Context, id string) error {
+	startTime := time.Now()
+
+	s, err := r.pool.CreateSession()
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+
+	// Enable dist. tracing
+	ctxT, span := trace.StartSpan(ctx, "category_hard_remove")
+	defer span.End()
+	ctx = ctxT
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "delete row in cassandra",
+	})
+	span.AddAttributes(trace.StringAttribute("operation", "hard_remove"), trace.StringAttribute("db.driver", "cassandra"))
+
+	// Enable census metrics
+	ctxM, err := tag.New(ctx, tag.Insert(keyMethod, "category.hard_remove"), tag.Insert(keyStatus, "OK"))
+	if err != nil {
+		return err
+	}
+	ctx = ctxM
+	defer func() {
+		if err != nil {
+			ctx, _ = tag.New(ctx, tag.Upsert(keyStatus, "ERROR"), tag.Insert(keyError, err.Error()))
+		}
+
+		stats.Record(ctx, latencyMs.M(float64(time.Since(startTime).Nanoseconds())/1e6))
+	}()
+	ctxI, _ := context.WithCancel(ctx)
+	category, err := r.FetchByID(ctxI, id, false)
+	if err != nil {
+		return err
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	err = s.Query("DELETE FROM alexa1.category WHERE external_id = ? AND id = ?", category.ExternalID, category.ID).WithContext(ctx).Exec()
+	// TODO: Catch 404 errors
 
-	return nil
+	return err
 }

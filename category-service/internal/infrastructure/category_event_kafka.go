@@ -193,6 +193,54 @@ func (e *CategoryEventKafka) Removed(ctx context.Context, id string) error {
 	return err
 }
 
+func (e *CategoryEventKafka) Restored(ctx context.Context, id string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	ctxT, span := trace.StartSpan(ctx, "category_restored")
+	defer span.End()
+	ctx = ctxT
+
+	span.SetStatus(trace.Status{
+		Code:    trace.StatusCodeOK,
+		Message: "send event",
+	})
+	span.AddAttributes(trace.StringAttribute("event.name", domain.CategoryRestored), trace.StringAttribute("event.type", eventbus.EventDomain))
+
+	spanJSON, err := json.Marshal(span.SpanContext())
+	if err != nil {
+		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
+			"tracing_context", "span context object"))
+	}
+
+	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, []byte(id))
+	event.TracingContext = string(spanJSON)
+	p, err := eventbus.NewKafkaProducer(ctx, domain.CategoryRestored)
+	if err != nil {
+		return err
+	}
+	defer p.Shutdown(ctx)
+
+	m := &pubsub.Message{
+		Body: event.Content,
+		Metadata: map[string]string{
+			"event_id":        event.ID,
+			"tracing_context": event.TracingContext,
+			"service":         event.ServiceName,
+			"event_type":      event.EventType,
+			"priority":        event.Priority,
+			"provider":        event.Provider,
+			"dispatch_time":   event.DispatchTime,
+		},
+		BeforeSend: nil,
+	}
+
+	_, err = getCircuitBreaker("category_restored").Execute(func() (interface{}, error) {
+		return nil, p.Send(ctx, m)
+	})
+	return err
+}
+
 func (e *CategoryEventKafka) HardRemoved(ctx context.Context, id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
