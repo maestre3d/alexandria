@@ -19,6 +19,8 @@ func NewCassandraPool(cfg *config.Kernel) *gocql.ClusterConfig {
 	cluster.Hosts = getCassandraCluster()
 	cluster.Authenticator = getCassandraAuthCreds()
 	cluster.Consistency = gocql.Quorum
+	cluster.PageSize = 100
+	cluster.NumConns = 2
 
 	// Shard context
 	cluster.Keyspace = viper.GetString("alexandria.persistence.cassandra.keyspace")
