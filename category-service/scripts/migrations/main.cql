@@ -1,3 +1,4 @@
+-- Change replication strategy for NetworkTopology when deploying to production
 CREATE KEYSPACE IF NOT EXISTS alexa1
     WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}
     AND durable_writes = false;
