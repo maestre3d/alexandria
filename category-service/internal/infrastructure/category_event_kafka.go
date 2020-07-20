@@ -12,6 +12,7 @@ import (
 	"go.opencensus.io/trace"
 	"gocloud.dev/pubsub"
 	"sync"
+	"time"
 )
 
 type CategoryEventKafka struct {
@@ -30,8 +31,8 @@ func getCircuitBreaker(name string) *gobreaker.CircuitBreaker {
 	return gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:          name,
 		MaxRequests:   1,
-		Interval:      0,
-		Timeout:       0,
+		Interval:      time.Second * 10,
+		Timeout:       time.Second * 10,
 		ReadyToTrip:   nil,
 		OnStateChange: nil,
 	})
