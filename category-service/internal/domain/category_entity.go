@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/alexandria-oss/core/exception"
 	"github.com/go-playground/validator/v10"
-	"github.com/google/uuid"
 	gonanoid "github.com/matoous/go-nanoid"
 	"strings"
 	"time"
@@ -29,7 +28,7 @@ func NewCategory(name string) *Category {
 	}
 
 	return &Category{
-		ID:         uuid.New().String(),
+		ID:         "",
 		ExternalID: extID,
 		Name:       strings.Title(name),
 		CreateTime: time.Now(),

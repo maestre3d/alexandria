@@ -9,6 +9,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/maestre3d/alexandria/category-service/internal/domain"
 	"strings"
+	"time"
 )
 
 type CategoryUseCase struct {
@@ -51,7 +52,7 @@ func (u *CategoryUseCase) Create(ctx context.Context, name string) (*domain.Cate
 		if err != nil {
 			_ = level.Error(u.logger).Log("err", err)
 			// Rollback
-			err = u.event.HardRemoved(ctx, category.ExternalID)
+			err = u.event.HardRemoved(ctxI, category.ExternalID)
 			if err != nil {
 				_ = level.Error(u.logger).Log("err", err)
 			}
@@ -79,7 +80,7 @@ func (u *CategoryUseCase) Get(ctx context.Context, id string) (*domain.Category,
 	defer cancel()
 
 	// We could add total_views
-	return u.repo.FetchByID(ctxI, id)
+	return u.repo.FetchByID(ctxI, id, true)
 }
 
 func (u *CategoryUseCase) List(ctx context.Context, token, limit string, filter core.FilterParams) ([]*domain.Category, string, error) {
@@ -124,6 +125,7 @@ func (u *CategoryUseCase) Update(ctx context.Context, id, name string) (*domain.
 	if name != "" {
 		category.Name = strings.Title(name)
 	}
+	category.UpdateTime = time.Now()
 
 	err = u.repo.Replace(ctxI, *category)
 	if err != nil {
@@ -179,6 +181,7 @@ func (u *CategoryUseCase) Delete(ctx context.Context, id string) error {
 				_ = level.Error(u.logger).Log("err", err)
 			}
 			errC <- err
+			return
 		}
 
 		_ = level.Info(u.logger).Log("msg", fmt.Sprintf("event %s sent", domain.CategoryRemoved))
@@ -196,11 +199,49 @@ func (u *CategoryUseCase) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-func (u *CategoryUseCase) HardRemove(ctx context.Context, id string) error {
+func (u *CategoryUseCase) Restore(ctx context.Context, id string) error {
 	ctxI, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	snapshot, err := u.repo.FetchByID(ctxI, id)
+	err := u.repo.Restore(ctxI, id)
+	if err != nil {
+		return err
+	}
+
+	errC := make(chan error)
+	go func() {
+		err = u.event.Restored(ctxI, id)
+		if err != nil {
+			// Rollback
+			_ = level.Error(u.logger).Log("err", err)
+			err = u.repo.Remove(ctxI, id)
+			if err != nil {
+				_ = level.Error(u.logger).Log("err", err)
+			}
+			errC <- err
+			return
+		}
+
+		_ = level.Info(u.logger).Log("msg", fmt.Sprintf("event %s sent", domain.CategoryRestored))
+		errC <- nil
+	}()
+
+	select {
+	case err = <-errC:
+		if err != nil {
+			return err
+		}
+		break
+	}
+
+	return nil
+}
+
+func (u *CategoryUseCase) HardDelete(ctx context.Context, id string) error {
+	ctxI, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	snapshot, err := u.repo.FetchByID(ctxI, id, false)
 	if err != nil {
 		return err
 	}
@@ -221,9 +262,11 @@ func (u *CategoryUseCase) HardRemove(ctx context.Context, id string) error {
 				_ = level.Error(u.logger).Log("err", err)
 			}
 			errC <- err
+			return
 		}
 
 		_ = level.Info(u.logger).Log("msg", fmt.Sprintf("event %s sent", domain.CategoryHardRemoved))
+		errC <- nil
 	}()
 
 	select {
