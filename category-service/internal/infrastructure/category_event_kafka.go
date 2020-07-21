@@ -8,11 +8,9 @@ import (
 	"github.com/alexandria-oss/core/eventbus"
 	"github.com/alexandria-oss/core/exception"
 	"github.com/maestre3d/alexandria/category-service/internal/domain"
-	"github.com/sony/gobreaker"
-	"go.opencensus.io/trace"
+	"github.com/maestre3d/alexandria/category-service/internal/infrastructure/eventutil"
 	"gocloud.dev/pubsub"
 	"sync"
-	"time"
 )
 
 type CategoryEventKafka struct {
@@ -27,17 +25,6 @@ func NewCategoryEventKafka(cfg *config.Kernel) *CategoryEventKafka {
 	}
 }
 
-func getCircuitBreaker(name string) *gobreaker.CircuitBreaker {
-	return gobreaker.NewCircuitBreaker(gobreaker.Settings{
-		Name:          name,
-		MaxRequests:   1,
-		Interval:      time.Second * 10,
-		Timeout:       time.Second * 10,
-		ReadyToTrip:   nil,
-		OnStateChange: nil,
-	})
-}
-
 func (e *CategoryEventKafka) Created(ctx context.Context, category domain.Category) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -48,48 +35,34 @@ func (e *CategoryEventKafka) Created(ctx context.Context, category domain.Catego
 			"category", "category object"))
 	}
 
-	ctxT, span := trace.StartSpan(ctx, "category_created")
-	defer span.End()
-	ctx = ctxT
-
-	span.SetStatus(trace.Status{
-		Code:    trace.StatusCodeOK,
-		Message: "send event",
-	})
-	span.AddAttributes(trace.StringAttribute("event.name", domain.CategoryCreated), trace.StringAttribute("event.type", eventbus.EventDomain))
-
-	spanJSON, err := json.Marshal(span.SpanContext())
+	spanJSON, err := eventutil.SpanCtxToJSON(ctx)
 	if err != nil {
-		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
-			"tracing_context", "span context object"))
+		return err
 	}
 
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, categoryJSON)
 	event.TracingContext = string(spanJSON)
+
 	p, err := eventbus.NewKafkaProducer(ctx, domain.CategoryCreated)
 	if err != nil {
 		return err
 	}
-	defer p.Shutdown(ctx)
+	defer func() {
+		err = p.Shutdown(ctx)
+	}()
 
 	m := &pubsub.Message{
-		Body: event.Content,
-		Metadata: map[string]string{
-			"event_id":        event.ID,
-			"tracing_context": event.TracingContext,
-			"service":         event.ServiceName,
-			"event_type":      event.EventType,
-			"priority":        event.Priority,
-			"provider":        event.Provider,
-			"dispatch_time":   event.DispatchTime,
-		},
+		Body:       event.Content,
+		Metadata:   eventutil.GenerateEventMetadata(*event),
 		BeforeSend: nil,
 	}
 
-	_, err = getCircuitBreaker("category_created").Execute(func() (interface{}, error) {
-		return nil, p.Send(ctx, m)
+	return eventutil.PublishResilientEvent(ctx, eventutil.EventAggregate{
+		Name:    "created",
+		Prefix:  e.cfg.Service,
+		Topic:   p,
+		Message: m,
 	})
-	return err
 }
 
 func (e *CategoryEventKafka) Updated(ctx context.Context, category domain.Category) error {
@@ -102,164 +75,111 @@ func (e *CategoryEventKafka) Updated(ctx context.Context, category domain.Catego
 			"category", "category object"))
 	}
 
-	ctxT, span := trace.StartSpan(ctx, "category_updated")
-	defer span.End()
-	ctx = ctxT
-
-	span.SetStatus(trace.Status{
-		Code:    trace.StatusCodeOK,
-		Message: "send event",
-	})
-	span.AddAttributes(trace.StringAttribute("event.name", domain.CategoryUpdated), trace.StringAttribute("event.type", eventbus.EventDomain))
-
-	spanJSON, err := json.Marshal(span.SpanContext())
+	spanJSON, err := eventutil.SpanCtxToJSON(ctx)
 	if err != nil {
-		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
-			"tracing_context", "span context object"))
+		return err
 	}
 
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventDomain, eventbus.PriorityLow, eventbus.ProviderKafka, categoryJSON)
 	event.TracingContext = string(spanJSON)
+
 	p, err := eventbus.NewKafkaProducer(ctx, domain.CategoryUpdated)
 	if err != nil {
 		return err
 	}
-	defer p.Shutdown(ctx)
+	defer func() {
+		err = p.Shutdown(ctx)
+	}()
 
 	m := &pubsub.Message{
-		Body: event.Content,
-		Metadata: map[string]string{
-			"event_id":        event.ID,
-			"tracing_context": event.TracingContext,
-			"service":         event.ServiceName,
-			"event_type":      event.EventType,
-			"priority":        event.Priority,
-			"provider":        event.Provider,
-			"dispatch_time":   event.DispatchTime,
-		},
+		Body:       event.Content,
+		Metadata:   eventutil.GenerateEventMetadata(*event),
 		BeforeSend: nil,
 	}
 
-	_, err = getCircuitBreaker("category_updated").Execute(func() (interface{}, error) {
-		return nil, p.Send(ctx, m)
+	return eventutil.PublishResilientEvent(ctx, eventutil.EventAggregate{
+		Name:    "updated",
+		Prefix:  e.cfg.Service,
+		Topic:   p,
+		Message: m,
 	})
-	return err
 }
 
 func (e *CategoryEventKafka) Removed(ctx context.Context, id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	ctxT, span := trace.StartSpan(ctx, "category_removed")
-	defer span.End()
-	ctx = ctxT
-
-	span.SetStatus(trace.Status{
-		Code:    trace.StatusCodeOK,
-		Message: "send event",
-	})
-	span.AddAttributes(trace.StringAttribute("event.name", domain.CategoryRemoved), trace.StringAttribute("event.type", eventbus.EventDomain))
-
-	spanJSON, err := json.Marshal(span.SpanContext())
+	spanJSON, err := eventutil.SpanCtxToJSON(ctx)
 	if err != nil {
-		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
-			"tracing_context", "span context object"))
+		return err
 	}
 
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, []byte(id))
 	event.TracingContext = string(spanJSON)
+
 	p, err := eventbus.NewKafkaProducer(ctx, domain.CategoryRemoved)
 	if err != nil {
 		return err
 	}
-	defer p.Shutdown(ctx)
+	defer func() {
+		err = p.Shutdown(ctx)
+	}()
 
 	m := &pubsub.Message{
-		Body: event.Content,
-		Metadata: map[string]string{
-			"event_id":        event.ID,
-			"tracing_context": event.TracingContext,
-			"service":         event.ServiceName,
-			"event_type":      event.EventType,
-			"priority":        event.Priority,
-			"provider":        event.Provider,
-			"dispatch_time":   event.DispatchTime,
-		},
+		Body:       event.Content,
+		Metadata:   eventutil.GenerateEventMetadata(*event),
 		BeforeSend: nil,
 	}
 
-	_, err = getCircuitBreaker("category_removed").Execute(func() (interface{}, error) {
-		return nil, p.Send(ctx, m)
+	return eventutil.PublishResilientEvent(ctx, eventutil.EventAggregate{
+		Name:    "removed",
+		Prefix:  e.cfg.Service,
+		Topic:   p,
+		Message: m,
 	})
-	return err
 }
 
 func (e *CategoryEventKafka) Restored(ctx context.Context, id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	ctxT, span := trace.StartSpan(ctx, "category_restored")
-	defer span.End()
-	ctx = ctxT
-
-	span.SetStatus(trace.Status{
-		Code:    trace.StatusCodeOK,
-		Message: "send event",
-	})
-	span.AddAttributes(trace.StringAttribute("event.name", domain.CategoryRestored), trace.StringAttribute("event.type", eventbus.EventDomain))
-
-	spanJSON, err := json.Marshal(span.SpanContext())
+	spanJSON, err := eventutil.SpanCtxToJSON(ctx)
 	if err != nil {
-		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
-			"tracing_context", "span context object"))
+		return err
 	}
 
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, []byte(id))
 	event.TracingContext = string(spanJSON)
+
 	p, err := eventbus.NewKafkaProducer(ctx, domain.CategoryRestored)
 	if err != nil {
 		return err
 	}
-	defer p.Shutdown(ctx)
+	defer func() {
+		err = p.Shutdown(ctx)
+	}()
 
 	m := &pubsub.Message{
-		Body: event.Content,
-		Metadata: map[string]string{
-			"event_id":        event.ID,
-			"tracing_context": event.TracingContext,
-			"service":         event.ServiceName,
-			"event_type":      event.EventType,
-			"priority":        event.Priority,
-			"provider":        event.Provider,
-			"dispatch_time":   event.DispatchTime,
-		},
+		Body:       event.Content,
+		Metadata:   eventutil.GenerateEventMetadata(*event),
 		BeforeSend: nil,
 	}
 
-	_, err = getCircuitBreaker("category_restored").Execute(func() (interface{}, error) {
-		return nil, p.Send(ctx, m)
+	return eventutil.PublishResilientEvent(ctx, eventutil.EventAggregate{
+		Name:    "restored",
+		Prefix:  e.cfg.Service,
+		Topic:   p,
+		Message: m,
 	})
-	return err
 }
 
 func (e *CategoryEventKafka) HardRemoved(ctx context.Context, id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	ctxT, span := trace.StartSpan(ctx, "category_hard_removed")
-	defer span.End()
-	ctx = ctxT
-
-	span.SetStatus(trace.Status{
-		Code:    trace.StatusCodeOK,
-		Message: "send event",
-	})
-	span.AddAttributes(trace.StringAttribute("event.name", domain.CategoryHardRemoved), trace.StringAttribute("event.type", eventbus.EventDomain))
-
-	spanJSON, err := json.Marshal(span.SpanContext())
+	spanJSON, err := eventutil.SpanCtxToJSON(ctx)
 	if err != nil {
-		return exception.NewErrorDescription(exception.InvalidFieldFormat, fmt.Sprintf(exception.InvalidFieldFormatString,
-			"tracing_context", "span context object"))
+		return err
 	}
 
 	event := eventbus.NewEvent(e.cfg.Service, eventbus.EventDomain, eventbus.PriorityMid, eventbus.ProviderKafka, []byte(id))
@@ -269,24 +189,20 @@ func (e *CategoryEventKafka) HardRemoved(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	defer p.Shutdown(ctx)
+	defer func() {
+		err = p.Shutdown(ctx)
+	}()
 
 	m := &pubsub.Message{
-		Body: event.Content,
-		Metadata: map[string]string{
-			"event_id":        event.ID,
-			"tracing_context": event.TracingContext,
-			"service":         event.ServiceName,
-			"event_type":      event.EventType,
-			"priority":        event.Priority,
-			"provider":        event.Provider,
-			"dispatch_time":   event.DispatchTime,
-		},
+		Body:       event.Content,
+		Metadata:   eventutil.GenerateEventMetadata(*event),
 		BeforeSend: nil,
 	}
 
-	_, err = getCircuitBreaker("category_hard_removed").Execute(func() (interface{}, error) {
-		return nil, p.Send(ctx, m)
+	return eventutil.PublishResilientEvent(ctx, eventutil.EventAggregate{
+		Name:    "hard_removed",
+		Prefix:  e.cfg.Service,
+		Topic:   p,
+		Message: m,
 	})
-	return err
 }
