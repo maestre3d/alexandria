@@ -1,4 +1,4 @@
-package infrastructure
+package cassandra
 
 import (
 	"github.com/alexandria-oss/core/config"
