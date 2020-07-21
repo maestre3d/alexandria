@@ -7,11 +7,12 @@ import (
 )
 
 type Category interface {
-	Create(ctx context.Context, name, service string) (*domain.Category, error)
+	Create(ctx context.Context, name string) (*domain.Category, error)
 	Get(ctx context.Context, id string) (*domain.Category, error)
 	List(ctx context.Context, token, limit string, filter core.FilterParams) ([]*domain.Category, string, error)
 	Update(ctx context.Context, id string, name string) (*domain.Category, error)
 	Delete(ctx context.Context, id string) error
+	Restore(ctx context.Context, id string) error
 	HardDelete(ctx context.Context, id string) error
 }
 
