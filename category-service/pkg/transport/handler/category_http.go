@@ -1,4 +1,4 @@
-package transport
+package handler
 
 import (
 	"encoding/json"
@@ -21,12 +21,16 @@ func NewCategoryHTTP(svc service.Category) *CategoryHTTP {
 	}
 }
 
-func (t *CategoryHTTP) SetRoutes(public, private, admin *mux.Router) {
+func (t CategoryHTTP) GetName() string {
+	return "category"
+}
+
+func (t CategoryHTTP) SetRoutes(public, private, admin *mux.Router) {
 	// Using OpenCensus middleware for distributed tracing
 	public.Path("/category").Methods(http.MethodGet).Handler(observability.Trace(t.list, true))
 	public.Path("/category/{id}").Methods(http.MethodGet).Handler(observability.Trace(t.get, true))
 
-	private.Path("/category").Methods(http.MethodPost).Handler(observability.Trace(t.create, false))
+	private.StrictSlash(false).Path("/category").Methods(http.MethodPost).Handler(observability.Trace(t.create, false))
 	private.Path("/category/{id}").Methods(http.MethodPatch, http.MethodPut).Handler(observability.Trace(t.update, false))
 	private.Path("/category/{id}").Methods(http.MethodDelete).Handler(observability.Trace(t.delete, false))
 
@@ -37,13 +41,17 @@ func (t *CategoryHTTP) SetRoutes(public, private, admin *mux.Router) {
 func (t *CategoryHTTP) create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
-	category, err := t.svc.Create(r.Context(), r.PostForm.Get("name"))
+	category, err := t.svc.Create(r.Context(), r.PostFormValue("name"))
 	if err != nil {
 		httputil.ResponseErrJSON(r.Context(), err, w)
 		return
 	}
 
-	_ = json.NewEncoder(w).Encode(category)
+	_ = json.NewEncoder(w).Encode(&struct {
+		Category *domain.Category `json:"category"`
+	}{
+		Category: category,
+	})
 }
 
 func (t *CategoryHTTP) get(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +63,11 @@ func (t *CategoryHTTP) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = json.NewEncoder(w).Encode(category)
+	_ = json.NewEncoder(w).Encode(&struct {
+		Category *domain.Category `json:"category"`
+	}{
+		Category: category,
+	})
 }
 
 func (t *CategoryHTTP) list(w http.ResponseWriter, r *http.Request) {
@@ -84,13 +96,17 @@ func (t *CategoryHTTP) list(w http.ResponseWriter, r *http.Request) {
 func (t *CategoryHTTP) update(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
-	category, err := t.svc.Update(r.Context(), mux.Vars(r)["id"], r.PostForm.Get("name"))
+	category, err := t.svc.Update(r.Context(), mux.Vars(r)["id"], r.PostFormValue("name"))
 	if err != nil {
 		httputil.ResponseErrJSON(r.Context(), err, w)
 		return
 	}
 
-	_ = json.NewEncoder(w).Encode(category)
+	_ = json.NewEncoder(w).Encode(&struct {
+		Category *domain.Category `json:"category"`
+	}{
+		Category: category,
+	})
 }
 
 func (t *CategoryHTTP) delete(w http.ResponseWriter, r *http.Request) {

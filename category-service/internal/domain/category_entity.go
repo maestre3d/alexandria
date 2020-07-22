@@ -12,7 +12,7 @@ import (
 // Root/Default entity
 
 type Category struct {
-	ID         string
+	ID         string    `json:"-"`
 	ExternalID string    `json:"id"`
 	Name       string    `json:"name" validate:"required,min=1,max=255"`
 	CreateTime time.Time `json:"create_time"`

@@ -14,14 +14,13 @@ require (
 	github.com/gocql/gocql v0.0.0-20200624222514-34081eda590e
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.3.0
-	github.com/gorilla/handlers v1.4.2 // indirect
+	github.com/gorilla/handlers v1.4.2
+	github.com/gorilla/mux v1.7.3
 	github.com/matoous/go-nanoid v1.4.1
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/openzipkin/zipkin-go v0.2.2
 	github.com/prometheus/client_golang v1.3.0
-	github.com/sony/gobreaker v0.4.1
 	github.com/spf13/viper v1.6.3
-	github.com/uber-go/ratelimit v0.1.0 // indirect
 	go.opencensus.io v0.22.3
 	go.uber.org/ratelimit v0.1.0
 	gocloud.dev v0.19.0
