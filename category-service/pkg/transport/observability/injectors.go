@@ -4,12 +4,12 @@ import (
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	oczipkin "contrib.go.opencensus.io/exporter/zipkin"
 	"github.com/alexandria-oss/core/config"
+	"github.com/openzipkin/zipkin-go"
+	zipkinHTTP "github.com/openzipkin/zipkin-go/reporter/http"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
-
-	"github.com/openzipkin/zipkin-go"
-	zipkinHTTP "github.com/openzipkin/zipkin-go/reporter/http"
 )
 
 func InjectPrometheus(cfg *config.Kernel) (*ocprom.Exporter, error) {
@@ -28,8 +28,8 @@ func InjectPrometheus(cfg *config.Kernel) (*ocprom.Exporter, error) {
 	pe, err := ocprom.NewExporter(ocprom.Options{
 		Namespace:   cfg.Service,
 		Registry:    nil,
-		Registerer:  nil,
-		Gatherer:    nil,
+		Registerer:  prometheus.DefaultRegisterer,
+		Gatherer:    prometheus.DefaultGatherer,
 		OnError:     nil,
 		ConstLabels: nil,
 	})
@@ -49,6 +49,7 @@ func InjectZipkin(cfg *config.Kernel) error {
 	}
 	reporter := zipkinHTTP.NewReporter(cfg.Tracing.ZipkinHost)
 	ze := oczipkin.NewExporter(reporter, localEndpoint)
+
 	trace.RegisterExporter(ze)
 	trace.ApplyConfig(trace.Config{
 		DefaultSampler:             trace.AlwaysSample(),
@@ -58,5 +59,6 @@ func InjectZipkin(cfg *config.Kernel) error {
 		MaxAttributesPerSpan:       0,
 		MaxLinksPerSpan:            0,
 	})
+
 	return nil
 }

@@ -23,7 +23,6 @@ func NewCategoryHTTP(svc service.Category) *CategoryHTTP {
 
 func (t *CategoryHTTP) SetRoutes(public, private, admin *mux.Router) {
 	// Using OpenCensus middleware for distributed tracing
-	// public.Use(handlers.RecoveryHandler())
 	public.Path("/category").Methods(http.MethodGet).Handler(observability.Trace(t.list, true))
 	public.Path("/category/{id}").Methods(http.MethodGet).Handler(observability.Trace(t.get, true))
 

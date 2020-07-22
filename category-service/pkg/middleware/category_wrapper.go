@@ -1,9 +1,8 @@
-package wrapper
+package middleware
 
 import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/maestre3d/alexandria/category-service/pkg/middleware"
 	"github.com/maestre3d/alexandria/category-service/pkg/service"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/ratelimit"
@@ -14,9 +13,9 @@ import (
 func WrapCategoryMiddleware(svcUnwrap service.Category, logger log.Logger) service.Category {
 	var svc service.Category
 	svc = svcUnwrap
-	svc = middleware.CategoryLog{Logger: logger, Next: svc}
+	svc = CategoryLog{Logger: logger, Next: svc}
 	svc = injectMetrics(svc, logger)
-	svc = middleware.CategoryResiliency{
+	svc = CategoryResiliency{
 		Logger:      logger,
 		RateLimiter: ratelimit.New(100),
 		Next:        svc,
@@ -98,9 +97,10 @@ func injectMetrics(svc service.Category, logger log.Logger) service.Category {
 		return svc
 	}
 
-	return middleware.CategoryMetric{
+	return CategoryMetric{
 		ReqCounter:      requestCount,
 		ReqHistogram:    requestLatency,
+		ReqErrCounter:   requestErrorCount,
 		CategoriesTotal: categoryTotal,
 		Next:            svc,
 	}

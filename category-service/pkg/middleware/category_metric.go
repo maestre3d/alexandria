@@ -20,7 +20,7 @@ type CategoryMetric struct {
 
 func (c CategoryMetric) Create(ctx context.Context, name string) (category *domain.Category, err error) {
 	defer func(begin time.Time) {
-		lvs := prometheus.Labels{"method": "category.create", "err": fmt.Sprint(err != nil)}
+		lvs := prometheus.Labels{"method": "category.create", "error": fmt.Sprint(err != nil)}
 		c.ReqCounter.With(lvs).Inc()
 		c.ReqHistogram.With(lvs).Observe(time.Since(begin).Seconds())
 		if err != nil {
@@ -31,13 +31,13 @@ func (c CategoryMetric) Create(ctx context.Context, name string) (category *doma
 		c.CategoriesTotal.Inc()
 	}(time.Now())
 
-	category, err = c.Create(ctx, name)
+	category, err = c.Next.Create(ctx, name)
 	return
 }
 
 func (c CategoryMetric) Get(ctx context.Context, id string) (category *domain.Category, err error) {
 	defer func(begin time.Time) {
-		lvs := prometheus.Labels{"method": "category.get", "err": fmt.Sprint(err != nil)}
+		lvs := prometheus.Labels{"method": "category.get", "error": fmt.Sprint(err != nil)}
 		c.ReqCounter.With(lvs).Inc()
 		c.ReqHistogram.With(lvs).Observe(time.Since(begin).Seconds())
 		if err != nil {
@@ -45,14 +45,14 @@ func (c CategoryMetric) Get(ctx context.Context, id string) (category *domain.Ca
 		}
 	}(time.Now())
 
-	category, err = c.Get(ctx, id)
+	category, err = c.Next.Get(ctx, id)
 	return
 }
 
 func (c CategoryMetric) List(ctx context.Context, token, limit string,
 	filter core.FilterParams) (categories []*domain.Category, nextToken string, err error) {
 	defer func(begin time.Time) {
-		lvs := prometheus.Labels{"method": "category.list", "err": fmt.Sprint(err != nil)}
+		lvs := prometheus.Labels{"method": "category.list", "error": fmt.Sprint(err != nil)}
 		c.ReqCounter.With(lvs).Inc()
 		c.ReqHistogram.With(lvs).Observe(time.Since(begin).Seconds())
 		if err != nil {
@@ -60,13 +60,13 @@ func (c CategoryMetric) List(ctx context.Context, token, limit string,
 		}
 	}(time.Now())
 
-	categories, nextToken, err = c.List(ctx, token, limit, filter)
+	categories, nextToken, err = c.Next.List(ctx, token, limit, filter)
 	return
 }
 
 func (c CategoryMetric) Update(ctx context.Context, id string, name string) (category *domain.Category, err error) {
 	defer func(begin time.Time) {
-		lvs := prometheus.Labels{"method": "category.update", "err": fmt.Sprint(err != nil)}
+		lvs := prometheus.Labels{"method": "category.update", "error": fmt.Sprint(err != nil)}
 		c.ReqCounter.With(lvs).Inc()
 		c.ReqHistogram.With(lvs).Observe(time.Since(begin).Seconds())
 		if err != nil {
@@ -74,13 +74,13 @@ func (c CategoryMetric) Update(ctx context.Context, id string, name string) (cat
 		}
 	}(time.Now())
 
-	category, err = c.Update(ctx, id, name)
+	category, err = c.Next.Update(ctx, id, name)
 	return
 }
 
 func (c CategoryMetric) Delete(ctx context.Context, id string) (err error) {
 	defer func(begin time.Time) {
-		lvs := prometheus.Labels{"method": "category.delete", "err": fmt.Sprint(err != nil)}
+		lvs := prometheus.Labels{"method": "category.delete", "error": fmt.Sprint(err != nil)}
 		c.ReqCounter.With(lvs).Inc()
 		c.ReqHistogram.With(lvs).Observe(time.Since(begin).Seconds())
 		if err != nil {
@@ -91,13 +91,13 @@ func (c CategoryMetric) Delete(ctx context.Context, id string) (err error) {
 		c.CategoriesTotal.Dec()
 	}(time.Now())
 
-	err = c.Delete(ctx, id)
+	err = c.Next.Delete(ctx, id)
 	return
 }
 
 func (c CategoryMetric) Restore(ctx context.Context, id string) (err error) {
 	defer func(begin time.Time) {
-		lvs := prometheus.Labels{"method": "category.restore", "err": fmt.Sprint(err != nil)}
+		lvs := prometheus.Labels{"method": "category.restore", "error": fmt.Sprint(err != nil)}
 		c.ReqCounter.With(lvs).Inc()
 		c.ReqHistogram.With(lvs).Observe(time.Since(begin).Seconds())
 		if err != nil {
@@ -108,13 +108,13 @@ func (c CategoryMetric) Restore(ctx context.Context, id string) (err error) {
 		c.CategoriesTotal.Inc()
 	}(time.Now())
 
-	err = c.Restore(ctx, id)
+	err = c.Next.Restore(ctx, id)
 	return
 }
 
 func (c CategoryMetric) HardDelete(ctx context.Context, id string) (err error) {
 	defer func(begin time.Time) {
-		lvs := prometheus.Labels{"method": "category.hard_delete", "err": fmt.Sprint(err != nil)}
+		lvs := prometheus.Labels{"method": "category.hard_delete", "error": fmt.Sprint(err != nil)}
 		c.ReqCounter.With(lvs).Inc()
 		c.ReqHistogram.With(lvs).Observe(time.Since(begin).Seconds())
 		if err != nil {
@@ -125,6 +125,6 @@ func (c CategoryMetric) HardDelete(ctx context.Context, id string) (err error) {
 		c.CategoriesTotal.Dec()
 	}(time.Now())
 
-	err = c.HardDelete(ctx, id)
+	err = c.Next.HardDelete(ctx, id)
 	return
 }
