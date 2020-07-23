@@ -4,7 +4,7 @@ global:
   # Attach these labels to any time series or alerts when communicating with
   # external systems (federation, remote storage, Alertmanager).
   external_labels:
-    monitor: 'codelab-monitor'
+    monitor: 'alexandria'
 
 # A scrape configuration containing exactly one endpoint to scrape:
 # Here it's Prometheus itself.
@@ -17,3 +17,35 @@ scrape_configs:
 
     static_configs:
       - targets: ['prometheus:9090']
+
+  - job_name: 'author_service'
+
+    # Override the global default and scrape targets from this job every 5 seconds.
+    scrape_interval: 10s
+
+    static_configs:
+      - targets: ['author:3001']
+
+  - job_name: 'media_service'
+
+    # Override the global default and scrape targets from this job every 5 seconds.
+    scrape_interval: 10s
+
+    static_configs:
+      - targets: ['media:3002']
+
+  - job_name: 'blob_service'
+
+    # Override the global default and scrape targets from this job every 5 seconds.
+    scrape_interval: 10s
+
+    static_configs:
+      - targets: ['blob:3003']
+
+  - job_name: 'category_service'
+
+    # Override the global default and scrape targets from this job every 5 seconds.
+    scrape_interval: 10s
+
+    static_configs:
+      - targets: ['category:3004']
