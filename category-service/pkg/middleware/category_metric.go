@@ -13,7 +13,7 @@ import (
 type CategoryMetric struct {
 	ReqCounter      *prometheus.CounterVec
 	ReqErrCounter   *prometheus.CounterVec
-	ReqHistogram    *prometheus.HistogramVec
+	ReqSummary      *prometheus.SummaryVec
 	CategoriesTotal prometheus.Gauge
 	Next            service.Category
 }
@@ -22,13 +22,13 @@ func (c CategoryMetric) Create(ctx context.Context, name string) (category *doma
 	defer func(begin time.Time) {
 		lvs := prometheus.Labels{"method": "category.create", "error": fmt.Sprint(err != nil)}
 		c.ReqCounter.With(lvs).Inc()
-		c.ReqHistogram.With(lvs).Observe(time.Since(begin).Seconds())
+		c.ReqSummary.With(lvs).Observe(time.Since(begin).Seconds())
 		if err != nil {
 			c.ReqErrCounter.With(prometheus.Labels{"method": "category.create"}).Inc()
+		} else {
+			// Custom metrics
+			c.CategoriesTotal.Inc()
 		}
-
-		// Custom metrics
-		c.CategoriesTotal.Inc()
 	}(time.Now())
 
 	category, err = c.Next.Create(ctx, name)
@@ -39,7 +39,7 @@ func (c CategoryMetric) Get(ctx context.Context, id string) (category *domain.Ca
 	defer func(begin time.Time) {
 		lvs := prometheus.Labels{"method": "category.get", "error": fmt.Sprint(err != nil)}
 		c.ReqCounter.With(lvs).Inc()
-		c.ReqHistogram.With(lvs).Observe(time.Since(begin).Seconds())
+		c.ReqSummary.With(lvs).Observe(time.Since(begin).Seconds())
 		if err != nil {
 			c.ReqErrCounter.With(prometheus.Labels{"method": "category.get"}).Inc()
 		}
@@ -54,7 +54,7 @@ func (c CategoryMetric) List(ctx context.Context, token, limit string,
 	defer func(begin time.Time) {
 		lvs := prometheus.Labels{"method": "category.list", "error": fmt.Sprint(err != nil)}
 		c.ReqCounter.With(lvs).Inc()
-		c.ReqHistogram.With(lvs).Observe(time.Since(begin).Seconds())
+		c.ReqSummary.With(lvs).Observe(time.Since(begin).Seconds())
 		if err != nil {
 			c.ReqErrCounter.With(prometheus.Labels{"method": "category.list"}).Inc()
 		}
@@ -68,7 +68,7 @@ func (c CategoryMetric) Update(ctx context.Context, id string, name string) (cat
 	defer func(begin time.Time) {
 		lvs := prometheus.Labels{"method": "category.update", "error": fmt.Sprint(err != nil)}
 		c.ReqCounter.With(lvs).Inc()
-		c.ReqHistogram.With(lvs).Observe(time.Since(begin).Seconds())
+		c.ReqSummary.With(lvs).Observe(time.Since(begin).Seconds())
 		if err != nil {
 			c.ReqErrCounter.With(prometheus.Labels{"method": "category.update"}).Inc()
 		}
@@ -82,13 +82,13 @@ func (c CategoryMetric) Delete(ctx context.Context, id string) (err error) {
 	defer func(begin time.Time) {
 		lvs := prometheus.Labels{"method": "category.delete", "error": fmt.Sprint(err != nil)}
 		c.ReqCounter.With(lvs).Inc()
-		c.ReqHistogram.With(lvs).Observe(time.Since(begin).Seconds())
+		c.ReqSummary.With(lvs).Observe(time.Since(begin).Seconds())
 		if err != nil {
 			c.ReqErrCounter.With(prometheus.Labels{"method": "category.delete"}).Inc()
+		} else {
+			// Custom metrics
+			c.CategoriesTotal.Inc()
 		}
-
-		// Custom metrics
-		c.CategoriesTotal.Dec()
 	}(time.Now())
 
 	err = c.Next.Delete(ctx, id)
@@ -99,13 +99,13 @@ func (c CategoryMetric) Restore(ctx context.Context, id string) (err error) {
 	defer func(begin time.Time) {
 		lvs := prometheus.Labels{"method": "category.restore", "error": fmt.Sprint(err != nil)}
 		c.ReqCounter.With(lvs).Inc()
-		c.ReqHistogram.With(lvs).Observe(time.Since(begin).Seconds())
+		c.ReqSummary.With(lvs).Observe(time.Since(begin).Seconds())
 		if err != nil {
 			c.ReqErrCounter.With(prometheus.Labels{"method": "category.restore"}).Inc()
+		} else {
+			// Custom metrics
+			c.CategoriesTotal.Inc()
 		}
-
-		// Custom metrics
-		c.CategoriesTotal.Inc()
 	}(time.Now())
 
 	err = c.Next.Restore(ctx, id)
@@ -116,13 +116,13 @@ func (c CategoryMetric) HardDelete(ctx context.Context, id string) (err error) {
 	defer func(begin time.Time) {
 		lvs := prometheus.Labels{"method": "category.hard_delete", "error": fmt.Sprint(err != nil)}
 		c.ReqCounter.With(lvs).Inc()
-		c.ReqHistogram.With(lvs).Observe(time.Since(begin).Seconds())
+		c.ReqSummary.With(lvs).Observe(time.Since(begin).Seconds())
 		if err != nil {
 			c.ReqErrCounter.With(prometheus.Labels{"method": "category.hard_delete"}).Inc()
+		} else {
+			// Custom metrics
+			c.CategoriesTotal.Inc()
 		}
-
-		// Custom metrics
-		c.CategoriesTotal.Dec()
 	}(time.Now())
 
 	err = c.Next.HardDelete(ctx, id)

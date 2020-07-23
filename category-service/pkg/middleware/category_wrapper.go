@@ -25,13 +25,16 @@ func WrapCategoryMiddleware(svcUnwrap service.Category, logger log.Logger) servi
 
 func injectMetrics(svc service.Category, logger log.Logger) service.Category {
 	labels := []string{"method", "error"}
-	requestLatency := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	requestLatency := prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace:   "alexandria",
 		Subsystem:   "category_service",
 		Name:        "request_latency",
 		Help:        "total duration of request in microseconds",
 		ConstLabels: nil,
-		Buckets:     prometheus.DefBuckets,
+		Objectives:  nil,
+		MaxAge:      0,
+		AgeBuckets:  0,
+		BufCap:      0,
 	}, labels)
 	requestCount := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace:   "alexandria",
@@ -59,9 +62,9 @@ func injectMetrics(svc service.Category, logger log.Logger) service.Category {
 	err := prometheus.Register(requestLatency)
 	if err != nil {
 		_ = level.Warn(logger).Log(
-			"msg", "prometheus has failed to register request_latency histogram",
+			"msg", "prometheus has failed to register request_latency summary",
 			"metric_name", "request_latency",
-			"kind", "histogram",
+			"kind", "summary",
 			"err", err,
 		)
 	}
@@ -99,7 +102,7 @@ func injectMetrics(svc service.Category, logger log.Logger) service.Category {
 
 	return CategoryMetric{
 		ReqCounter:      requestCount,
-		ReqHistogram:    requestLatency,
+		ReqSummary:      requestLatency,
 		ReqErrCounter:   requestErrorCount,
 		CategoriesTotal: categoryTotal,
 		Next:            svc,
