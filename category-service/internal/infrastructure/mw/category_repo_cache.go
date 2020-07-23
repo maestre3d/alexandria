@@ -59,7 +59,7 @@ func (c CategoryRepositoryCache) FetchByID(ctx context.Context, id string, activ
 		if c.Pool != nil {
 			if errR := conn.Del(memKey).Err(); errR == nil {
 				if categoryJSON, errJ := json.Marshal(category); errJ == nil {
-					_ = conn.Set("", categoryJSON, 60*time.Minute)
+					_ = conn.Set(memKey, categoryJSON, 60*time.Minute)
 				}
 			}
 		}

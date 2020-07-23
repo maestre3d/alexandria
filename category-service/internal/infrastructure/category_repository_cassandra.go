@@ -31,6 +31,17 @@ func (r *CategoryRepositoryCassandra) Save(ctx context.Context, category domain.
 	}
 	defer s.Close()
 
+	categoryExists := new(domain.Category)
+	err = s.Query(`SELECT external_id FROM alexa1.category WHERE category_name = ? LIMIT 1 ALLOW FILTERING`, category.Name).Consistency(gocql.One).
+		Scan(&categoryExists.ExternalID)
+	if err != nil {
+		if err != gocql.ErrNotFound {
+			return err
+		}
+	} else if categoryExists.ExternalID != "" {
+		return exception.EntityExists
+	}
+
 	err = s.Query(`INSERT INTO alexa1.category (id, external_id, category_name, create_time, update_time, active) VALUES  
 		(?, ?, ?, ?, ?, ?)`, gocql.TimeUUID(), category.ExternalID, category.Name, category.CreateTime, category.UpdateTime, category.Active).
 		WithContext(ctx).Exec()
@@ -128,6 +139,17 @@ func (r *CategoryRepositoryCassandra) Replace(ctx context.Context, category doma
 		return err
 	}
 	defer s.Close()
+
+	categoryExists := new(domain.Category)
+	err = s.Query(`SELECT external_id FROM alexa1.category WHERE category_name = ? LIMIT 1 ALLOW FILTERING`, category.Name).Consistency(gocql.One).
+		Scan(&categoryExists.ExternalID)
+	if err != nil {
+		if err != gocql.ErrNotFound {
+			return err
+		}
+	} else if categoryExists.ExternalID != "" {
+		return exception.EntityExists
+	}
 
 	err = s.Query(`UPDATE alexa1.category SET category_name = ?, update_time = ? WHERE external_id = ? AND id = ?`, category.Name,
 		category.UpdateTime, category.ExternalID, category.ID).WithContext(ctx).Exec()

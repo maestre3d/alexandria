@@ -3,7 +3,6 @@ package interactor
 import (
 	"context"
 	"github.com/alexandria-oss/core"
-	"github.com/alexandria-oss/core/exception"
 	"github.com/go-kit/kit/log"
 	"github.com/maestre3d/alexandria/category-service/internal/domain"
 	"strings"
@@ -28,18 +27,12 @@ func (u *CategoryUseCase) Create(ctx context.Context, name string) (*domain.Cate
 	ctxI, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Avoid duplicate rows
-	_, _, err := u.List(ctxI, "", "1", core.FilterParams{"query": name})
-	if err == nil {
-		return nil, exception.EntityExists
-	}
-
 	category := domain.NewCategory(name)
 	if err := category.IsValid(); err != nil {
 		return nil, err
 	}
 
-	err = u.repo.Save(ctxI, *category)
+	err := u.repo.Save(ctxI, *category)
 	if err != nil {
 		return nil, err
 	}
@@ -99,12 +92,6 @@ func (u *CategoryUseCase) List(ctx context.Context, token, limit string, filter 
 func (u *CategoryUseCase) Update(ctx context.Context, id, name string) (*domain.Category, error) {
 	ctxI, cancel := context.WithCancel(ctx)
 	defer cancel()
-
-	// Avoid duplicate rows
-	_, _, err := u.List(ctxI, "", "1", core.FilterParams{"name": name})
-	if err == nil {
-		return nil, exception.EntityExists
-	}
 
 	// Non-atomic update
 	category, err := u.Get(ctxI, id)
