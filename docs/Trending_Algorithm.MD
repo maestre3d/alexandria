@@ -40,7 +40,18 @@ in a mathematical model as this:
 _**Φ** = ω + υ_
 
 
-Where **υ** represents _valuable ratio_, **ω** represents _social fluctuation ratio_ and **Φ** represents _trending score_. In addition, this lends us to _store these 
-results in a specialized database_ such as a data lake to query any aggregate by it's high-cardinality field and output very specific results for each 
+Where **υ** represents _valuable ratio_, **ω** represents _social fluctuation ratio_ and **Φ** represents _trending score_. In addition, this lends us to _store these results in a specialized database_ such as a data lake to query any aggregate by it's high-cardinality field and output very specific results for each 
 scenario _(like trends for an specific user based on his consumed content and country by denormalizing aggregate fields)_.
 
+Based on the past mathematical model, you may calculate the Trending Score using the past hypothetical scenario.
+
+
+- _Aggregate "x"_ Trending Score = Φ(1)
+- _Aggregate "y"_ Trending Score = Φ(2)
+- _Maximum SI score_ = 150,000
+
+
+Φ(1) = ((10-1)/10) + (10/150,000) = 0.900066667
+
+
+Φ(2) = ((125,980-123,980)/125,980) + (125,980/150,000) = 0.855742202
