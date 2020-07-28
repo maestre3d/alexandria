@@ -29,7 +29,7 @@ mathematical model is represented like this:
 
 _**υ** = f(x)/z_ or _**υ** = y/z_
 
-Where **f(x)** represents the given SI (social interaction score) and **z** represents the _maximum SI score_ in the whole data set.
+Where **f(x)** represents the given _SI (social interaction score)_ and **z** represents the _maximum SI score_ in the whole data set.
 
 This **valuable ratio (υ)** gives you the _required factor to eradicate high-relativity_ in a large data set. Therefore, you may be able to calculate 
 the required score to detect a trend in a Exponential-Driven and high-mass environment.
@@ -41,7 +41,7 @@ in a mathematical model as this:
 _**Φ** = ω + υ_
 
 
-Where **υ** represents valuable ratio, **ω** represents _social fluctuation ratio_ and **Φ** represents _trending score_. In addition, this lends us to _store these 
+Where **υ** represents _valuable ratio_, **ω** represents _social fluctuation ratio_ and **Φ** represents _trending score_. In addition, this lends us to _store these 
 results in a specialized database_ such as a data lake to query any aggregate by it's high-cardinality field and output very specific results for each 
 scenario _(like trends for an specific user based on his consumed content and country by denormalizing aggregate fields)_.
 
