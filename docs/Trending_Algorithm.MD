@@ -9,22 +9,21 @@ You would have the following mathematical model:
 _**ω** = (Δf(x)) / f(x) or **ω** = (Δy) / y_
 
 
-Where **_y_** or **_f(x)_** represents _social interaction scoring (SI)_ while **_ω_** represents the _social fluctuation ratio (SFR)_. Furthermore, SI represents 
-a _view, like, mention or comment_ in an specific aggregate. However, by using this specific ratio it is impossible to detect peaks in a _high-mass 
+Where **_y_** or **_f(x)_** represents _social interaction scoring (SI)_ while **_ω_** represents the _**Social Fluctuation Ratio** (SFR)_. Furthermore, SI represents a _view, like, mention or comment_ in an specific aggregate. However, by using this specific ratio it is impossible to detect peaks in a _high-mass 
 environment_ such as the internet that is an Exponential-Driven and high-mass environment. SFR or ω is highly relative when comparison are being made in a high-mass environment.
 
 
-Consider the following potential scenario: aggregate "x" has 1 social interaction (SI) at the first hour (t), eventually it went from 1 to 10 SI in 
-the next hour. Furthermore, aggregate "y" has an increment of 123,980 to 125,980 SI in 1 hour (t). Henceforward, you may calculate the increment or 
+Consider the following potential scenario: _aggregate "x"_ has 1 social interaction (SI) at the first hour (t), eventually it went from 1 to 10 SI in 
+the next hour. Furthermore, _aggregate "y"_ has an increment of 123,980 to 125,980 SI in 1 hour (t). Henceforward, you may calculate the increment or 
 decrement ratio (social fluctuation ratio or ω) to determine if there was a peak between the given hours (t). 
 
 Using the past hypothetical scenario, 
-aggregate "x" social fluctuation ratio (ω) is 0.9 (90%) while aggregate "y" ω is 0.1587 (1.87%). Consequently, if you exclusively used this 
+aggregate "x" social fluctuation ratio (ω) is **0.9 (90%)** while aggregate "y" ω is **0.1587 (1.87%)**. Consequently, if you exclusively used this 
 mathematical model, _you won't get the result needed to calculate trends as discussed before._
 
 
 Thus, you may consider **two factors** as key to discriminate each candidate. While ω (social fluctuation ratio) works to get the SI increment and 
-decrement ratio, it lacks of a required factor to _remove the high-relativity_. Here is when the **_valuable ratio (υ)_** is mentioned. Valuable ratio 
+decrement ratio, it lacks of a required factor to _remove the high-relativity_. Here is when the **_Valuable Ratio (υ)_** is mentioned. Valuable ratio 
 mathematical model is represented like this:
 
 _**υ** = f(x)/z_ or _**υ** = y/z_
