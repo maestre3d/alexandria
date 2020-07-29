@@ -1,5 +1,6 @@
 # The Alexandria Project
 [![StackShare](http://img.shields.io/badge/tech-stack-0690fa.svg?style=flat)](https://stackshare.io/alexandria/alexandria-technologies)
+![Go](https://github.com/maestre3d/alexandria/workflows/Go/badge.svg)
 
 The Alexandria Project is an open-source platform where people can share their knowledge through books, podcasts, docs and videos.
 
