@@ -4,7 +4,7 @@
   "description": "AWS Serverless image handler",
   "main": "index.js",
   "dependencies": {
-    "aws-sdk": "^2.713.0",
+    "aws-sdk": "^2.814.0",
     "detect-libc": "^1.0.3",
     "querystring": "^0.2.0",
     "sharp": "^0.25.4"
