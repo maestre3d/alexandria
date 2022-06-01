@@ -7,7 +7,7 @@
     "aws-sdk": "^2.713.0",
     "detect-libc": "^1.0.3",
     "querystring": "^0.2.0",
-    "sharp": "^0.25.4"
+    "sharp": "^0.30.5"
   },
   "devDependencies": {},
   "scripts": {
