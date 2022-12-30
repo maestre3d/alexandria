@@ -5,7 +5,7 @@ go 1.13
 require (
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
 	github.com/alexandria-oss/core v0.5.4-beta
-	github.com/aws/aws-sdk-go v1.31.1
+	github.com/aws/aws-sdk-go v1.33.0
 	github.com/go-kit/kit v0.10.0
 	github.com/google/wire v0.3.0
 	github.com/gorilla/mux v1.7.4 // indirect
