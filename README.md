@@ -1,3 +1,5 @@
+
+
 # The Alexandria Project
 [![StackShare](http://img.shields.io/badge/tech-stack-0690fa.svg?style=flat)](https://stackshare.io/alexandria/alexandria-technologies)
 ![Go](https://github.com/maestre3d/alexandria/workflows/Go/badge.svg)
@@ -30,7 +32,7 @@ If you'd like to contribute, please look at the [Contribution Guidelines](https:
 
 ## Donation
 We don’t charge anybody unless they're willing to help our cause voluntarily.
-If you want to donate, feel free to make the donation to our [PayPal account](https://github.com/maestre3d/alexandria).
+If you want to donate, feel free to make the donation to our [GitHub profile](https://github.com/maestre3d/alexandria).
 
 ## Maintenance
 - Main maintainer: [maestre3d](https://github.com/maestre3d)
